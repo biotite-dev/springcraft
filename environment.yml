@@ -1,0 +1,16 @@
+# Conda environment, that includes all packages that are necessary for
+# the complete Biotite development process.
+
+name: springcraft-dev
+
+channels:
+  - conda-forge
+
+dependencies:
+  - numpy >=1.15
+  - biotite >=0.32
+  - prody >=2.1
+  - pytest >=5.2
+  - matplotlib >=3.3
+  - ammolite >=0.7.0
+  - poetry >=1.0
