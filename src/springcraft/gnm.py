@@ -59,7 +59,7 @@ class GNM:
             )
         return self._kirchhoff
     
-    @property.setter
+    @kirchhoff.setter
     def kirchhoff(self, value):
         if value.shape != (self._coord, self._coord):
             raise ValueError(
