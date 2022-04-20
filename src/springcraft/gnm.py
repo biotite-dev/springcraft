@@ -72,7 +72,12 @@ class GNM:
     
     def correlation_matrix(self, temperature):
         """
-        Compute the correlation matrix for the atoms in the model
+        Compute the correlation matrix for the atoms in the model.
+
+        Returns
+        -------
+        correlation_matrix : ndarray, shape=(n,n), dtype=float
+            The correlation matrix.
         """
         if self._inv_kirchhoff is None:
             self._inv_kirchhoff = np.linalg.pinv(self._kirchhoff)
