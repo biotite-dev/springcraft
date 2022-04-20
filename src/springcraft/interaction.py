@@ -5,13 +5,37 @@ i.e. Kirchhoff and Hessian matrices.
 
 __name__ = "springcraft"
 __author__ = "Patrick Kunzmann"
-__all__ = ["compute_kirchhoff"]
+__all__ = ["compute_kirchhoff", "compute_hessian"]
 
 import numpy as np
 import biotite.structure as struc
 
 
 def compute_kirchhoff(coord, force_field, cutoff_distance, use_cell_list=True):
+    """
+    Compute the *Kirchhoff* matrix for atoms with given coordinates and
+    the chosen force field.
+
+    Parameters
+    ----------
+    coord : ndarray, shape=(n,3), dtype=float
+        The coordinates.
+    force_field : ForceField, natoms=n
+        The :class:`ForceField` that defines the force constants.
+    cutoff_distance : float
+        The interaction of two atoms is only considered, if the distance
+        between them is smaller or equal to this value.
+    use_cell_list : bool, optional
+        If true, a *cell list* is used to find atoms within cutoff
+        distance instead of a brute-force approach.
+        This significantly increases the performance for large number of
+        atoms, but is slower for very small systems.
+
+    Returns
+    -------
+    kirchhoff : ndarray, shape=(n,n), dtype=float
+        The *Kirchhoff* matrix for this model.
+    """
     pairs, _, sq_dist = _prepare_values_for_interaction_matrix(
         coord, force_field, cutoff_distance, use_cell_list
     )
@@ -28,6 +52,31 @@ def compute_kirchhoff(coord, force_field, cutoff_distance, use_cell_list=True):
 
 
 def compute_hessian(coord, force_field, cutoff_distance, use_cell_list=True):
+    """
+    Compute the *Hessian* matrix for atoms with given coordinates and
+    the chosen force field.
+
+    Parameters
+    ----------
+    coord : ndarray, shape=(n,3), dtype=float
+        The coordinates.
+    force_field : ForceField, natoms=n
+        The :class:`ForceField` that defines the force constants.
+    cutoff_distance : float
+        The interaction of two atoms is only considered, if the distance
+        between them is smaller or equal to this value.
+    use_cell_list : bool, optional
+        If true, a *cell list* is used to find atoms within cutoff
+        distance instead of a brute-force approach.
+        This significantly increases the performance for large number of
+        atoms, but is slower for very small systems.
+    
+    Returns
+    -------
+    hessian : ndarray, shape=(n,n,3,3), dtype=float
+        The *Hessian* matrix for this model.
+        The super elements are represented by the last 2 dimensions.
+    """
     pairs, disp, sq_dist = _prepare_values_for_interaction_matrix(
         coord, force_field, cutoff_distance, use_cell_list
     )
@@ -43,21 +92,51 @@ def compute_hessian(coord, force_field, cutoff_distance, use_cell_list=True):
         * disp[:, :, np.newaxis] * disp[:, np.newaxis, :]
     )
     # Set values for main diagonal
-    np.fill_diagonal(hessian, -np.sum(hessian, axis=0))
+    indices = np.arange(len(coord))
+    hessian[indices, indices] = -np.sum(hessian, axis=0)
     
     return hessian, pairs
 
 
 def _prepare_values_for_interaction_matrix(coord, force_field, cutoff_distance,
                                            use_cell_list=True):
+    """
+    Check input values and calculate common intermediate values for
+    :func:`compute_kirchhoff()` and :func:`compute_hessian()`.
+
+    Parameters
+    ----------
+    coord : ndarray, shape=(n,3), dtype=float
+        The coordinates.
+    force_field : ForceField, natoms=n
+        The :class:`ForceField` that defines the force constants.
+    cutoff_distance : float
+        The interaction of two atoms is only considered, if the distance
+        between them is smaller or equal to this value.
+    use_cell_list : bool, optional
+        If true, a *cell list* is used to find atoms within cutoff
+        distance instead of a brute-force approach.
+        This significantly increases the performance for large number of
+        atoms, but is slower for very small systems.
+    
+    Returns
+    -------
+    pairs : ndarray, shape=(k,2), dtype=int
+        Indices for interacting atoms, i.e. atoms within
+        `cutoff_distance`.
+    disp : ndarray, shape=(k,3), dtype=float
+        The displacement vector for the atom `pairs`.
+    sq_dist : ndarray, shape=(k,3), dtype=float
+        The squared distance for the atom `pairs`.
+    """
     if coord.ndim != 2 or coord.shape[1] != 3:
         raise ValueError(
             f"Expected coordinates with shape (n,3), got {coord.shape}"
         )
-    if force_field.n_atoms is not None and len(coord) != force_field.n_atoms:
+    if force_field.natoms is not None and len(coord) != force_field.natoms:
         raise ValueError(
             f"Got coordinates for {len(coord)} atoms, "
-            f"but forcefield was built for {force_field.n_atoms} atoms"
+            f"but forcefield was built for {force_field.natoms} atoms"
         )
     
     # Find interacting atoms within cutoff distance
