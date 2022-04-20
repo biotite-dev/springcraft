@@ -19,14 +19,14 @@ class ForceField(metaclass=abc.ABCMeta):
         pass
 
     @property
-    def n_atoms(self):
+    def natoms(self):
         return None
 
 
 class InvariantForceField(ForceField):
 
     def force_constant(self, atom_i, atom_j, sq_distance):
-        return 1
+        return np.ones(len(atom_i))
 
 
 class TypeSpecificForceField(ForceField):
@@ -36,11 +36,11 @@ class TypeSpecificForceField(ForceField):
             raise TypeError(
                 f"Expected 'AtomArray', not {type(atoms).__name__}"
             )
-        self._n_atoms = atoms.array_length()
+        self._natoms = atoms.array_length()
 
     def force_constant(self, atom_i, atom_j, sq_distance):
         raise NotImplementedError()
 
     @property
-    def n_atoms(self):
-        return self._n_atoms
+    def natoms(self):
+        return self._natoms
