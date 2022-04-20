@@ -6,10 +6,6 @@ import biotite.structure.io.pdb as pdb
 import springcraft
 
 
-FILE_PATH = "/home/kunzmann/data/coding/biotite/tests/structure/data/1l2y.pdb"
-
-
-
 @pytest.mark.parametrize("seed, cutoff, use_cell_list", itertools.product(
     np.arange(20),
     [5, 10, 15],
