@@ -33,3 +33,22 @@ def test_kirchhoff(seed, cutoff, use_cell_list):
 
     assert test_kirchhoff.flatten().tolist() \
         == pytest.approx(ref_kirchhoff.flatten().tolist())
+
+@pytest.mark.parametrize("seed, cutoff, use_cell_list", itertools.product(
+    np.arange(20),
+    [5, 10, 15],
+    [False, True],
+))
+def test_hessian_symmetric(seed, cutoff, use_cell_list):
+    N_ATOMS = 1000
+    BOX_SIZE = 50
+
+    np.random.seed(seed)
+    coord = np.random.rand(N_ATOMS, 3) * BOX_SIZE
+
+    ff = springcraft.InvariantForceField()
+    hessian, _ = springcraft.compute_hessian(
+        coord, ff, cutoff, use_cell_list
+    )
+
+    assert np.allclose(hessian, hessian.T)

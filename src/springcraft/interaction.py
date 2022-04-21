@@ -73,7 +73,7 @@ def compute_hessian(coord, force_field, cutoff_distance, use_cell_list=True):
     
     Returns
     -------
-    hessian : ndarray, shape=(n,n,3,3), dtype=float
+    hessian : ndarray, shape=(n*3,n*3), dtype=float
         The *Hessian* matrix for this model.
         The super elements are represented by the last 2 dimensions.
     """
@@ -95,6 +95,10 @@ def compute_hessian(coord, force_field, cutoff_distance, use_cell_list=True):
     indices = np.arange(len(coord))
     hessian[indices, indices] = -np.sum(hessian, axis=0)
     
+    # Reshape to (20*3, 20*3) matrix
+    hessian = np.transpose(hessian, (0, 2, 1, 3)) \
+              .reshape(len(coord)*3, len(coord)*3)
+
     return hessian, pairs
 
 
