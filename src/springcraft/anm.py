@@ -38,9 +38,11 @@ class ANM:
 
     Attributes
     ----------
-    hessian : ndarray, shape=(n,n), dtype=float
+    hessian : ndarray, shape=(n*3,n*3), dtype=float
         The *Hessian* matrix for this model.
-    covariance : ndarray, shape=(n,n), dtype=float
+        Each dimension is partitioned in the form
+        ``[x1, y1, z1, ... xn, yn, zn]``.
+    covariance : ndarray, shape=(n*3,n*3), dtype=float
         The covariance matrix for this model, i.e. the inverted *Hessian*.
     """
 

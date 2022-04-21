@@ -34,7 +34,7 @@ def compute_kirchhoff(coord, force_field, cutoff_distance, use_cell_list=True):
     Returns
     -------
     kirchhoff : ndarray, shape=(n,n), dtype=float
-        The *Kirchhoff* matrix for this model.
+        The computed *Kirchhoff* matrix.
     """
     pairs, _, sq_dist = _prepare_values_for_interaction_matrix(
         coord, force_field, cutoff_distance, use_cell_list
@@ -74,8 +74,9 @@ def compute_hessian(coord, force_field, cutoff_distance, use_cell_list=True):
     Returns
     -------
     hessian : ndarray, shape=(n*3,n*3), dtype=float
-        The *Hessian* matrix for this model.
-        The super elements are represented by the last 2 dimensions.
+        The computed *Hessian* matrix.
+        Each dimension is partitioned in the form
+        ``[x1, y1, z1, ... xn, yn, zn]``.
     """
     pairs, disp, sq_dist = _prepare_values_for_interaction_matrix(
         coord, force_field, cutoff_distance, use_cell_list
