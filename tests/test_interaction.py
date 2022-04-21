@@ -31,4 +31,5 @@ def test_kirchhoff(seed, cutoff, use_cell_list):
     ref_gnm.buildKirchhoff(coord, gamma=1.0, cutoff=cutoff)
     ref_kirchhoff = ref_gnm.getKirchhoff()
 
-    assert test_kirchhoff.tolist() == ref_kirchhoff.tolist()
+    assert test_kirchhoff.flatten().tolist() \
+        == pytest.approx(ref_kirchhoff.flatten().tolist())
