@@ -15,7 +15,7 @@ from .interaction import compute_hessian
 K_B = 1 # TODO
 
 
-class GNM:
+class ANM:
     """
     This class represents a *Anisotropic Network Model*.
 
@@ -73,12 +73,10 @@ class GNM:
         self._covariance = None
     
     @property
-    def covariance(self, temperature):
+    def covariance(self):
         if self._covariance is None:
-            # TODO: Add covariance calculation
-            # self._covariance = ...
-            raise NotImplementedError()
-        return self._hessian
+            self._covariance = np.linalg.pinv(self._hessian)
+        return self._covariance
     
     @covariance.setter
     def covariance(self, value):
@@ -87,8 +85,7 @@ class GNM:
                 f"Expected shape {(self._coord, self._coord, 3, 3)}, "
                 f"got {value.shape}"
             )
-        self._hessian = value
-        # Invalidate downstream values
+        self._covariance = value
         self._covariance = None
     
     def eigen(self):
