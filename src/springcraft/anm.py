@@ -38,9 +38,11 @@ class ANM:
 
     Attributes
     ----------
-    hessian : ndarray, shape=(n,n), dtype=float
+    hessian : ndarray, shape=(n*3,n*3), dtype=float
         The *Hessian* matrix for this model.
-    covariance : ndarray, shape=(n,n), dtype=float
+        Each dimension is partitioned in the form
+        ``[x1, y1, z1, ... xn, yn, zn]``.
+    covariance : ndarray, shape=(n*3,n*3), dtype=float
         The covariance matrix for this model, i.e. the inverted *Hessian*.
     """
 
@@ -75,7 +77,7 @@ class ANM:
     @property
     def covariance(self):
         if self._covariance is None:
-            self._covariance = np.linalg.pinv(self._hessian)
+            self._covariance = np.linalg.pinv(self.hessian)
         return self._covariance
     
     @covariance.setter
@@ -91,16 +93,58 @@ class ANM:
     def eigen(self):
         """
         Compute the eigenvalues and eigenvectors of the
-        *Kirchhoff* matrix.
+        *Hessian* matrix.
 
         Returns
         -------
         eig_values : ndarray, shape=(n,), dtype=float
-            Eigenvalues of the *Kirchhoff* matrix in ascending order.
+            Eigenvalues of the *Hessian* matrix in ascending order.
         eig_vectors : ndarray, shape=(n,), dtype=float
-            Eigenvectors of the Kirchhoff matrix.
+            Eigenvectors of the *Hessian* matrix.
             ``eig_values[i]`` corresponds to ``eigenvectors[i]``.
         """
         # 'np.eigh' can be used since the Kirchhoff matrix is symmetric 
-        eig_values, eig_vectors = np.linalg.eigh(self.kirchhoff)
+        eig_values, eig_vectors = np.linalg.eigh(self.hessian)
         return eig_values, eig_vectors.T
+    
+    def linear_response(self, force):
+        """
+        Compute the atom displacement induced by the given force using
+        *Linear Response Theory*.
+
+        Parameters
+        ----------
+        force : ndarray, shape=(n,3) or shape=(n*3,), dtype=float
+            The force that is applied to the atoms of the model.
+            The first dimension gives the atom the force is applied on,
+            the second dimension gives the three spatial dimensions.
+            Alternatively, a flattened array in the form
+            ``[x1, y1, z1, ... xn, yn, zn]`` can be given.
+
+        Returns
+        -------
+        displacement : ndarray, shape=(n,3), dtype=float
+            The vector of displacement induced by the given force.
+            The first dimension represents the atom index,
+            the second dimension represents spatial dimension.
+
+        """
+        if force.ndim == 2:
+            if force.shape != (len(self._coord), 3):
+                raise ValueError(
+                    f"Expected force with shape {(len(self._coord), 3)}, "
+                    f"got {force.shape}"
+                )
+            force = force.flatten()
+        elif force.ndim == 1:
+            if len(force) != len(self._coord) * 3:
+                raise ValueError(
+                    f"Expected force with length {len(self._coord) * 3}, "
+                    f"got {len(force)}"
+                )
+        else:
+            raise ValueError(
+                f"Expected 1D or 2D array, got {force.ndim} dimensions"
+            ) 
+
+        return np.dot(self.covariance, force).reshape(len(self._coord), 3)
