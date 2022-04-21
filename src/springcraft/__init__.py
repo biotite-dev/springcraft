@@ -9,6 +9,7 @@ __author__ = "Patrick Kunzmann"
 __all__ = []
 
 
+from .anm import *
 from .forcefield import *
 from .gnm import *
 from .interaction import *
