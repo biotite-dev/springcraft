@@ -82,3 +82,53 @@ class GNM:
         if self._inv_kirchhoff is None:
             self._inv_kirchhoff = np.linalg.pinv(self._kirchhoff)
         return K_B * temperature * self._inv_kirchhoff
+    
+    def mean_square_fluctuation(self, temperature):
+        """
+        Compute the *mean square fluctuation* for the atoms in the
+        model.
+
+        This is equal to the main diagonal of
+        :meth:`correlation_matrix()`.
+
+        Returns
+        -------
+        correlation_matrix : ndarray, shape=(n,), dtype=float
+            The mean square fluctuations for each atom in the model.
+        """
+        return np.diag(self.correlation_matrix())
+    
+    def eigen(self):
+        """
+        Compute the eigenvalues and eigenvectors of the
+        *Kirchhoff* matrix.
+
+        Returns
+        -------
+        eig_values : ndarray, shape=(n,), dtype=float
+            Eigenvalues of the *Kirchhoff* matrix in ascending order.
+        eig_vectors : ndarray, shape=(n,), dtype=float
+            Eigenvectors of the Kirchhoff matrix.
+            ``eig_values[i]`` corresponds to ``eigenvectors[i]``.
+        """
+        # 'np.eigh' can be used since the Kirchhoff matrix is symmetric 
+        eig_values, eig_vectors = np.linalg.eigh(self.kirchhoff)
+        return eig_values, eig_vectors.T
+    
+    def frequencies(self):
+        """
+        Compute the oscillation frequencies of the model.
+
+        The returned units are arbitrary and should only be compared
+        relative to each other.
+
+        Returns
+        -------
+        frequencies : ndarray, shape=(n,), dtype=float
+            Oscillation frequencies of the model in in descending order.
+            *NaN* values mark frequencies corresponding to trivial
+            eigenvalues.
+        """
+        eig_values, _ = self.eigen()
+        eig_values[np.isclose(eig_values, 0)] = np.nan
+        return np.sqrt(1/eig_values)
