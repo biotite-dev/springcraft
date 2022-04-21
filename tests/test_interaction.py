@@ -34,6 +34,37 @@ def test_kirchhoff(seed, cutoff, use_cell_list):
     assert test_kirchhoff.flatten().tolist() \
         == pytest.approx(ref_kirchhoff.flatten().tolist())
 
+
+@pytest.mark.parametrize("seed, cutoff, use_cell_list", itertools.product(
+    np.arange(20),
+    [5, 10, 15],
+    [False, True]
+))
+def test_hessian(seed, cutoff, use_cell_list):
+    """
+    Compare computed Hessian matrix with output from *ProDy* with
+    randomly generated coordinates.
+    """
+    # Relatively small atoms number to increase performance
+    N_ATOMS = 100
+    BOX_SIZE = 20
+
+    np.random.seed(seed)
+    coord = np.random.rand(N_ATOMS, 3) * BOX_SIZE
+
+    ff = springcraft.InvariantForceField()
+    test_hessian, _ = springcraft.compute_hessian(
+        coord, ff, cutoff, use_cell_list
+    )
+
+    ref_gnm = prody.ANM()
+    ref_gnm.buildHessian(coord, gamma=1.0, cutoff=cutoff)
+    ref_hessian = ref_gnm.getHessian()
+
+    assert test_hessian.flatten().tolist() \
+        == pytest.approx(ref_hessian.flatten().tolist(), abs=1e-6, rel=1e-3)
+    
+
 @pytest.mark.parametrize("seed, cutoff, use_cell_list", itertools.product(
     np.arange(20),
     [5, 10, 15],
