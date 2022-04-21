@@ -108,7 +108,7 @@ class GNM:
         eig_values : ndarray, shape=(n,), dtype=float
             Eigenvalues of the *Kirchhoff* matrix in ascending order.
         eig_vectors : ndarray, shape=(n,), dtype=float
-            Eigenvectors of the Kirchhoff matrix.
+            Eigenvectors of the *Kirchhoff* matrix.
             ``eig_values[i]`` corresponds to ``eigenvectors[i]``.
         """
         # 'np.eigh' can be used since the Kirchhoff matrix is symmetric 
