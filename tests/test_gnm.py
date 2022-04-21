@@ -40,7 +40,9 @@ def test_kirchhoff(file_path, cutoff):
 
 @pytest.mark.parametrize("file_path, cutoff", itertools.product(
         glob.glob(join(data_dir(), "*.mmtf")),
-        [7, 13]
+        # Cutoff mut not be too large,
+        # otherwise degenerate eigenvalues appear
+        [4, 7]
 ))
 def test_eigen(file_path, cutoff):
     """
@@ -63,9 +65,6 @@ def test_eigen(file_path, cutoff):
     test_eig_vectors *= np.sign(test_eig_vectors[:,0])[:,np.newaxis]
     ref_eig_vectors *= np.sign(ref_eig_vectors[:,0])[:,np.newaxis]
 
-
-
     assert test_eig_values.tolist() == pytest.approx(ref_eig_values.tolist())
-    # TODO Investigate issue with eigenvectors
-    #assert test_eig_vectors.flatten().tolist() \
-    #    == pytest.approx(ref_eig_vectors.flatten().tolist())
+    assert test_eig_vectors.flatten().tolist() \
+        == pytest.approx(ref_eig_vectors.flatten().tolist())
