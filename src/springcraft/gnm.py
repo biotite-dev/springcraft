@@ -126,8 +126,8 @@ class GNM:
         -------
         frequencies : ndarray, shape=(n,), dtype=float
             Oscillation frequencies of the model in in ascending order.
-            *NaN* values mark frequencies corresponding to trivial
-            eigenvalues.
+            *NaN* values mark frequencies corresponding to translations
+            or rotations.
         """
         eig_values, _ = self.eigen()
         eig_values[np.isclose(eig_values, 0)] = np.nan
