@@ -105,7 +105,7 @@ class ANM:
         """
         # 'np.eigh' can be used since the Kirchhoff matrix is symmetric 
         eig_values, eig_vectors = np.linalg.eigh(self.hessian)
-        return eig_values[::-1], eig_vectors[::-1].T
+        return eig_values[::-1], eig_vectors.T[::-1]
     
     def normal_mode(self, index, amplitude, frames, movement="sine"):
         """
@@ -146,7 +146,7 @@ class ANM:
 
         time = np.linspace(0, 1, frames, endpoint=False)
         if movement == "sine":
-            normed_disp = np.sin(time)
+            normed_disp = np.sin(time * 2*np.pi)
         elif movement == "triangle":
             normed_disp = 2 * np.abs(2 * (time - np.floor(time + 0.5))) - 1
         else:
@@ -198,3 +198,6 @@ class ANM:
             ) 
 
         return np.dot(self.covariance, force).reshape(len(self._coord), 3)
+
+
+# TODO Test 6 last eigenmodes for constant displacement

@@ -113,7 +113,7 @@ class GNM:
         """
         # 'np.eigh' can be used since the Kirchhoff matrix is symmetric 
         eig_values, eig_vectors = np.linalg.eigh(self.kirchhoff)
-        return eig_values[::-1], eig_vectors[::-1].T
+        return eig_values[::-1], eig_vectors.T[::-1]
     
     def frequencies(self):
         """
