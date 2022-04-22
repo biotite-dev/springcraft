@@ -22,7 +22,7 @@ AMPLITUDE = 5
 
 
 # Load structure
-mmtf_file = mmtf.MMTFFile.read(rcsb.fetch(PDB_ID, "mmtf", "."))
+mmtf_file = mmtf.MMTFFile.read(rcsb.fetch(PDB_ID, "mmtf"))
 structure = mmtf.get_structure(mmtf_file, model=1, include_bonds=True)
 
 # Filter first peptide chain
@@ -35,7 +35,7 @@ ca = protein_chain[protein_chain.atom_name == "CA"]
 
 ff = springcraft.InvariantForceField()
 anm = springcraft.ANM(ca, ff, 13.0)
-disp = anm.normal_mode(-1, AMPLITUDE, FRAMES)
+disp = anm.normal_mode(MODE, AMPLITUDE, FRAMES)
 
 # Apply oscillation of CA atom to all atoms in the corresponding residue
 oscillation = np.zeros((FRAMES, len(protein_chain), 3))
