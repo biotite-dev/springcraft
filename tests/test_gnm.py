@@ -52,9 +52,6 @@ def test_eigen(file_path, cutoff):
     test_gnm, ref_gnm = prepare_gnms(file_path, cutoff)
 
     test_eig_values, test_eig_vectors = test_gnm.eigen()
-    # Remove trivial eigenvalues
-    #test_eig_vectors = test_eig_vectors[test_eig_values != 0]
-    #test_eig_values = test_eig_values[test_eig_values != 0]
 
     ref_gnm.calcModes("all", zeros=True)
     ref_eig_values = ref_gnm.getEigvals()[::-1]
