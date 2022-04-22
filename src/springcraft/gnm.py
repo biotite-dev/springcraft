@@ -106,14 +106,14 @@ class GNM:
         Returns
         -------
         eig_values : ndarray, shape=(n,), dtype=float
-            Eigenvalues of the *Kirchhoff* matrix in ascending order.
+            Eigenvalues of the *Kirchhoff* matrix in descending order.
         eig_vectors : ndarray, shape=(n,), dtype=float
             Eigenvectors of the *Kirchhoff* matrix.
             ``eig_values[i]`` corresponds to ``eigenvectors[i]``.
         """
         # 'np.eigh' can be used since the Kirchhoff matrix is symmetric 
         eig_values, eig_vectors = np.linalg.eigh(self.kirchhoff)
-        return eig_values, eig_vectors.T
+        return eig_values[::-1], eig_vectors[::-1].T
     
     def frequencies(self):
         """
@@ -125,7 +125,7 @@ class GNM:
         Returns
         -------
         frequencies : ndarray, shape=(n,), dtype=float
-            Oscillation frequencies of the model in in descending order.
+            Oscillation frequencies of the model in in ascending order.
             *NaN* values mark frequencies corresponding to trivial
             eigenvalues.
         """

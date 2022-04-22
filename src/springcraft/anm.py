@@ -1,6 +1,6 @@
 """
-This module contains the :class:`GNM` class for molecular dynamics
-calculations using *Gaussian Network Models*.
+This module contains the :class:`ANM` class for molecular dynamics
+calculations using *Anisotropic Network Models*.
 """
 
 __name__ = "springcraft"
@@ -98,14 +98,14 @@ class ANM:
         Returns
         -------
         eig_values : ndarray, shape=(n,), dtype=float
-            Eigenvalues of the *Hessian* matrix in ascending order.
+            Eigenvalues of the *Hessian* matrix in descending order.
         eig_vectors : ndarray, shape=(n,), dtype=float
             Eigenvectors of the *Hessian* matrix.
             ``eig_values[i]`` corresponds to ``eigenvectors[i]``.
         """
         # 'np.eigh' can be used since the Kirchhoff matrix is symmetric 
         eig_values, eig_vectors = np.linalg.eigh(self.hessian)
-        return eig_values, eig_vectors.T
+        return eig_values[::-1], eig_vectors[::-1].T
     
     def linear_response(self, force):
         """

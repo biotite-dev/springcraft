@@ -57,8 +57,8 @@ def test_eigen(file_path, cutoff):
     #test_eig_values = test_eig_values[test_eig_values != 0]
 
     ref_gnm.calcModes("all", zeros=True)
-    ref_eig_values = ref_gnm.getEigvals()
-    ref_eig_vectors = ref_gnm.getEigvecs()
+    ref_eig_values = ref_gnm.getEigvals()[::-1]
+    ref_eig_vectors = ref_gnm.getEigvecs()[::-1]
     ref_eig_vectors = ref_eig_vectors.T
 
     # Adapt sign of eigenvectors # TODO Is this correct?
