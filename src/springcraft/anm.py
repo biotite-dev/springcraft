@@ -107,6 +107,56 @@ class ANM:
         eig_values, eig_vectors = np.linalg.eigh(self.hessian)
         return eig_values[::-1], eig_vectors[::-1].T
     
+    def normal_mode(self, index, amplitude, frames, movement="sine"):
+        """
+        Create displacements for a trajectory depicting the given normal
+        mode.
+
+        This is especially useful for molecular animations of the chosen
+        oscillation mode.
+
+        Parameters
+        ----------
+        index : int
+            The index of the oscillation.
+        amplitude : int
+            The oscillation amplitude is scaled so that the maximum
+            value for an atom is the given value.
+        frames : int
+            The number of frames (models) per oscillation.
+        movement : {'sinusoidal', 'triangle'}
+            Defines how to depict the oscillation.
+            If set to ``'sine'`` the atom movement is sinusoidal.
+            If set to ``'triangle'`` the atom movement is linear with
+            *sharp* amplitude.
+        
+        Returns
+        -------
+        displacement : ndarray, shape=(m,n,3), dtype=float
+            Atom displacements that depict a single oscillation.
+            *m* is the number of frames.
+        """
+        _, eigenvectors = self.eigen()
+        # Extract vectors for given mode and reshape to (n,3) array
+        mode_vectors = eigenvectors[index].reshape((-1, 3))
+        # Rescale, so that the largest vector has the length 'amplitude'
+        vector_lenghts = np.sqrt(np.sum(mode_vectors**2, axis=-1))
+        scale = amplitude / np.max(vector_lenghts)
+        mode_vectors *= scale
+
+        time = np.linspace(0, 1, frames, endpoint=False)
+        if movement == "sine":
+            normed_disp = np.sin(time)
+        elif movement == "triangle":
+            normed_disp = 2 * np.abs(2 * (time - np.floor(time + 0.5))) - 1
+        else:
+            raise ValueError(
+                f"Movement '{movement}' is unknown"
+            )
+        disp = normed_disp[:, np.newaxis, np.newaxis] * mode_vectors
+        return disp
+    
+    
     def linear_response(self, force):
         """
         Compute the atom displacement induced by the given force using
