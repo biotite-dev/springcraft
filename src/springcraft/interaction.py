@@ -36,13 +36,13 @@ def compute_kirchhoff(coord, force_field, cutoff_distance, use_cell_list=True):
     kirchhoff : ndarray, shape=(n,n), dtype=float
         The computed *Kirchhoff* matrix.
     """
-    pairs, _, sq_dist = _prepare_values_for_interaction_matrix(
+    pairs, _, sq_dist, adj_matrix = _prepare_values_for_interaction_matrix(
         coord, force_field, cutoff_distance, use_cell_list
     )
 
     kirchhoff = np.zeros((len(coord), len(coord)))
     force_constants = force_field.force_constant(
-        pairs[:,0], pairs[:,1], sq_dist
+        pairs[:,0], pairs[:,1], sq_dist, adj_matrix
     )
     kirchhoff[pairs[:,0], pairs[:,1]] = -force_constants
     # Set values for main diagonal
@@ -78,14 +78,14 @@ def compute_hessian(coord, force_field, cutoff_distance, use_cell_list=True):
         Each dimension is partitioned in the form
         ``[x1, y1, z1, ... xn, yn, zn]``.
     """
-    pairs, disp, sq_dist = _prepare_values_for_interaction_matrix(
+    pairs, disp, sq_dist, adj_matrix = _prepare_values_for_interaction_matrix(
         coord, force_field, cutoff_distance, use_cell_list
     )
 
     # Hessian matrix has 3x3 matrices as superelements
     hessian = np.zeros((len(coord), len(coord), 3, 3))
     force_constants = force_field.force_constant(
-        pairs[:,0], pairs[:,1], sq_dist
+        pairs[:,0], pairs[:,1], sq_dist, adj_matrix
     )
     hessian[pairs[:,0], pairs[:,1]] = (
         -force_constants[:, np.newaxis, np.newaxis]
@@ -171,4 +171,4 @@ def _prepare_values_for_interaction_matrix(coord, force_field, cutoff_distance,
         disp = disp_matrix[pairs[:,0], pairs[:,1]]
         sq_dist = sq_dist_matrix[pairs[:,0], pairs[:,1]]
 
-    return pairs, disp, sq_dist
+    return pairs, disp, sq_dist, adj_matrix
