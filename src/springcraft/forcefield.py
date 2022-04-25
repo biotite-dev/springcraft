@@ -7,9 +7,20 @@ __name__ = "springcraft"
 __author__ = "Patrick Kunzmann"
 __all__ = ["ForceField", "InvariantForceField", "TypeSpecificForceField"]
 
+import numbers
 import abc
 import numpy as np
 import biotite.structure as struc
+import biotite.sequence as seq
+
+
+N_AMINO_ACIDS = 20
+AA_LIST = [
+    seq.ProteinSequence.convert_letter_1to3(letter)
+    # Omit ambiguous amino acids and stop signal
+    for letter in seq.ProteinSequence.alphabet.get_symbols()[:N_AMINO_ACIDS]
+]
+AA_TO_INDEX = {aa : i for i, aa in enumerate(AA_LIST)}
 
 
 class ForceField(metaclass=abc.ABCMeta):
@@ -64,91 +75,92 @@ class TypeSpecificForceField(ForceField):
     This force field treats every interaction with different force
     constants.
     """
-    #def __init__(self, atoms):
-    #    if not isinstance(atoms, struc.AtomArray):
-    #        raise TypeError(
-    #            f"Expected 'AtomArray', not {type(atoms).__name__}"
-    #        )
-    #    self._natoms = atoms.array_length()
-
-    def force_constant(self, atom_i, atom_j, sq_distance, adj_matrix, res_list=None, noncov_inter_1=None, alpha=82, T=300, noncov_inter_2 = None, sq_dist = None, 
-                        contact_switchoff = None, kappa=None, custom_nonbonded_matrix_1=None, custom_nonbonded_matrix_2=None):
-        """
-        Get the force constant for the interaction of the given atoms.
-
-        Parameters
-        ----------
-        adj_matrix : ndarray, shape = (n, n), dtype=bool
-            Contains interatomic contacts for delta_r_atoms <= cutoff 
-        res_list : ndarray, shape = n, dtype=str
-            AA sequence of the protein of interest
-        noncov_inter_1|2 : str, None (optional)
-            Keyword selection for matrices with AA specific non-bonded
-            intrachain (noncov_inter_1) or interchain (noncov_inter_2)
-            interactions.
-            If set to None, nonbonded interactions are evaluated with a
-            AA-indifferent factor kappa
-        alpha : int, float
-            Force constant factor for covalent bonds.
-            Standard value: 82 * R * T * AA**2
-        T : int, float
-            Temperature
-        sq_distance : ndarray, shape=(n,), dtype=float
-            The distance between the atoms indicated by `atom_i` and
-            `atom_j`.
-        contact_switchoff: ndarray, shape = n, dtype=int or None
-            Specifies the res_id for non-covalent switchoff
-        kappa : int, float
-            Scaling factor for non-covalent interactions, if AA-indifferent
-            parametrization is chosen
-            Standard value is the mean of Miyazawa-Jernigan: 3.166*RT/AA**2
-        custom_nonbonded_matrix_1|2
+    def __init__(self, atoms, bonded, intra_chain, inter_chain):
+        if not isinstance(atoms, struc.AtomArray):
+            raise TypeError(
+                f"Expected 'AtomArray', not {type(atoms).__name__}"
+            )
+        if not np.all((atoms.atom_name == "CA") & (atoms.element == "C")):
+            raise struc.BadStructureError(
+                f"AtomArray does not contain exclusively CA atoms"
+            )
         
-        """
-
-        # Homogenous parametrization for Kappa: 
-        # Standard; for kappa != 1 -> custom input
-        if noncov_inter_1 is None and noncov_inter_2 is None:
-            # Non-covalent bonds: Homogenous -> kappa = average of Miyazawa-Jernigan AA interactions (R*T/Ang.**2)
-            # W/o R*T?
-            #kappa = 3.166*8.314*T
-            kappa = 3.166
-        # Access preset matrices with keywods?
-        elif noncov_inter_1 == "mj1":
-            raise NotImplementedError()
+        self._natoms = atoms.array_length()
         
-        # Insert kappa with adjacency matrix
-        interaction_matrix = np.zeros((len(adj_matrix[:, 0]), len(adj_matrix[0, :])))
-        interaction_matrix = np.where(adj_matrix, kappa, 0)
+        self._bonded = _convert_to_matrix(bonded)
+        self._intra_chain = _convert_to_matrix(intra_chain)
+        self._inter_chain = _convert_to_matrix(inter_chain)
 
-        # Get covalently bonded atoms in adjacency matrix; omit self-interactions
-        # (Inelegant solution for now)
-        cov_bond_lister = []
-        for en, a in enumerate(adj_matrix):
-            covbond = len(a)*[False]
-            if en == 0:
-                covbond[1] = True
-            elif en == len(adj_matrix[:, 0])-1:
-                covbond[-2] = True
-            else:
-                covbond[en-1] = True
-                covbond[en+1] = True
-            cov_bond_lister.append(covbond)
-        covalent_matrix = np.array(cov_bond_lister)
-        
-        # W/o R*T?
-        #alpha_rt = alpha * 8.314 * T
-        alpha_rt = alpha
-        # Replace entries in adjacency matrix corresponding to cov. bonds with alpha_rt        
-        interaction_matrix = np.where(covalent_matrix, alpha_rt, interaction_matrix)
-        # Set non-covalent self-interactions to 0, omit all 0-entries
-        np.fill_diagonal(interaction_matrix, 0)
-        
-        force_constant = interaction_matrix[interaction_matrix != 0]
+        # Maps pos-specific indices to type-specific_indices
+        matrix_indices = np.array([AA_TO_INDEX[aa] for aa in atoms.res_name])
 
-        return force_constant
+        # Find peptide bonds
+        res_id_diff = np.diff(atoms.res_id)
+        continuous_res_id = res_id_diff == 1
+        continuous_chain_id = atoms.chain_id[:-1] == atoms.chain_id[1:]
+        peptide_bond_i = np.where(continuous_res_id & continuous_chain_id)[0]
 
-    # Delete?
-    #@property
-    #def natoms(self):
-    #    return self._natoms
+
+        ### Fill interaction matrix
+        ## Handle non-bonded interactions
+        # Cartesian product of pos-specific indices
+        # for first and second amino acid
+        pos_indices = (
+            np.tile(np.arange(self._natoms), self._natoms),
+            np.repeat(np.arange(self._natoms), self._natoms),
+        )
+        # Convert indices to type-specific_indices
+        type_indices = (
+            matrix_indices[pos_indices[0]],
+            matrix_indices[pos_indices[1]]
+        )
+        intra_interactions = self._intra_chain[type_indices[0], type_indices[1]]
+        inter_interactions = self._inter_chain[type_indices[0], type_indices[1]]
+        interactions = np.where(
+            atoms.chain_id[pos_indices[0]] == atoms.chain_id[pos_indices[1]],
+            intra_interactions, inter_interactions)
+        # Initialize pos-specific interaction matrix
+        # For simplicity bonded interactions are also handled as
+        # non-bonded interactions at this point,
+        # as they are overwritten later
+        self._interaction_matrix = interactions.reshape(
+            (self._natoms, self._natoms)
+        )
+
+        ## Handle bonded interactions
+        # Convert pos-specific indices to type-specific indices
+        indices = (
+            matrix_indices[peptide_bond_i],
+            matrix_indices[peptide_bond_i+1]
+        )
+        constants = self._bonded[indices]
+        # Overwrite previous values
+        self._interaction_matrix[peptide_bond_i, peptide_bond_i+1] = constants
+        self._interaction_matrix[peptide_bond_i+1, peptide_bond_i] = constants
+
+        ## Handle interaction of atoms with itself
+        np.fill_diagonal(self._interaction_matrix, 0)
+
+    def force_constant(self, atom_i, atom_j, sq_distance):
+        return self._interaction_matrix[atom_i, atom_j]
+
+    @property
+    def natoms(self):
+        return self._natoms
+
+    @property
+    def interaction_matrix(self):
+        return self._interaction_matrix
+
+
+def _convert_to_matrix(value):
+    if isinstance(value, numbers.Integral):
+        return np.full((N_AMINO_ACIDS, N_AMINO_ACIDS), value, dtype=np.float32)
+    else:
+        matrix = np.asarray(value, dtype=np.float32)
+        if matrix.shape != (N_AMINO_ACIDS, N_AMINO_ACIDS):
+            raise IndexError(
+                f"Expected array of shape {(N_AMINO_ACIDS, N_AMINO_ACIDS)}, "
+                f"got {matrix.shape}"
+            )
+        return matrix
