@@ -9,9 +9,13 @@ __all__ = ["ForceField", "InvariantForceField", "TypeSpecificForceField"]
 
 import numbers
 import abc
+from os.path import join, dirname, realpath
 import numpy as np
 import biotite.structure as struc
 import biotite.sequence as seq
+
+
+DATA_DIR = join(dirname(realpath(__file__)), "data")
 
 
 N_AMINO_ACIDS = 20
@@ -36,6 +40,7 @@ class ForceField(metaclass=abc.ABCMeta):
         atoms, i.e. `atom_i` and `atom_j` is unused in
         :meth:`force_constant()`, this attribute is ``None`` instead.
     """
+
 
     @abc.abstractmethod
     def force_constant(self, atom_i, atom_j, sq_distance):
@@ -95,8 +100,7 @@ class TypeSpecificForceField(ForceField):
         matrix_indices = np.array([AA_TO_INDEX[aa] for aa in atoms.res_name])
 
         # Find peptide bonds
-        res_id_diff = np.diff(atoms.res_id)
-        continuous_res_id = res_id_diff == 1
+        continuous_res_id = np.diff(atoms.res_id) == 1
         continuous_chain_id = atoms.chain_id[:-1] == atoms.chain_id[1:]
         peptide_bond_i = np.where(continuous_res_id & continuous_chain_id)[0]
 
@@ -151,6 +155,20 @@ class TypeSpecificForceField(ForceField):
     @property
     def interaction_matrix(self):
         return self._interaction_matrix
+    
+    @staticmethod
+    def sd_enm(atoms):
+        bonded = _load_matrix("sdenm_bonded.csv")
+        intra  = _load_matrix("sdenm_intra.csv")
+        inter  = _load_matrix("sdenm_inter.csv")
+        return TypeSpecificForceField(atoms, bonded, intra, inter)
+
+    @staticmethod
+    def e_anm(atoms):
+        bonded = _load_matrix("eanm_bonded.csv")
+        intra  = _load_matrix("eanm_intra.csv")
+        inter  = _load_matrix("eanm_inter.csv")
+        return TypeSpecificForceField(atoms, bonded, intra, inter)
 
 
 def _convert_to_matrix(value):
@@ -168,3 +186,14 @@ def _convert_to_matrix(value):
                 "Input matrix is not symmetric"
             )
         return matrix
+
+
+matrices = {}
+def _load_matrix(fname):
+    if fname in matrices:
+        # Matrix was already loaded
+        return matrices[fname]
+    
+    matrix = np.loadtxt(join(DATA_DIR, fname), delimiter=",")
+    matrices[fname] = matrix
+    return matrix
