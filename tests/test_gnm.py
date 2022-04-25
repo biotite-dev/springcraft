@@ -54,8 +54,8 @@ def test_eigen(file_path, cutoff):
     test_eig_values, test_eig_vectors = test_gnm.eigen()
 
     ref_gnm.calcModes("all", zeros=True)
-    ref_eig_values = ref_gnm.getEigvals()[::-1]
-    ref_eig_vectors = ref_gnm.getEigvecs().T[::-1]
+    ref_eig_values = ref_gnm.getEigvals()
+    ref_eig_vectors = ref_gnm.getEigvecs().T
 
     # Adapt sign of eigenvectors # TODO Is this correct?
     test_eig_vectors *= np.sign(test_eig_vectors[:,0])[:,np.newaxis]

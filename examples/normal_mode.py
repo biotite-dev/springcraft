@@ -11,8 +11,9 @@ import springcraft
 
 PDB_ID = "1MUG"
 # The normal mode to be visualized
-# '0' is the first (and most significant) one
-MODE = 0
+# '6' is the slowest (most significant) one that does not correspond to
+# translation or rotation of the system
+MODE = 6
 # The number of frames (models) per oscillation
 FRAMES = 60
 # The maximum oscillation amplitude for an atom

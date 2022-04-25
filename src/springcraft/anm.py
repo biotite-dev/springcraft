@@ -101,14 +101,14 @@ class ANM:
         Returns
         -------
         eig_values : ndarray, shape=(n,), dtype=float
-            Eigenvalues of the *Hessian* matrix in descending order.
+            Eigenvalues of the *Hessian* matrix in ascending order.
         eig_vectors : ndarray, shape=(n,), dtype=float
             Eigenvectors of the *Hessian* matrix.
             ``eig_values[i]`` corresponds to ``eigenvectors[i]``.
         """
         # 'np.eigh' can be used since the Kirchhoff matrix is symmetric 
         eig_values, eig_vectors = np.linalg.eigh(self.hessian)
-        return eig_values[::-1], eig_vectors.T[::-1]
+        return eig_values, eig_vectors.T
     
     def normal_mode(self, index, amplitude, frames, movement="sine"):
         """
@@ -122,6 +122,12 @@ class ANM:
         ----------
         index : int
             The index of the oscillation.
+            The index refers to the eigenvalues obtained from
+            :meth:`eigen()`:
+            Increasing indices refer to oscillations with increasing
+            frequency.
+            The first 6 oscillations represent oscillations and
+            translations.
         amplitude : int
             The oscillation amplitude is scaled so that the maximum
             value for an atom is the given value.
