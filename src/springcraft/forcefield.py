@@ -66,7 +66,7 @@ class InvariantForceField(ForceField):
     constant.
     """
 
-    def force_constant(self, atom_i, atom_j, sq_distance, adj_matrix):
+    def force_constant(self, atom_i, atom_j, sq_distance):
         return np.ones(len(atom_i))
 
 
