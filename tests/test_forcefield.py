@@ -26,7 +26,10 @@ def atoms():
     # does not influence TypeSpecificForceField
     return ca + ca_new_chain
 
-
+def atoms_singlechain():
+    ca = atoms[0:20]
+    return ca
+    
 def test_type_specific_forcefield_homogeneous(atoms):
     BONDED = 1
     INTRA = 2
@@ -99,3 +102,7 @@ def test_type_specific_forcefield_inhomogeneous(atoms):
                 print(ff.interaction_matrix)
                 print()
                 raise
+
+def compare_with_biophysconnector(atoms_singlechain):
+    bpc = np.loadtxt("./data/interaction_biophysconnector.txt", usecols=range(20))
+    assert (bpc==atoms_singlechain).all()
