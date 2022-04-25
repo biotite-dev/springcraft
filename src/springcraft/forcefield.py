@@ -77,8 +77,41 @@ class InvariantForceField(ForceField):
 
 class TypeSpecificForceField(ForceField):
     """
-    This force field treats every interaction with different force
-    constants.
+    This force field is able to treat amino acid and connection specific 
+    interactions.
+
+    Parameters
+    ----------
+    atoms : AtomArray, shape=(n,)
+        The atoms in the model.
+        Must contain only `CA` atoms and only canonic amino acids.
+        `CA` atoms with the same chain ID and adjacent residue IDs
+        are treated as bonded
+    bonded, intra_chain, inter_chain : float or ndarray, shape=(20, 20), dtype=float
+        The force constants for interactions between each combination of
+        amino acid type.
+        The order of amino acids is alphabetically, i.e.
+        ``'ALA'``, ``'CYS'``, ``'ASP'``, ``'GLU'``, ``'PHE'``, 
+        ``'GLY'``, ``'HIS'``, ``'ILE'``, ``'LYS'``, ``'LEU'``,
+        ``'MET'``, ``'ASN'``, ``'PRO'``, ``'GLN'``, ``'ARG'``,
+        ``'SER'``, ``'THR'``, ``'VAL'``, ``'TRP'``, ``'TYR'``.
+        `bonded` gives values for bonded amino acids,
+        `intra_chain` gives values for non-bonded interactions within
+        the same peptide chain and 
+        `inter_chain` gives values for non-bonded interactions for amino
+        acids in different chains.
+        If the force constant is independent of the amino acid type,
+        a float can be given instead.
+    
+    Attributes
+    ----------
+    natoms : int or None
+        The number of atoms in the model.
+        If a :class:`ForceField` does not depend on the respective
+        atoms, i.e. `atom_i` and `atom_j` is unused in
+        :meth:`force_constant()`, this attribute is ``None`` instead.
+    interaction_matrix : ndarray, shape=(n, n), dtype=float
+        Force constants between the atoms in `atoms`.
     """
     def __init__(self, atoms, bonded, intra_chain, inter_chain):
         if not isinstance(atoms, struc.AtomArray):
