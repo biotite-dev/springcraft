@@ -31,8 +31,7 @@ def test_kirchhoff(seed, cutoff, use_cell_list):
     ref_gnm.buildKirchhoff(coord, gamma=1.0, cutoff=cutoff)
     ref_kirchhoff = ref_gnm.getKirchhoff()
 
-    assert test_kirchhoff.flatten().tolist() \
-        == pytest.approx(ref_kirchhoff.flatten().tolist())
+    assert np.allclose(test_kirchhoff, ref_kirchhoff)
 
 
 @pytest.mark.parametrize("seed, cutoff, use_cell_list", itertools.product(
@@ -46,7 +45,7 @@ def test_hessian(seed, cutoff, use_cell_list):
     randomly generated coordinates.
     """
     # Relatively small atoms number to increase performance
-    N_ATOMS = 100
+    N_ATOMS = 200
     BOX_SIZE = 20
 
     np.random.seed(seed)
@@ -61,8 +60,7 @@ def test_hessian(seed, cutoff, use_cell_list):
     ref_gnm.buildHessian(coord, gamma=1.0, cutoff=cutoff)
     ref_hessian = ref_gnm.getHessian()
 
-    assert test_hessian.flatten().tolist() \
-        == pytest.approx(ref_hessian.flatten().tolist(), abs=1e-6, rel=1e-3)
+    assert np.allclose(test_hessian, ref_hessian, atol=1e-6, rtol=1e-3)
     
 
 @pytest.mark.parametrize("seed, cutoff, use_cell_list", itertools.product(

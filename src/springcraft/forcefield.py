@@ -106,8 +106,8 @@ class TypeSpecificForceField(ForceField):
         # Cartesian product of pos-specific indices
         # for first and second amino acid
         pos_indices = (
-            np.tile(np.arange(self._natoms), self._natoms),
             np.repeat(np.arange(self._natoms), self._natoms),
+            np.tile(np.arange(self._natoms), self._natoms),
         )
         # Convert indices to type-specific_indices
         type_indices = (
@@ -162,5 +162,9 @@ def _convert_to_matrix(value):
             raise IndexError(
                 f"Expected array of shape {(N_AMINO_ACIDS, N_AMINO_ACIDS)}, "
                 f"got {matrix.shape}"
+            )
+        if not np.allclose(matrix, matrix.T):
+            raise ValueError(
+                "Input matrix is not symmetric"
             )
         return matrix

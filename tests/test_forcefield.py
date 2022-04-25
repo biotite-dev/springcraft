@@ -3,22 +3,20 @@ from os.path import join
 import numpy as np
 import pytest
 import biotite.structure.io.mmtf as mmtf
+import biotite.sequence as seq
 import springcraft
 from .util import data_dir
 
 
-def test_type_specific_forcefield_sanity():
-    BONDED = 1
-    INTRA = 2
-    INTER = 3
-
+@pytest.fixture
+def atoms():
+    """
+    Create a simple protein structure with two chains
+    """
     mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
     atoms = mmtf.get_structure(mmtf_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
-    #!#
-    ca = ca[:5]
-    #!#
-    
+
     ca_new_chain = ca.copy()
     # Ensure different chain IDs for both chains
     ca.chain_id[:] = "A"
@@ -26,24 +24,75 @@ def test_type_specific_forcefield_sanity():
     # Simply merge both chains into new structure
     # The fact that both chains perfectly overlap
     # does not influence TypeSpecificForceField
-    merged = ca + ca_new_chain
+    return ca + ca_new_chain
 
-    ff = springcraft.TypeSpecificForceField(merged, BONDED, INTRA, INTER)
+
+def test_type_specific_forcefield_homogeneous(atoms):
+    BONDED = 1
+    INTRA = 2
+    INTER = 3
+
+    ff = springcraft.TypeSpecificForceField(atoms, BONDED, INTRA, INTER)
 
     # Matrix should be symmetric
     assert np.allclose(ff.interaction_matrix, ff.interaction_matrix.T)
-    for i in range(len(merged)):
-        for j in range(i, len(merged)):
+    for i in range(len(atoms)):
+        for j in range(i, len(atoms)):
             force_constant = ff.interaction_matrix[i, j]
             try:
                 if i == j:
                     assert force_constant == 0
-                elif j == i+1 and merged.chain_id[i] == merged.chain_id[j]:
+                elif j == i+1 and atoms.chain_id[i] == atoms.chain_id[j]:
                     assert force_constant == BONDED
-                elif merged.chain_id[i] == merged.chain_id[j]:
+                elif atoms.chain_id[i] == atoms.chain_id[j]:
                     assert force_constant == INTRA
                 else:
                     assert force_constant == INTER
+            except AssertionError:
+                print(f"Indices are {i} and {j}")
+                print("Interaction matrix is:")
+                print(ff.interaction_matrix)
+                print()
+                raise
+
+
+def test_type_specific_forcefield_inhomogeneous(atoms):
+    aa_list = [
+        seq.ProteinSequence.convert_letter_1to3(letter)
+        # Omit ambiguous amino acids and stop signal
+        for letter in seq.ProteinSequence.alphabet.get_symbols()[:20]
+    ]
+    aa_to_index = {aa : i for i, aa in enumerate(aa_list)}
+    # Maps pos-specific indices to type-specific_indices
+    mapping = np.array([aa_to_index[aa] for aa in atoms.res_name])
+
+    # Create symmetric random type-specific interaction matrices
+    np.random.seed(0)
+    triu = np.triu(np.random.rand(3, 20, 20))
+    bonded, intra, inter = triu + np.transpose(triu, (0, 2, 1))
+
+    ff = springcraft.TypeSpecificForceField(atoms, bonded, intra, inter)
+
+    # Matrix should be symmetric
+    assert np.allclose(ff.interaction_matrix, ff.interaction_matrix.T)
+    for i in range(len(atoms)):
+        for j in range(i, len(atoms)):
+            force_constant = ff.interaction_matrix[i, j]
+            try:
+                if i == j:
+                    assert force_constant == 0
+                elif j == i+1 and atoms.chain_id[i] == atoms.chain_id[j]:
+                    assert force_constant == pytest.approx(
+                        bonded[mapping[i], mapping[j]]
+                    )
+                elif atoms.chain_id[i] == atoms.chain_id[j]:
+                    assert force_constant == pytest.approx(
+                        intra[mapping[i], mapping[j]]
+                    )
+                else:
+                    assert force_constant == pytest.approx(
+                        inter[mapping[i], mapping[j]]
+                    )
             except AssertionError:
                 print(f"Indices are {i} and {j}")
                 print("Interaction matrix is:")
