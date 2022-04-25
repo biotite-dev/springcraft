@@ -154,7 +154,7 @@ class TypeSpecificForceField(ForceField):
 
 
 def _convert_to_matrix(value):
-    if isinstance(value, numbers.Integral):
+    if isinstance(value, numbers.Number):
         return np.full((N_AMINO_ACIDS, N_AMINO_ACIDS), value, dtype=np.float32)
     else:
         matrix = np.asarray(value, dtype=np.float32)
