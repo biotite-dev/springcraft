@@ -26,7 +26,8 @@ def atoms():
     # does not influence TypeSpecificForceField
     return ca + ca_new_chain
 
-def atoms_singlechain():
+@pytest.fixture
+def atoms_singlechain(atoms):
     ca = atoms[0:20]
     return ca
     
@@ -103,6 +104,15 @@ def test_type_specific_forcefield_inhomogeneous(atoms):
                 print()
                 raise
 
-def compare_with_biophysconnector(atoms_singlechain):
+def test_compare_with_biophysconnector(atoms_singlechain):
     bpc = np.loadtxt("./data/interaction_biophysconnector.txt", usecols=range(20))
-    assert (bpc==atoms_singlechain).all()
+    ff = springcraft.TypeSpecificForceField(atoms=atoms_singlechain, bonded=82, intra_chain=3.166, inter_chain=3.166)
+    hessian, pairs = springcraft.compute_hessian(atoms_singlechain.coord, ff, 13.0)
+    interaction = ff.interaction_matrix
+    print(bpc.shape)
+    print(interaction.shape)
+    print(bpc)
+    print(interaction)
+    np.set_printoptions(precision=4)
+    assert np.allclose(bpc, interaction, atol = 0.1)
+    
