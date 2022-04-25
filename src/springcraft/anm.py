@@ -207,6 +207,23 @@ class ANM:
             ) 
 
         return np.dot(self.covariance, force).reshape(len(self._coord), 3)
+    
+
+    def bfactor(self):
+        """
+        Compute the b-factors of each C-alpha atom by summing up the diagonal 
+        of the *covariance* matrix.
+
+        Returns
+        -------
+        bfac_values : ndarray, shape=(n,), dtype=float
+            B-factors of C-alpha atoms.
+        """
+        diag = self.covariance.diagonal()
+        reshape_diag = np.reshape(diag, (len(self.coord)/3,-1))
+        diagsum = np.sum(reshape_diag, axis=2)
+    
+        return diagsum
 
 
 # TODO Test 6 last eigenmodes for constant displacement
