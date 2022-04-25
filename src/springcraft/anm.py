@@ -42,8 +42,11 @@ class ANM:
         The *Hessian* matrix for this model.
         Each dimension is partitioned in the form
         ``[x1, y1, z1, ... xn, yn, zn]``.
+        This is not a copy: Create a copy before modifying this matrix.
     covariance : ndarray, shape=(n*3,n*3), dtype=float
-        The covariance matrix for this model, i.e. the inverted *Hessian*.
+        The covariance matrix for this model, i.e. the inverted
+        *Hessian*.
+        This is not a copy: Create a copy before modifying this matrix.
     """
 
     def __init__(self, atoms, force_field, cutoff_distance,

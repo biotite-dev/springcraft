@@ -40,6 +40,7 @@ class GNM:
     ----------
     kirchhoff : ndarray, shape=(n,n), dtype=float
         The *Kirchhoff* matrix for this model.
+        This is not a copy: Create a copy before modifying this matrix.
     """
 
     def __init__(self, atoms, force_field, cutoff_distance,
