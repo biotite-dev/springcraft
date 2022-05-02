@@ -3,8 +3,8 @@
 # Shape: 27x20x20
 # 27 distance bins; AA interaction matrix for each distance bin
 # Important: Zero entries in last distance bin -> [16.5, inf]
-# Note:  Bonded interactions are described with a larger value of the spring constant (kappa = 43.52)
-#             10 x Mean(AA_interaction_matrices_over_all_distances)
+# Note:  Bonded interactions are described with a larger value of the spring constant (gamma = 43.52)
+#             10 x Mean(AA_interaction_matrices)_@3.5 Angstrom
 # AS-Order: "ALA", "CYS", "ASP", "GLU", "PHE", "GLY", "HIS", "ILE", "LYS", "LEU", "MET", 
 #                   "ASN", "PRO", "GLN", "ARG", "SER", "THR", "VAL", "TRP", "TYR"
 # 0.0, 4.0 

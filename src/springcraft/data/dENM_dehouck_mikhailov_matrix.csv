@@ -3,8 +3,8 @@
 # Shape: 27,
 # 27 distance bins; AA-invariant interactions 
 # Important: Zero entries in last distance bin -> [16.5, inf]
-# Note:  Bonded interactions are described with a larger value of the spring constant (kappa = 46.83)
-#             10 x Mean(AA_interaction_all_distances)
+# Note:  Bonded interactions are described with a larger value of the spring constant (gamma = 46.83)
+#             10 x Mean(AA_interaction_all_distances)_@3.5 Angstrom
 # Distance bins: (0, 4), (lower_bin_delimiter, lower_bin_delimiter+0.5) (for 4 < lower_bin_delimiter+0.5 <= 16.5), 
 #                         (16.5 inf)
 4.682999999999999829e+00
