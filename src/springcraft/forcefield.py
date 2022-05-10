@@ -41,7 +41,6 @@ class ForceField(metaclass=abc.ABCMeta):
         :meth:`force_constant()`, this attribute is ``None`` instead.
     """
 
-
     @abc.abstractmethod
     def force_constant(self, atom_i, atom_j, sq_distance):
         """
@@ -130,7 +129,8 @@ class TypeSpecificForceField(ForceField):
         Force constants between the atoms in `atoms`.
         If `distance_edges` is set, *k* is the number of distance bins.
         Otherwise, *k = 1*.
-
+        This is not a copy, modifications on this array affect the force
+        field.
     """
     def __init__(self, atoms, bonded, intra_chain, inter_chain,
                  distance_edges=None):
@@ -229,19 +229,37 @@ class TypeSpecificForceField(ForceField):
     def interaction_matrix(self):
         return self._interaction_matrix
     
-    @staticmethod
-    def sd_enm(atoms):
-        bonded = _load_matrix("sdenm_bonded.csv")
-        intra  = _load_matrix("sdenm_intra.csv")
-        inter  = _load_matrix("sdenm_inter.csv")
-        return TypeSpecificForceField(atoms, bonded, intra, inter)
 
     @staticmethod
-    def e_anm(atoms):
-        bonded = _load_matrix("eanm_bonded.csv")
-        intra  = _load_matrix("eanm_intra.csv")
-        inter  = _load_matrix("eanm_inter.csv")
-        return TypeSpecificForceField(atoms, bonded, intra, inter)
+    def keskin(atoms):
+        fc = _load_matrix("keskin.csv")
+        return TypeSpecificForceField(atoms, fc, fc, fc)
+    
+    @staticmethod
+    def miyazawa(atoms):
+        fc = _load_matrix("miyazawa.csv")
+        return TypeSpecificForceField(atoms, fc, fc, fc)
+    
+    @staticmethod
+    def s_enm_10(atoms):
+        raise NotImplementedError()
+    
+    @staticmethod
+    def s_enm_13(atoms):
+        fc = _load_matrix("s_enm_13.csv")
+        return TypeSpecificForceField(atoms, 10, fc, fc)
+    
+    @staticmethod
+    def d_enm(atoms):
+        fc = _load_matrix("d_enm.csv")
+        bin_edges = _load_matrix("d_enm_edges.csv")
+        return TypeSpecificForceField(atoms, 46.83, fc, fc, bin_edges)
+    
+    @staticmethod
+    def sd_enm(atoms):
+        fc = _load_matrix("sd_enm.csv").reshape(-1, 20, 20).T
+        bin_edges = _load_matrix("d_enm_edges.csv")
+        return TypeSpecificForceField(atoms, 43.52, fc, fc, bin_edges)
 
 
 def _convert_to_matrix(value, n_bins):
