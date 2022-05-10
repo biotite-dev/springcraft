@@ -214,6 +214,20 @@ def test_type_specific_forcefield_input_shapes(atoms, shape, n_edges, is_valid):
             ff = springcraft.TypeSpecificForceField(atoms, fc, fc, fc, edges)
 
 
+@pytest.mark.parametrize(
+    "name",
+    ["keskin", "miyazawa", "s_enm_10", "s_enm_13", "d_enm", "sd_enm"]
+)
+def test_type_specific_forcefield_predefined(atoms, name):
+    """
+    Test the instantiation of predefined force fields.
+    These are implemented as static methods that merely require the
+    structure as input.
+    """
+    meth = getattr(springcraft.TypeSpecificForceField, name)
+    ff = meth(atoms)
+
+
 def test_compare_with_biophysconnector(atoms_singlechain):
     return # TODO: Fix test function
     bpc = np.loadtxt("./data/interaction_biophysconnector.txt", usecols=range(20))
