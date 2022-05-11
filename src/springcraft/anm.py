@@ -68,9 +68,10 @@ class ANM:
     
     @hessian.setter
     def hessian(self, value):
-        if value.shape != (self._coord, self._coord, 3, 3):
-            raise ValueError(
-                f"Expected shape {(self._coord, self._coord, 3, 3)}, "
+        if value.shape != (len(self._coord) * 3, len(self._coord) * 3):
+            raise IndexError(
+                f"Expected shape "
+                f"{(len(self._coord) * 3, len(self._coord) * 3)}, "
                 f"got {value.shape}"
             )
         self._hessian = value
@@ -85,9 +86,10 @@ class ANM:
     
     @covariance.setter
     def covariance(self, value):
-        if value.shape != (self._coord, self._coord, 3, 3):
-            raise ValueError(
-                f"Expected shape {(self._coord, self._coord, 3, 3)}, "
+        if value.shape != (len(self._coord) * 3, len(self._coord) * 3):
+            raise IndexError(
+                f"Expected shape "
+                f"{(len(self._coord) * 3, len(self._coord) * 3)}, "
                 f"got {value.shape}"
             )
         self._covariance = value
