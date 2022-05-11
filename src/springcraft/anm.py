@@ -91,7 +91,6 @@ class ANM:
                 f"got {value.shape}"
             )
         self._covariance = value
-        self._covariance = None
     
     def eigen(self):
         """
