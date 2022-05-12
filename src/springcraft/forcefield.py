@@ -92,11 +92,12 @@ class TypeSpecificForceField(ForceField):
     bonded, intra_chain, inter_chain : float or ndarray, shape=(k,) or shape=(20, 20) or shape=(k, 20, 20), dtype=float
         The force constants for interactions between each combination of
         amino acid type and for each distance bin.
-        The order of amino acids is alphabetically, i.e.
+        The order of amino acids is alphabetically with respect to the
+        one-letter code, i.e.
         ``'ALA'``, ``'CYS'``, ``'ASP'``, ``'GLU'``, ``'PHE'``, 
         ``'GLY'``, ``'HIS'``, ``'ILE'``, ``'LYS'``, ``'LEU'``,
         ``'MET'``, ``'ASN'``, ``'PRO'``, ``'GLN'``, ``'ARG'``,
-        ``'SER'``, ``'THR'``, ``'VAL'``, ``'TRP'``, ``'TYR'``.
+        ``'SER'``, ``'THR'``, ``'VAL'``, ``'TRP'`` and ``'TYR'``.
         `bonded` gives values for bonded amino acids,
         `intra_chain` gives values for non-bonded interactions within
         the same peptide chain and 
@@ -242,7 +243,8 @@ class TypeSpecificForceField(ForceField):
     
     @staticmethod
     def s_enm_10(atoms):
-        raise NotImplementedError()
+        fc = _load_matrix("s_enm_10.csv")
+        return TypeSpecificForceField(atoms, 10, fc, fc)
     
     @staticmethod
     def s_enm_13(atoms):
@@ -260,6 +262,13 @@ class TypeSpecificForceField(ForceField):
         fc = _load_matrix("sd_enm.csv").reshape(-1, 20, 20).T
         bin_edges = _load_matrix("d_enm_edges.csv")
         return TypeSpecificForceField(atoms, 43.52, fc, fc, bin_edges)
+    
+    @staticmethod
+    def e_anm(atoms):
+        intra = _load_matrix("miyazawa.csv")
+        inter = _load_matrix("keskin.csv")
+        # TODO: Correct bonded interaction force constant
+        return TypeSpecificForceField(atoms, np.nan, intra, inter)
 
 
 def _convert_to_matrix(value, n_bins):
@@ -267,6 +276,11 @@ def _convert_to_matrix(value, n_bins):
     Perform checks on input interactions matrices and return consistent
     3D matrix.
     """
+    if np.isnan(value).any():
+        raise IndexError(
+            f"Array contains NaN elements"
+        )
+
     if isinstance(value, numbers.Number):
         # One value for all distances and types
         return np.full(
@@ -324,7 +338,6 @@ def _check_matrix(matrix):
         raise ValueError(
             "Input matrix is not symmetric"
         )
-
 
 matrices = {}
 def _load_matrix(fname):

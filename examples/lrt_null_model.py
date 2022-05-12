@@ -29,13 +29,18 @@ def create_fibonacci_points(n):
     return coord
 
 
-mmtf_file = mmtf.MMTFFile.read(rcsb.fetch("1CEX", "mmtf", "."))
+mmtf_file = mmtf.MMTFFile.read(rcsb.fetch("1CEX", "mmtf"))
 atoms = mmtf.get_structure(mmtf_file, model=1)
 ca = atoms[(atoms.atom_name == "CA") & struc.filter_amino_acids(atoms)]
 target_index = np.where(ca.res_id == TARGET_RES_ID)[0][0]
 
 ff = springcraft.TypeSpecificForceField.sd_enm(ca)
 anm = springcraft.ANM(ca, ff, 17.0)
+#!#
+#np.random.seed(1)
+#cov = np.random.rand(*anm.covariance.shape)
+#anm.covariance = cov
+#!#
 
 # Create evenly distributed force vectors
 force_vectors = create_fibonacci_points(N_FORCE)
@@ -43,7 +48,14 @@ displacements = []
 for i, force_vec in enumerate(force_vectors):
     force = np.zeros((ca.array_length(), 3))
     force[target_index] = force_vec
-    displacements.append(anm.linear_response(force))
+    displacement = anm.linear_response(force)
+    # Filter displacement to important residues for function
+    displacement = displacement[
+        ((ca.res_id >=  80) & (ca.res_id <=  90)) |
+        ((ca.res_id >= 179) & (ca.res_id <= 187)) |
+        ((ca.res_id >=  42) & (ca.res_id <=  45))
+    ]
+    displacements.append(displacement)
 displacements = np.stack(displacements)
 
 
