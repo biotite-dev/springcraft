@@ -276,6 +276,11 @@ def _convert_to_matrix(value, n_bins):
     Perform checks on input interactions matrices and return consistent
     3D matrix.
     """
+    if np.isnan(value).any():
+        raise IndexError(
+            f"Array contains NaN elements"
+        )
+
     if isinstance(value, numbers.Number):
         # One value for all distances and types
         return np.full(
