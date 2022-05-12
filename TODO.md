@@ -15,7 +15,9 @@
 - Force fields
   - Docstrings for predefined force fields (static methods) including citations
     in `TypeSpecificForceField` -> Jan
-  - Test predefined force fields with reference interaction matrix from ProDy,
-    Bio3d, BioPhysConnector -> Faisal
+  - Test predefined force fields with multi-chain structure and reference interaction matrix from
+    ProDy, Bio3d or BioPhysConnector -> Faisal
   - Generalization to more types of molecules
     (e.g. Nucleic acids, small molecules)? -> Patrick
+  - More force fields with different concept, for example based on
+    secondary structure
