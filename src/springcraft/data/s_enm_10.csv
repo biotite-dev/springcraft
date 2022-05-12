@@ -1,7 +1,7 @@
 # sENM_13 Dehoucl-Mikhailov parameters for amino acid interactions
 # Reference: Dehouck Y, Mikhailov AS (2013) PLOS Computational Biology 9(8): e1003209. 
 # Shape: 20x20
-# AA interaction matrix computed with a cutoff of 13 Angstrom
+# AA interaction matrix computed with a cutoff of 10 Angstrom
 # --> residues separated by a distance > 10 Ang. are not interacting
 # Important: Zero entries in last distance bin -> [16.5, inf]
 # Note:  Bonded interactions are described with a larger value of the spring constant (gamma = 10.00)

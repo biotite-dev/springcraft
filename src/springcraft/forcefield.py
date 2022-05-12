@@ -243,32 +243,193 @@ class TypeSpecificForceField(ForceField):
     
     @staticmethod
     def s_enm_10(atoms):
+        """
+        Non-bonded interactions between amino acid species are parametrized in
+        an amino acid type-specific manner, with a cutoff distance of 1 nm  
+        Bonded interactions are evaluated with  10 R*T/(Ang**2), 
+        corresponding to the tenfold mean of all amino acid species interactions
+        at a distance 0f 3.5 nm.
+
+        Parameters
+        ----------
+        atoms : AtomArray, shape=(n,)
+            The atoms in the model.
+            Must contain only `CA` atoms and only canonic amino acids.
+            `CA` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded
+
+        Returns
+        -------
+        # TODO Instance of object?
+        TypeSpecificForcefield : Instance
+            Instance of TypeSpecificForcefield object tailored to the 
+            sdENM forcefield
+        
+        References
+        ----------
+        .. [1] Y Dehouck, A S Mikhailov,
+           "Effective Harmonic Potentials: Insights into the Internal 
+           Cooperativity and Sequence-Specificity of Protein Dynamics." 
+           PLOS Computational Biology 9(8): e1003209 (2013). 
+        """
         fc = _load_matrix("s_enm_10.csv")
         return TypeSpecificForceField(atoms, 10, fc, fc)
     
     @staticmethod
     def s_enm_13(atoms):
+        """
+        Non-bonded interactions between amino acid species are parametrized in
+        an amino acid type-specific manner, with a cutoff distance of 1.3 nm  
+        Bonded interactions are evaluated with  10 R*T/(Ang**2), 
+        corresponding to the tenfold mean of all amino acid species interactions
+        at a distance 0f 3.5 nm.
+
+        Parameters
+        ----------
+        atoms : AtomArray, shape=(n,)
+            The atoms in the model.
+            Must contain only `CA` atoms and only canonic amino acids.
+            `CA` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded
+
+        Returns
+        -------
+        # TODO Instance of object?
+        TypeSpecificForcefield : Instance
+            Instance of TypeSpecificForcefield object tailored to the 
+            sdENM forcefield
+        
+        References
+        ----------
+        .. [1] Y Dehouck, A S Mikhailov,
+           "Effective Harmonic Potentials: Insights into the Internal 
+           Cooperativity and Sequence-Specificity of Protein Dynamics." 
+           PLOS Computational Biology 9(8): e1003209 (2013). 
+        """
         fc = _load_matrix("s_enm_13.csv")
         return TypeSpecificForceField(atoms, 10, fc, fc)
     
     @staticmethod
     def d_enm(atoms):
+        """
+        Non-bonded amino acid interactions are assigned depending on the
+        spatial pair distance, ignorant towards interacting amino acid species. 
+        Spatial distances are divided into 27 bins.
+        Bonded interactions are evaluated with  46.83 R*T/(Ang**2), 
+        corresponding to the tenfold mean of all amino acid species interactions
+        at a distance 0f 3.5 nm.
+
+        Parameters
+        ----------
+        atoms : AtomArray, shape=(n,)
+            The atoms in the model.
+            Must contain only `CA` atoms and only canonic amino acids.
+            `CA` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded
+
+        Returns
+        -------
+        # TODO Instance of object?
+        TypeSpecificForcefield : Instance
+            Instance of TypeSpecificForcefield object tailored to the 
+            sdENM forcefield
+        
+        References
+        ----------
+        .. [1] Y Dehouck, A S Mikhailov,
+           "Effective Harmonic Potentials: Insights into the Internal 
+           Cooperativity and Sequence-Specificity of Protein Dynamics." 
+           PLOS Computational Biology 9(8): e1003209 (2013). 
+        """
         fc = _load_matrix("d_enm.csv")
         bin_edges = _load_matrix("d_enm_edges.csv")
         return TypeSpecificForceField(atoms, 46.83, fc, fc, bin_edges)
     
     @staticmethod
     def sd_enm(atoms):
+        """
+        For this forcefield, non-bonded interactions between amino acids
+        are evaluated according to the interacting species pair and the spatial
+        distance between them.
+        Spatial distances are divided into 27 bins, with amino acid specific
+        interaction tables for each distance bin.
+        Bonded interactions are evaluated with  43.52 R*T/(Ang**2), 
+        corresponding to the tenfold mean of all amino acid species interactions
+        at a distance 0f 3.5 nm.
+
+        Parameters
+        ----------
+        atoms : AtomArray, shape=(n,)
+            The atoms in the model.
+            Must contain only `CA` atoms and only canonic amino acids.
+            `CA` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded
+
+        Returns
+        -------
+        # TODO Instance of object?
+        TypeSpecificForcefield : Instance
+            Instance of TypeSpecificForcefield object tailored to the 
+            sdENM forcefield
+        
+        References
+        ----------
+        .. [1] Y Dehouck, A S Mikhailov,
+           "Effective Harmonic Potentials: Insights into the Internal 
+           Cooperativity and Sequence-Specificity of Protein Dynamics." 
+           PLOS Computational Biology 9(8): e1003209 (2013). 
+        """
         fc = _load_matrix("sd_enm.csv").reshape(-1, 20, 20).T
         bin_edges = _load_matrix("d_enm_edges.csv")
         return TypeSpecificForceField(atoms, 43.52, fc, fc, bin_edges)
     
     @staticmethod
     def e_anm(atoms):
+        """
+        This forcefield discriminates between non-bonded interactions
+        of amino acids within a single polypeptide chain (intrachain) and 
+        those present in different chains (interchain) in residue-specific
+        manner:
+        the former are described by Miyazawa-Jernigan parameters, the latter
+        by Keskin parameters.
+        Bonded interactions are evaluated with  83.333 R*T/(Ang**2).
+
+        Parameters
+        ----------
+        atoms : AtomArray, shape=(n,)
+            The atoms in the model.
+            Must contain only `CA` atoms and only canonic amino acids.
+            `CA` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded
+
+        Returns
+        -------
+        # TODO Instance of object?
+        TypeSpecificForcefield : Instance
+            Instance of TypeSpecificForcefield object tailored to the 
+            eANM method
+        
+        References
+        ----------
+        .. [1] K Hamacher, J A McCammon,
+           "Computing the Amino Acid Specificity of Fluctuations 
+           in Biomolecular Systems."
+           J Chem. Theory Comput.  2, 3, 873–878 (2006).
+
+        .. [2] S Miyazawa, R L Jernigan,
+           "Residue – Residue Potentials with a Favorable Contact Pair Term and 
+           an Unfavorable High Packing Density Term, for Simulation 
+           and Threading."  
+           J Mol Biol., 256(3) 623-44 (1996).
+        
+        .. [3] O Keskin, I Bahar, R L Jernigan, A Y Badretdinov, O B Ptitsyn, 
+           "Empirical solvent-mediated potentials hold for both intra-molecular 
+           and inter-molecular inter-residue interactions."
+           Protein Science, 7 2578-2586 (1998)
+        """
         intra = _load_matrix("miyazawa.csv")
         inter = _load_matrix("keskin.csv")
-        # TODO: Correct bonded interaction force constant
-        return TypeSpecificForceField(atoms, np.nan, intra, inter)
+        return TypeSpecificForceField(atoms, 83.333, intra, inter)
 
 
 def _convert_to_matrix(value, n_bins):
