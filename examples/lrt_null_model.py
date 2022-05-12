@@ -29,7 +29,7 @@ def create_fibonacci_points(n):
     return coord
 
 
-mmtf_file = mmtf.MMTFFile.read(rcsb.fetch("1CEX", "mmtf", "."))
+mmtf_file = mmtf.MMTFFile.read(rcsb.fetch("1CEX", "mmtf"))
 atoms = mmtf.get_structure(mmtf_file, model=1)
 ca = atoms[(atoms.atom_name == "CA") & struc.filter_amino_acids(atoms)]
 target_index = np.where(ca.res_id == TARGET_RES_ID)[0][0]
