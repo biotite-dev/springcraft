@@ -216,7 +216,7 @@ def test_type_specific_forcefield_input_shapes(atoms, shape, n_edges, is_valid):
 
 @pytest.mark.parametrize(
     "name",
-    ["keskin", "miyazawa", "s_enm_10", "s_enm_13", "d_enm", "sd_enm"]
+    ["keskin", "miyazawa", "s_enm_10", "s_enm_13", "d_enm", "sd_enm", "e_anm"]
 )
 def test_type_specific_forcefield_predefined(atoms, name):
     """
@@ -226,7 +226,6 @@ def test_type_specific_forcefield_predefined(atoms, name):
     """
     meth = getattr(springcraft.TypeSpecificForceField, name)
     ff = meth(atoms)
-
 
 def test_compare_with_biophysconnector(atoms_singlechain):
     return # TODO: Fix test function
