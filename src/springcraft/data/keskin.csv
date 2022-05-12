@@ -1,6 +1,6 @@
 # Keskin parameters for amino acid interactions
-# Reference: Keskin, O., Bahar, I., Jernigan, R.L., Badretdinov, A.Y. and Ptitsyn, O.B. (1998), 
-#                    Protein Science, 7: 2578-2586
+# Reference: Keskin, O., Bahar, I., Jernigan, R.L., Badretdinov, A.Y. and Ptitsyn, O.B. (1998), Protein Science, 7: 2578-2586
+#	          Hamacher K, McCammon J A. (2006) J Chem. Theory Comput.  2, 3, 873–878
 # Shape: 20x20
 # Note:  Bonded interactions are described with a larger value of the spring constant (eANMs: gamma = 83.333)
 # AS-Order: "ALA", "CYS", "ASP", "GLU", "PHE", "GLY", "HIS", "ILE", "LYS", "LEU", "MET", 
