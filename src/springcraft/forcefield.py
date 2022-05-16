@@ -73,7 +73,6 @@ class InvariantForceField(ForceField):
     def force_constant(self, atom_i, atom_j, sq_distance):
         return np.ones(len(atom_i))
 
-
 class TypeSpecificForceField(ForceField):
     """
     This force field is able to treat interactions differently based
@@ -133,8 +132,15 @@ class TypeSpecificForceField(ForceField):
         This is not a copy, modifications on this array affect the force
         field.
     """
+    # TODO: @Patrick: Wir brauchen für das Hinsen-FF die Möglichkeit, fc, bonded
+    #                 und die Regeln für die Non-Bonded/Bonded-Einteilung als
+    #                 Funktion/Regel vorzugeben.
+    #                 Besser als separate ForceField objects?
+    #                 Added distance_specific_function attribute and @property
+    #                 for now.
     def __init__(self, atoms, bonded, intra_chain, inter_chain,
-                 distance_edges=None):
+                 distance_edges=None, distance_specific_function=None):
+
         if not isinstance(atoms, struc.AtomArray):
             raise TypeError(
                 f"Expected 'AtomArray', not {type(atoms).__name__}"
@@ -155,6 +161,12 @@ class TypeSpecificForceField(ForceField):
         else:
             self._edges = None
         
+
+        if distance_specific_function is not None:
+            self._distfunc = np.vectorize(distance_specific_function)
+        else:
+            self._distfunc = None
+            
         # Always create 3D matrices, even if no bins are given,
         # to generalize the code
         n_bins = 1 if self._edges is None else len(self._edges) + 1
@@ -165,11 +177,10 @@ class TypeSpecificForceField(ForceField):
         # Maps pos-specific indices to type-specific_indices
         matrix_indices = np.array([AA_TO_INDEX[aa] for aa in atoms.res_name])
 
-        # Find peptide bonds
+        # Find peptide bonds; general case
         continuous_res_id = np.diff(atoms.res_id) == 1
         continuous_chain_id = atoms.chain_id[:-1] == atoms.chain_id[1:]
         peptide_bond_i = np.where(continuous_res_id & continuous_chain_id)[0]
-
 
         ### Fill interaction matrix
         ## Handle non-bonded interactions
@@ -201,12 +212,13 @@ class TypeSpecificForceField(ForceField):
         )
 
         ## Handle bonded interactions
-        # Convert pos-specific indices to type-specific indices
+        # Convert pos-specific indices to type-specific indices -> general case
         indices = (
             matrix_indices[peptide_bond_i],
             matrix_indices[peptide_bond_i+1]
         )
         constants = self._bonded[indices]
+
         # Overwrite previous values
         self._interaction_matrix[peptide_bond_i, peptide_bond_i+1] = constants
         self._interaction_matrix[peptide_bond_i+1, peptide_bond_i] = constants
@@ -215,9 +227,16 @@ class TypeSpecificForceField(ForceField):
         diag_i, diag_j = np.diag_indices(len(self._interaction_matrix))
         self._interaction_matrix[diag_i, diag_j, :] = 0
 
+
     def force_constant(self, atom_i, atom_j, sq_distance):
-        if self._edges is None:
+        if self._edges is None and self._distfunc is None:
             return self._interaction_matrix[atom_i, atom_j, 0]
+        # Distance dependence: Use sq_distance to compute force constants
+        # directly.
+        elif self._distfunc is not None:
+            sq_distance_array = np.array(sq_distance)
+            dist_force_constant = self._distfunc(sq_distance_array)
+            return dist_force_constant
         else:
             bin_indices = np.searchsorted(self._edges, sq_distance)
             return self._interaction_matrix[atom_i, atom_j, bin_indices]
@@ -230,7 +249,53 @@ class TypeSpecificForceField(ForceField):
     def interaction_matrix(self):
         return self._interaction_matrix
     
+    @property
+    def distance_specific_function(self):
+        return self._distance_specific_function
 
+    @staticmethod
+    # TODO @ Patrick -> Provisorisch: Hinsen FF mit Lambda-Funktion
+    def hinsen_calpha(atoms):
+        """
+        The Hinsen-Forcefield was parametrized using the Amber94 forcefield
+        for a local energy minimum, with Crambin as template. 
+        In a strict distance-dependent manner, contacts are subdivided
+        into nearest-neighbour pairs along the backbone (r < 4 Ang) and 
+        mid-/far-range pair interactions (r >= 4 Ang).
+        Force constants for these interactions are computed with two distinct
+        formulas. 
+
+        Parameters
+        ----------
+        atoms : AtomArray, shape=(n,)
+            The atoms in the model.
+            Must contain only `CA` atoms and only canonic amino acids.
+            `CA` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded
+
+        Returns
+        -------
+        # TODO
+        TypeSpecificForcefield : Instance
+            Instance of TypeSpecificForcefield object tailored to the 
+            sdENM forcefield
+        
+        References
+        ----------
+        .. [1] K Hinsen et al.,
+           "Harmonicity in small proteins." 
+           Chemical Physics 261(1-2): 25-37 (2000). 
+        """
+        # Create dummy matrices as input.
+        fc = np.ones(shape=(20, 20))
+        # Lambda-Function: r < 4 Ang -> Bonded; r >= 4 Ang -> Non-Bonded
+        # Convert sq_dist to dist beforehand
+        distance_specific_function = lambda r:(r)**0.5 * 8.6 * 10**2 - 2.39 * 10**3 if r < 4**2 else ((r)**(-0.5 * 6) * 128 * 10**4)
+        return TypeSpecificForceField(atoms, fc, fc, fc, distance_edges=None,
+                                      distance_specific_function=distance_specific_function)
+
+    # TODO @ Patrick -> Vlt. sollten wir miyazawa und keskin als separate 
+    # staticmethods loeschen?
     @staticmethod
     def keskin(atoms):
         fc = _load_matrix("keskin.csv")
@@ -244,6 +309,8 @@ class TypeSpecificForceField(ForceField):
     @staticmethod
     def s_enm_10(atoms):
         """
+        The sENM10 forcefield by Dehouck and Mikhailov was parametrized
+        by statisctical analysis of a NMR conformational ensemble dataset.
         Non-bonded interactions between amino acid species are parametrized in
         an amino acid type-specific manner, with a cutoff distance of 1 nm  
         Bonded interactions are evaluated with  10 R*T/(Ang**2), 
@@ -260,7 +327,7 @@ class TypeSpecificForceField(ForceField):
 
         Returns
         -------
-        # TODO Instance of object?
+        # TODO
         TypeSpecificForcefield : Instance
             Instance of TypeSpecificForcefield object tailored to the 
             sdENM forcefield
@@ -278,8 +345,10 @@ class TypeSpecificForceField(ForceField):
     @staticmethod
     def s_enm_13(atoms):
         """
+        The sENM13 forcefield by Dehouck and Mikhailov was parametrized
+        by statisctical analysis of a NMR conformational ensemble dataset.
         Non-bonded interactions between amino acid species are parametrized in
-        an amino acid type-specific manner, with a cutoff distance of 1.3 nm  
+        an amino acid type-specific manner, with a cutoff distance of 1.3 nm.  
         Bonded interactions are evaluated with  10 R*T/(Ang**2), 
         corresponding to the tenfold mean of all amino acid species interactions
         at a distance 0f 3.5 nm.
@@ -294,7 +363,7 @@ class TypeSpecificForceField(ForceField):
 
         Returns
         -------
-        # TODO Instance of object?
+        # TODO
         TypeSpecificForcefield : Instance
             Instance of TypeSpecificForcefield object tailored to the 
             sdENM forcefield
@@ -312,7 +381,9 @@ class TypeSpecificForceField(ForceField):
     @staticmethod
     def d_enm(atoms):
         """
-        Non-bonded amino acid interactions are assigned depending on the
+        The dENM forcefield by Dehouck and Mikhailov was parametrized
+        by statisctical analysis of a NMR conformational ensemble dataset.
+        Non-bonded amino acid interactions are solely assigned depending on the
         spatial pair distance, ignorant towards interacting amino acid species. 
         Spatial distances are divided into 27 bins.
         Bonded interactions are evaluated with  46.83 R*T/(Ang**2), 
@@ -329,7 +400,7 @@ class TypeSpecificForceField(ForceField):
 
         Returns
         -------
-        # TODO Instance of object?
+        # TODO
         TypeSpecificForcefield : Instance
             Instance of TypeSpecificForcefield object tailored to the 
             sdENM forcefield
@@ -348,9 +419,11 @@ class TypeSpecificForceField(ForceField):
     @staticmethod
     def sd_enm(atoms):
         """
-        For this forcefield, non-bonded interactions between amino acids
-        are evaluated according to the interacting species pair and the spatial
-        distance between them.
+        The sdENM forcefield by Dehouck and Mikhailov was parametrized
+        by statisctical analysis of a NMR conformational ensemble dataset.
+        Effective harmonic potentials for non-bonded interactions between
+        amino acid pairs are evaluated according to interacting amino acid
+        species as well as the spatial distance between them.
         Spatial distances are divided into 27 bins, with amino acid specific
         interaction tables for each distance bin.
         Bonded interactions are evaluated with  43.52 R*T/(Ang**2), 
@@ -367,7 +440,7 @@ class TypeSpecificForceField(ForceField):
 
         Returns
         -------
-        # TODO Instance of object?
+        # TODO
         TypeSpecificForcefield : Instance
             Instance of TypeSpecificForcefield object tailored to the 
             sdENM forcefield
@@ -386,12 +459,13 @@ class TypeSpecificForceField(ForceField):
     @staticmethod
     def e_anm(atoms):
         """
-        This forcefield discriminates between non-bonded interactions
-        of amino acids within a single polypeptide chain (intrachain) and 
-        those present in different chains (interchain) in residue-specific
-        manner:
+        The "extended ANM" (eANM) method discriminates between non-bonded 
+        interactions of amino acids within a single polypeptide chain 
+        (intrachain) and those present in different chains (interchain) 
+        in a residue-specific manner:
         the former are described by Miyazawa-Jernigan parameters, the latter
-        by Keskin parameters.
+        by Keskin parameters, which are both derived by mean-force statistical
+        analysis of protein structures resolved by X-ray crystallography.
         Bonded interactions are evaluated with  83.333 R*T/(Ang**2).
 
         Parameters
@@ -404,7 +478,7 @@ class TypeSpecificForceField(ForceField):
 
         Returns
         -------
-        # TODO Instance of object?
+        # TODO
         TypeSpecificForcefield : Instance
             Instance of TypeSpecificForcefield object tailored to the 
             eANM method
