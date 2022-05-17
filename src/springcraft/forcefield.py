@@ -251,7 +251,7 @@ class TypeSpecificForceField(ForceField):
     
     @property
     def distance_specific_function(self):
-        return self._distance_specific_function
+        return self._distfunc
 
     @staticmethod
     # TODO @ Patrick -> Provisorisch: Hinsen FF mit Lambda-Funktion
