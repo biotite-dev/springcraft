@@ -144,10 +144,34 @@ def _prepare_values_for_interaction_matrix(coord, force_field, cutoff_distance,
             f"but forcefield was built for {force_field.natoms} atoms"
         )
     
+    # Get contact_modifiers
+    if force_field.contact_modifiers is not None:
+        # (n,)
+        shut_down_mask = force_field.contact_modifiers[0]
+        # (n, n)
+        switch_off_mask = force_field.contact_modifiers[1]
+        # (n, n)
+        switch_on_mask = force_field.contact_modifiers[1]
+
     # Find interacting atoms within cutoff distance
     if use_cell_list:
-        cell_list = struc.CellList(coord, cutoff_distance)
+        # Exclude atoms according to shut_down_mask 
+        # -> undirected contact shutdown
+        cell_list = struc.CellList(coord, cutoff_distance, \
+                                   selection=shut_down_mask)
+
         adj_matrix = cell_list.create_adjacency_matrix(cutoff_distance)
+        if force_field.contact_modifiers is not None:
+            # Exchange True in adj_matrix with False in modify_mask
+            #  -> directed contact switch-off
+            if switch_off_mask is not None:
+                adj_matrix = np.where(switch_off_mask == True, adj_matrix, 
+                                      switch_off_mask)
+            if switch_on_mask is not None:
+                # Exchange False in adj_matrix with True in modify_mask
+                adj_matrix = np.where(switch_on_mask == False, adj_matrix, 
+                                      switch_on_mask)
+
         atom_i, atom_j = np.where(adj_matrix)
     else:
         # Brute force: Calculate all pairwise squared distances
