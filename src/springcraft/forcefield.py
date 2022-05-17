@@ -63,7 +63,6 @@ class ForceField(metaclass=abc.ABCMeta):
     def natoms(self):
         return None
 
-
 class InvariantForceField(ForceField):
     """
     This force field treats every interaction with the same force
@@ -526,10 +525,51 @@ class TypeSpecificForceField(ForceField):
         inter = _load_matrix(f"{inter_key}.csv")
         
         if nonbonded_mean:
-            intra = np.average(intra)
-            inter = np.average(inter)
+            intra = np.average(intra) * np.ones(shape=(20, 20))
+            inter = np.average(inter) * np.ones(shape=(20, 20))
 
         return TypeSpecificForceField(atoms, 82, intra, inter)
+    
+    # TODO
+    @staticmethod
+    def pf_enm(atoms):
+        """
+        The "parameter free ANM" (pfENM) method is an extension of the original
+        implementation of the original ANM forcefield with homogenous
+        parametrization from the Bahar lab.
+        Unlike in other ANMs, neither distance cut-offs nor distance-dependent
+        spring constants are used.
+        Instead, the residue-pair superelement of the Hessian matrix is weighted 
+        by the inverse of the squared distance between residue pairs.
+
+        Parameters
+        ----------
+        atoms : AtomArray, shape=(n,)
+            The atoms in the model.
+            Must contain only `CA` atoms and only canonic amino acids.
+            `CA` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded
+       
+        Returns
+        -------
+        # TODO
+        TypeSpecificForcefield : Instance
+            Instance of TypeSpecificForcefield object tailored to the 
+            eANM method
+        
+        References
+        ----------
+        .. [1] L Yanga, G Songa, and R L Jernigan,
+           "Protein elastic network models and the ranges of cooperativity."
+           PNAS.  106, 30, 12347-12352 (2009).
+        """
+        # Dummy input
+        fc = np.ones(shape=(20, 20))
+
+        # r**2 -> r**(-2)
+        distance_specific_function = lambda r:(r)**(-1)
+        return TypeSpecificForceField(atoms, fc, fc, fc, distance_edges=None,
+                        distance_specific_function=distance_specific_function)
 
 def _convert_to_matrix(value, n_bins):
     """
