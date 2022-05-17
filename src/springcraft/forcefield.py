@@ -120,14 +120,7 @@ class TypeSpecificForceField(ForceField):
     distance_edges : ndarray, shape=(k-1,), dtype=float, optional
         If set, interactions are handled based on the distance of the
         two atoms.
-    distance_specific_function : anonymous function, optional
-        If specified, spring constants are modified as a function of the squared
-        distance between atoms. This replaces potentially invoked nonbonded
-        AS-AS interactions as specified by AS interaction matrices.
-    contact_shutdown : int, array-like (elements -> int), optional
-        Undirected shutdown of contacts involving the atom with the specified
-        ID. 
-
+    
     Attributes
     ----------
     natoms : int or None
@@ -146,9 +139,7 @@ class TypeSpecificForceField(ForceField):
     #                 Added distance_specific_function attribute and @property
     #                 for now.
     def __init__(self, atoms, bonded, intra_chain, inter_chain,
-                 distance_edges=None, distance_specific_function=None, 
-                 contact_shutdown=None, contact_switchoff=None, 
-                 contact_switchon=None):
+                 distance_edges=None, distance_specific_function=None):
 
         if not isinstance(atoms, struc.AtomArray):
             raise TypeError(
@@ -175,63 +166,7 @@ class TypeSpecificForceField(ForceField):
             self._distfunc = np.vectorize(distance_specific_function)
         else:
             self._distfunc = None
-        
-        # Translate contact_shutdown matrix into boolean array (n, )
-        if contact_shutdown is not None:   
-            # Test, whether input is Array-Like
-            if not isinstance(contact_shutdown, (list, np.ndarray)):
-                contact_shutdown = [contact_shutdown]
-            self._contact_modifiers[0] = np.full((len(atoms)), True)
-            # Iterate over indices
-            for switch in contact_switchoff:
-                self._contact_modifiers[0][switch] = False
-        else:
-            self._contact_modifiers[0] = None
-
-        # Translate contact_switchoff matrix into boolean array (n, n)
-        if contact_switchoff is not None:   
-            # Test, whether input is Array-Like
-            if not isinstance(contact_switchoff, (list, np.ndarray)):
-                contact_switchoff = [contact_switchoff]
-
-            if not all(isinstance(test, tuple) for test in contact_switchoff):
-                raise ValueError(
-                "Expected list or array with tuples."
-                )
             
-            self._contact_modifiers[1] = np.full((len(atoms), len(atoms)), True)
-            # Iterate over indices
-            for switch in contact_switchoff:
-                # For regular and inverted tuple: Set contact modification
-                # matrix to False
-                self._contact_modifiers[1][switch[0]][switch[1]] = False
-                self._contact_modifiers[1][switch[1]][switch[0]] = False
-        else:
-            self._contact_modifiers[1] = None
-
-        # Translate contact_switchoff matrix into boolean array (n, n)
-        if contact_switchon is not None:   
-            # Test, whether input is Array-Like
-            if not isinstance(contact_switchon, (list, np.ndarray)):
-                contact_switchon = [contact_switchon]
-
-            if not all(isinstance(test, tuple) for test in contact_switchon):
-                raise ValueError(
-                "Expected list or array with tuples."
-                )
-            
-            self._contact_modifiers[2] = np.full((len(atoms), len(atoms)),\
-                                                    False
-                                                )
-            # Iterate over indices
-            for switch in contact_switchon:
-                # For regular and inverted tuple: Set contact modification
-                # matrix to True
-                self._contact_modifiers[2][switch[0]][switch[1]] = True
-                self._contact_modifiers[2][switch[1]][switch[0]] = True
-        else:
-            self._contact_modifiers[2] = None
-
         # Always create 3D matrices, even if no bins are given,
         # to generalize the code
         n_bins = 1 if self._edges is None else len(self._edges) + 1
@@ -317,10 +252,6 @@ class TypeSpecificForceField(ForceField):
     @property
     def distance_specific_function(self):
         return self._distfunc
-    
-    @property
-    def contact_modifiers(self):
-        return self._contact_modifiers
 
     @staticmethod
     # TODO @ Patrick -> Provisorisch: Hinsen FF mit Lambda-Funktion
