@@ -88,7 +88,8 @@ class TypeSpecificForceField(ForceField):
         Must contain only `CA` atoms and only canonic amino acids.
         `CA` atoms with the same chain ID and adjacent residue IDs
         are treated as bonded
-    bonded, intra_chain, inter_chain : float or ndarray, shape=(k,) or shape=(20, 20) or shape=(k, 20, 20), dtype=float
+    bonded, intra_chain, inter_chain : float or ndarray, shape=(k,) or 
+        shape=(20, 20) or shape=(k, 20, 20), dtype=float
         The force constants for interactions between each combination of
         amino acid type and for each distance bin.
         The order of amino acids is alphabetically with respect to the
@@ -177,7 +178,7 @@ class TypeSpecificForceField(ForceField):
         # Maps pos-specific indices to type-specific_indices
         matrix_indices = np.array([AA_TO_INDEX[aa] for aa in atoms.res_name])
 
-        # Find peptide bonds; general case
+        # Find peptide bonds
         continuous_res_id = np.diff(atoms.res_id) == 1
         continuous_chain_id = atoms.chain_id[:-1] == atoms.chain_id[1:]
         peptide_bond_i = np.where(continuous_res_id & continuous_chain_id)[0]
@@ -293,18 +294,6 @@ class TypeSpecificForceField(ForceField):
         distance_specific_function = lambda r:(r)**0.5 * 8.6 * 10**2 - 2.39 * 10**3 if r < 4**2 else ((r)**(-0.5 * 6) * 128 * 10**4)
         return TypeSpecificForceField(atoms, fc, fc, fc, distance_edges=None,
                                       distance_specific_function=distance_specific_function)
-
-    # TODO @ Patrick -> Vlt. sollten wir miyazawa und keskin als separate 
-    # staticmethods loeschen?
-    @staticmethod
-    def keskin(atoms):
-        fc = _load_matrix("keskin.csv")
-        return TypeSpecificForceField(atoms, fc, fc, fc)
-    
-    @staticmethod
-    def miyazawa(atoms):
-        fc = _load_matrix("miyazawa.csv")
-        return TypeSpecificForceField(atoms, fc, fc, fc)
     
     @staticmethod
     def s_enm_10(atoms):
@@ -457,7 +446,7 @@ class TypeSpecificForceField(ForceField):
         return TypeSpecificForceField(atoms, 43.52, fc, fc, bin_edges)
     
     @staticmethod
-    def e_anm(atoms):
+    def e_anm(atoms, nonbonded="standard", nonbonded_mean=False):
         """
         The "extended ANM" (eANM) method discriminates between non-bonded 
         interactions of amino acids within a single polypeptide chain 
@@ -466,7 +455,13 @@ class TypeSpecificForceField(ForceField):
         the former are described by Miyazawa-Jernigan parameters, the latter
         by Keskin parameters, which are both derived by mean-force statistical
         analysis of protein structures resolved by X-ray crystallography.
-        Bonded interactions are evaluated with  83.333 R*T/(Ang**2).
+        Bonded interactions are evaluated with  82 R*T/(Ang**2).
+
+        As variants, only Miyazawa-Jernigan- or Keskin- parameters are
+        considered for non-bonded interactions.
+        By averaging over all non-bonded residue-specific parameters,
+        an eANM variant with homogenous parametrization of non-bonded
+        interactions can be derived.  
 
         Parameters
         ----------
@@ -475,6 +470,19 @@ class TypeSpecificForceField(ForceField):
             Must contain only `CA` atoms and only canonic amino acids.
             `CA` atoms with the same chain ID and adjacent residue IDs
             are treated as bonded
+        nonbonded  : String (optional)
+            Keyword to specify the treatment of non-bonded interactions.
+            For "standard", both Miyazawa-Jernigan parameters and Keskin
+            parameters are used for the treatment of non-bonded intra- and
+            intermolecular interactions, respectively.
+            To use either of both parameter sets for both intra- and 
+            interchain non-bonded interactions, use "miyazawa-jernigan" 
+            (abbreviation: "mj") or "keskin" (abbrev.: "k") respectively.
+        nonbonded_mean  :  Booleam  (optional)
+            If True, the average of nonbonded interaction tables is computed
+            and used for nonbonded interactions, which yields an homogenous,
+            amino acid-species ignorant parametrization of non-bonded
+            contacts.
 
         Returns
         -------
@@ -501,10 +509,27 @@ class TypeSpecificForceField(ForceField):
            and inter-molecular inter-residue interactions."
            Protein Science, 7 2578-2586 (1998)
         """
-        intra = _load_matrix("miyazawa.csv")
-        inter = _load_matrix("keskin.csv")
-        return TypeSpecificForceField(atoms, 83.333, intra, inter)
+        if nonbonded == "standard":
+            intra_key = "miyazawa"
+            inter_key = "keskin"
+        elif nonbonded in ["miyazawa-jernigan", "mj"]:
+            intra_key = "miyazawa"
+            inter_key = "miyazawa"
+        elif nonbonded in ["keskin", "k"]:
+            intra_key = "keskin"
+            inter_key = "keskin"
+        else:
+            print(f"Wrong input keyword. Expected 'standard', 'mj' or 'k' as\
+                    input for nonbonded, got '{nonbonded}' instead.")
 
+        intra = _load_matrix(f"{intra_key}.csv")
+        inter = _load_matrix(f"{inter_key}.csv")
+        
+        if nonbonded_mean:
+            intra = np.average(intra)
+            inter = np.average(inter)
+
+        return TypeSpecificForceField(atoms, 82, intra, inter)
 
 def _convert_to_matrix(value, n_bins):
     """

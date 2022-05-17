@@ -2,7 +2,7 @@
 # Reference: Keskin, O., Bahar, I., Jernigan, R.L., Badretdinov, A.Y. and Ptitsyn, O.B. (1998), Protein Science, 7: 2578-2586
 #	          Hamacher K, McCammon J A. (2006) J Chem. Theory Comput.  2, 3, 873–878
 # Shape: 20x20
-# Note:  Bonded interactions are described with a larger value of the spring constant (eANMs: gamma = 83.333)
+# Note:  Bonded interactions are described with a larger value of the spring constant (eANMs: gamma = 82)
 # AS-Order: "ALA", "CYS", "ASP", "GLU", "PHE", "GLY", "HIS", "ILE", "LYS", "LEU", "MET", 
 #                   "ASN", "PRO", "GLN", "ARG", "SER", "THR", "VAL", "TRP", "TYR"
 3.510,3.990,2.740,2.690,4.430,2.240,3.290,4.450,1.910,5.020,4.420,2.060,1.780,3.650,3.260,2.490,2.380,3.860,4.660,3.960

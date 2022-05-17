@@ -2,7 +2,7 @@
 # Reference: Miyazawa S, Jernigan RL.  (1996), J Mol Biol., 256(3):623-44.
 #	          Hamacher K, McCammon J A. (2006) J Chem. Theory Comput.  2, 3, 873–878
 # Shape: 20x20
-# Note:  Bonded interactions are described with a larger value of the spring constant (eANMs: gamma = 83.333)
+# Note:  Bonded interactions are described with a larger value of the spring constant (eANMs: gamma = 82)
 # AS-Order: "ALA", "CYS", "ASP", "GLU", "PHE", "GLY", "HIS", "ILE", "LYS", "LEU", "MET", 
 #                   "ASN", "PRO", "GLN", "ARG", "SER", "THR", "VAL", "TRP", "TYR"
 2.720,3.570,1.700,1.510,4.810,2.310,2.410,4.580,1.310,4.910,3.940,1.840,2.030,1.890,1.830,2.010,2.320,4.040,3.820,3.360
