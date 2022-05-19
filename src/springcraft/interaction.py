@@ -11,7 +11,9 @@ import numpy as np
 import biotite.structure as struc
 
 
-def compute_kirchhoff(coord, force_field, cutoff_distance, use_cell_list=True):
+def compute_kirchhoff(coord, force_field, cutoff_distance, use_cell_list=True,
+                      contact_shutdown=None, contact_pair_off=None, 
+                      contact_pair_on=None):
     """
     Compute the *Kirchhoff* matrix for atoms with given coordinates and
     the chosen force field.
@@ -37,7 +39,8 @@ def compute_kirchhoff(coord, force_field, cutoff_distance, use_cell_list=True):
         The computed *Kirchhoff* matrix.
     """
     pairs, _, sq_dist = _prepare_values_for_interaction_matrix(
-        coord, force_field, cutoff_distance, use_cell_list
+        coord, force_field, cutoff_distance, use_cell_list, contact_shutdown, 
+        contact_pair_off, contact_pair_on
     )
 
     kirchhoff = np.zeros((len(coord), len(coord)))
@@ -51,7 +54,9 @@ def compute_kirchhoff(coord, force_field, cutoff_distance, use_cell_list=True):
     return kirchhoff, pairs
 
 
-def compute_hessian(coord, force_field, cutoff_distance, use_cell_list=True):
+def compute_hessian(coord, force_field, cutoff_distance, use_cell_list=True,
+                    contact_shutdown=None, contact_pair_off=None,
+                    contact_pair_on=None):
     """
     Compute the *Hessian* matrix for atoms with given coordinates and
     the chosen force field.
@@ -70,7 +75,18 @@ def compute_hessian(coord, force_field, cutoff_distance, use_cell_list=True):
         distance instead of a brute-force approach.
         This significantly increases the performance for large number of
         atoms, but is slower for very small systems.
-    
+    contact_shutdown : int, array-like (elements -> int; shape=(n,)), optional
+        Undirected shutdown of contacts involving the atom with the specified
+        ID. 
+    contact_pair_off : tuple (elements -> int; shape=(2,)), array-like
+                       (elements -> tuple [elements -> int; shape=(2,)]; 
+                       shape=(n,))
+        Contacts between individual atom pairs are switched off.
+    contact_pair_on  : tuple (elements -> int; shape=(2,)), array-like
+                       (elements -> tuple [elements -> int; shape=(2,)]; 
+                       shape=(n,))
+        Contacts between individual atom pairs are established.
+
     Returns
     -------
     hessian : ndarray, shape=(n*3,n*3), dtype=float
@@ -78,8 +94,10 @@ def compute_hessian(coord, force_field, cutoff_distance, use_cell_list=True):
         Each dimension is partitioned in the form
         ``[x1, y1, z1, ... xn, yn, zn]``.
     """
+
     pairs, disp, sq_dist = _prepare_values_for_interaction_matrix(
-        coord, force_field, cutoff_distance, use_cell_list
+        coord, force_field, cutoff_distance, use_cell_list, contact_shutdown, 
+        contact_pair_off, contact_pair_on
     )
 
     # Hessian matrix has 3x3 matrices as superelements
@@ -101,10 +119,12 @@ def compute_hessian(coord, force_field, cutoff_distance, use_cell_list=True):
               .reshape(len(coord)*3, len(coord)*3)
 
     return hessian, pairs
-
-
+    
 def _prepare_values_for_interaction_matrix(coord, force_field, cutoff_distance,
-                                           use_cell_list=True):
+                                           use_cell_list=True,
+                                           contact_shutdown=None, 
+                                           contact_pair_off=None, 
+                                           contact_pair_on=None):
     """
     Check input values and calculate common intermediate values for
     :func:`compute_kirchhoff()` and :func:`compute_hessian()`.
@@ -123,7 +143,18 @@ def _prepare_values_for_interaction_matrix(coord, force_field, cutoff_distance,
         distance instead of a brute-force approach.
         This significantly increases the performance for large number of
         atoms, but is slower for very small systems.
-    
+        contact_shutdown : int, array-like (elements -> int; shape=(n,)), optional
+        Undirected shutdown of contacts involving the atom with the specified
+        ID. 
+    contact_pair_off : tuple (elements -> int; shape=(2,)), array-like
+                       (elements -> tuple [elements -> int; shape=(2,)]; 
+                       shape=(n,))
+        Contacts between individual atom pairs are switched off.
+    contact_pair_on  : tuple (elements -> int; shape=(2,)), array-like
+                       (elements -> tuple [elements -> int; shape=(2,)]; 
+                       shape=(n,))
+        Contacts between individual atom pairs are established.
+
     Returns
     -------
     pairs : ndarray, shape=(k,2), dtype=int
@@ -143,19 +174,101 @@ def _prepare_values_for_interaction_matrix(coord, force_field, cutoff_distance,
             f"Got coordinates for {len(coord)} atoms, "
             f"but forcefield was built for {force_field.natoms} atoms"
         )
-    
+        
+    # Modification of adjacency matrix with switch on/off matrices
+    # Translate contact_pair_off array into boolean array (n, n)
+    if contact_pair_off is not None:   
+        # Test, whether input is Array-Like
+        if not isinstance(contact_pair_off, (list, np.ndarray)):
+            contact_pair_off = [contact_pair_off]
+        if not all(isinstance(test, tuple) for test in contact_pair_off):
+            raise ValueError(
+            "Expected list or array with tuples."
+            )
+        
+        switchoff_matrix = np.full((len(coord), len(coord)), True)
+        # Iterate over indices
+        for switch in contact_pair_off:
+            # For regular and inverted tuple: Set contact modification
+            # matrix to False
+            switchoff_matrix[switch[0]][switch[1]] = False
+            switchoff_matrix[switch[1]][switch[0]] = False
+
+    # Translate contact_pair_on array into boolean array (n, n)
+    if contact_pair_on is not None:   
+        # Test, whether input is Array-Like
+        if not isinstance(contact_pair_on, (list, np.ndarray)):
+            contact_pair_on = [contact_pair_on]
+        if not all(isinstance(test, tuple) for test in contact_pair_on):
+            raise ValueError(
+            "Expected list or array with tuples."
+            )
+
+        switchon_matrix = np.full((len(coord), len(coord)),\
+                                   False
+                                    )
+        # Iterate over indices
+        for switch in contact_pair_on:
+            # For regular and inverted tuple: Set contact modification
+            # matrix to True
+            switchon_matrix[switch[0]][switch[1]] = True
+            switchon_matrix[switch[1]][switch[0]] = True
+
     # Find interacting atoms within cutoff distance
     if use_cell_list:
-        cell_list = struc.CellList(coord, cutoff_distance)
+        # Contact switch-off
+        # Translate contact_shutdown list into boolean array (n, )
+        if contact_shutdown is not None:   
+            # Test, whether input is Array-Like
+            if not isinstance(contact_shutdown, (list, np.ndarray)):
+                contact_shutdown = [contact_shutdown]
+            shutdown_array = np.full((len(coord)), True)
+            # Iterate over indices
+            for shutdown_atom in contact_shutdown:
+                shutdown_array[shutdown_atom] = False
+        else:
+            shutdown_array = None
+
+        # Cell list with shutdown_array
+        cell_list = struc.CellList(coord, cutoff_distance, 
+                                   selection=shutdown_array
+                                   )
+
         adj_matrix = cell_list.create_adjacency_matrix(cutoff_distance)
+
+        if contact_pair_off is not None:
+            
+            # Transfer False entries from switchoff_matrix to adj_matrix
+            adj_matrix = np.where(switchoff_matrix == False, switchoff_matrix,
+                                  adj_matrix)
+
+        if contact_pair_on is not None:   
+            
+            # Transfer True entries from switchon_matrix to adj_matrix
+            adj_matrix = np.where(switchon_matrix == True, switchon_matrix,
+                                  adj_matrix)
+
         atom_i, atom_j = np.where(adj_matrix)
     else:
+        if contact_shutdown is not None:
+            coord = np.delete(coord)
         # Brute force: Calculate all pairwise squared distances
         disp_matrix = struc.displacement(
             coord[np.newaxis, :, :], coord[:, np.newaxis, :]
         )
         sq_dist_matrix = np.sum(disp_matrix * disp_matrix, axis=-1)
-        atom_i, atom_j = np.where(sq_dist_matrix <= cutoff_distance**2)
+        brute_adj_matrix = (sq_dist_matrix <= cutoff_distance**2)
+
+        if contact_pair_off is not None:
+            brute_adj_matrix = np.where(contact_pair_off == False, 
+                                        contact_pair_off,
+                                        brute_adj_matrix)
+        if contact_pair_on is not None:
+            brute_adj_matrix = np.where(contact_pair_on == True, 
+                                        contact_pair_on,
+                                        brute_adj_matrix)
+
+        atom_i, atom_j = np.where(brute_adj_matrix)
     pairs = np.array((atom_i, atom_j)).T
     
     # Remove interactions of atoms with itself
