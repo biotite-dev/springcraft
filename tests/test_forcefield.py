@@ -216,7 +216,7 @@ def test_type_specific_forcefield_input_shapes(atoms, shape, n_edges, is_valid):
 
 @pytest.mark.parametrize(
     "name",
-    ["keskin", "miyazawa", "s_enm_10", "s_enm_13", "d_enm", "sd_enm", "e_anm"]
+    ["hinsen_calpha", "s_enm_10", "s_enm_13", "d_enm", "sd_enm", "e_anm", "pf_enm"]
 )
 def test_type_specific_forcefield_predefined(atoms, name):
     """
