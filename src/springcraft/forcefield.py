@@ -75,6 +75,10 @@ class InvariantForceField(ForceField):
     @property
     def ff_type_cutoff(self):
         return None
+    
+    @property
+    def ff_rmin(self):
+        return None
 
 class TypeSpecificForceField(ForceField):
     """
@@ -122,9 +126,25 @@ class TypeSpecificForceField(ForceField):
               acid types.
 
     distance_edges : ndarray, shape=(k-1,), dtype=float, optional
-        If set, interactions are handled based on the distance of the
-        two atoms.
-    
+        Number of distance bins used in combination with tabulated distance-dependent
+        spring-constants.
+
+    distance_specific_function : anonymous function, optional
+        If set, interactions are directly computed using a distance dependent function.
+        Differentiations between bonded/non-bonded interactions can be implemented by
+        using in-line conditionals using distance thresholds.
+        Functional expressions are prioritized over table-derived spring constants.
+
+    ff_type_cutoff : int, float, optional -> internal use only
+        Forcefield specific cut-offs for preset forcefields.
+        These variable is discarded, if a value is assigned to cutoff_distance in compute_kirchhoff
+        or compute_hessian.
+
+    ff_type_rmin : int, float, optional
+        Lower distance threshold; this value overwrites all values below the threshold.
+        In the main use case, this is combined with distance_specific_functions to correct
+        computational artefacts for low calpha-distances.
+
     Attributes
     ----------
     natoms : int or None
@@ -136,15 +156,10 @@ class TypeSpecificForceField(ForceField):
         This is not a copy, modifications on this array affect the force
         field.
     """
-    # TODO: @Patrick: Wir brauchen für das Hinsen-FF die Möglichkeit, fc, bonded
-    #                 und die Regeln für die Non-Bonded/Bonded-Einteilung als
-    #                 Funktion/Regel vorzugeben.
-    #                 Besser als separate ForceField objects?
-    #                 Added distance_specific_function attribute and @property
-    #                 for now.
+
     def __init__(self, atoms, bonded, intra_chain, inter_chain,
                  distance_edges=None, distance_specific_function=None, 
-                 ff_type_cutoff=None):
+                 ff_type_cutoff=None, ff_type_rmin=None):
 
         if not isinstance(atoms, struc.AtomArray):
             raise TypeError(
@@ -165,16 +180,21 @@ class TypeSpecificForceField(ForceField):
                 )
         else:
             self._edges = None
-        
-        if ff_type_cutoff is not None:
-            self._ff_type_cutoff = ff_type_cutoff
-        else:
-            self._ff_type_cutoff = ff_type_cutoff
 
         if distance_specific_function is not None:
             self._distfunc = np.vectorize(distance_specific_function)
         else:
             self._distfunc = None
+        
+        if ff_type_cutoff is not None:
+            self._ff_type_cutoff = ff_type_cutoff
+        else:
+            self._ff_type_cutoff = ff_type_cutoff
+        
+        if ff_type_rmin is not None:
+            self._ff_rmin = ff_type_rmin
+        else:
+            self._ff_rmin = None
             
         # Always create 3D matrices, even if no bins are given,
         # to generalize the code
@@ -243,8 +263,7 @@ class TypeSpecificForceField(ForceField):
         # Distance dependence: Use sq_distance to compute force constants
         # directly.
         elif self._distfunc is not None:
-            sq_distance_array = np.array(sq_distance)
-            dist_force_constant = self._distfunc(sq_distance_array)
+            dist_force_constant = self._distfunc(sq_distance)
             return dist_force_constant
         else:
             bin_indices = np.searchsorted(self._edges, sq_distance)
@@ -265,9 +284,12 @@ class TypeSpecificForceField(ForceField):
     @property
     def ff_type_cutoff(self):
         return self._ff_type_cutoff
+    
+    @property
+    def ff_rmin(self):
+        return self._ff_rmin
 
     @staticmethod
-    # TODO @ Patrick -> Provisorisch: Hinsen FF mit Lambda-Funktion
     def hinsen_calpha(atoms):
         """
         The Hinsen-Forcefield was parametrized using the Amber94 forcefield
@@ -277,6 +299,8 @@ class TypeSpecificForceField(ForceField):
         mid-/far-range pair interactions (r >= 4 Ang).
         Force constants for these interactions are computed with two distinct
         formulas. 
+        2.9 Ang is the lowest accepted calpha-calpha distance; values below that threshold
+        are set to 2.9 Ang.
 
         Parameters
         ----------
@@ -303,9 +327,10 @@ class TypeSpecificForceField(ForceField):
         fc = np.ones(shape=(20, 20))
         # Lambda-Function: r < 4 Ang -> Bonded; r >= 4 Ang -> Non-Bonded
         # Convert sq_dist to dist beforehand
-        distance_specific_function = lambda r:(r)**0.5 * 8.6 * 10**2 - 2.39 * 10**3 if r < 4**2 else ((r)**(-0.5 * 6) * 128 * 10**4)
+        distance_specific_function = lambda r:(r)**0.5 * 8.6 * 10**2 - 2.39 * 10**3 if (r**0.5 < 4.0) else ((r)**(-0.5 * 6) * 128 * 10**4)
         return TypeSpecificForceField(atoms, fc, fc, fc, distance_edges=None,
-                                      distance_specific_function=distance_specific_function)
+                                      distance_specific_function=distance_specific_function,
+                                      ff_type_rmin = 2.9)
     
     @staticmethod
     def s_enm_10(atoms):
@@ -454,8 +479,10 @@ class TypeSpecificForceField(ForceField):
            PLOS Computational Biology 9(8): e1003209 (2013). 
         """
         fc = _load_matrix("sd_enm.csv").reshape(-1, 20, 20).T
+        # TODO According to bio3d: sdENM in AU -> * R * T to scale to kJ/(mol*A**2) -> verify; seems dubious.
+        #fc = fc*0.0083144621*300*10
         bin_edges = _load_matrix("d_enm_edges.csv")
-        return TypeSpecificForceField(atoms, 43.52, fc, fc, bin_edges, ff_type_cutoff = 16.01)
+        return TypeSpecificForceField(atoms, 43.52, fc, fc, bin_edges)
     
     @staticmethod
     def e_anm(atoms, nonbonded="standard", nonbonded_mean=False):
@@ -543,7 +570,6 @@ class TypeSpecificForceField(ForceField):
 
         return TypeSpecificForceField(atoms, 82, intra, inter, ff_type_cutoff = 13)
     
-    # TODO
     @staticmethod
     def pf_enm(atoms):
         """
