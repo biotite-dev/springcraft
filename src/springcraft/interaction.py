@@ -11,7 +11,7 @@ import numpy as np
 import biotite.structure as struc
 
 
-def compute_kirchhoff(coord, force_field, cutoff_distance, use_cell_list=True,
+def compute_kirchhoff(coord, force_field, cutoff_distance=None, use_cell_list=True,
                       contact_shutdown=None, contact_pair_off=None, 
                       contact_pair_on=None):
     """
@@ -53,8 +53,10 @@ def compute_kirchhoff(coord, force_field, cutoff_distance, use_cell_list=True,
     
     return kirchhoff, pairs
 
-
-def compute_hessian(coord, force_field, cutoff_distance, use_cell_list=True,
+# TODO
+# Messy solution for now: for cutoff_distance == None -> interaction between all atoms
+# Better solution: Static FF classes should dictate cutoffs
+def compute_hessian(coord, force_field, cutoff_distance=None, use_cell_list=True,
                     contact_shutdown=None, contact_pair_off=None,
                     contact_pair_on=None):
     """
@@ -94,6 +96,23 @@ def compute_hessian(coord, force_field, cutoff_distance, use_cell_list=True,
         Each dimension is partitioned in the form
         ``[x1, y1, z1, ... xn, yn, zn]``.
     """
+
+    # Determine cut-off, if not specified in input.
+    ff_specific_cutoff = force_field.ff_type_cutoff
+
+    # Overwrite cut-off with FF-specific value, if input is None
+    if cutoff_distance is None:
+        cutoff_distance = ff_specific_cutoff
+    elif ff_specific_cutoff is not None:
+        if cutoff_distance is None or cutoff_distance != ff_specific_cutoff:
+            print("Warning: Input cutoff and standard-cutoff for the chosen forcefield do not match.")
+            print(f"With {cutoff_distance} Angstrom and {ff_specific_cutoff} Angstrom respectively")
+            print("Standard FF distances will be overwritten.")
+    else:
+        if cutoff_distance is not None or cutoff_distance:
+            print("Warning: Input cutoff and standard-cutoff for the chosen forcefield do not match.")
+            print(f"With {cutoff_distance} Angstrom and {ff_specific_cutoff} Angstrom respectively")
+            print("Standard FF distances will be overwritten.")
 
     pairs, disp, sq_dist = _prepare_values_for_interaction_matrix(
         coord, force_field, cutoff_distance, use_cell_list, contact_shutdown, 
@@ -214,6 +233,10 @@ def _prepare_values_for_interaction_matrix(coord, force_field, cutoff_distance,
             switchon_matrix[switch[0]][switch[1]] = True
             switchon_matrix[switch[1]][switch[0]] = True
 
+    # TODO Messy solution for cutoff_distance 
+    if cutoff_distance is None:
+        cutoff_distance = 10000
+    
     # Find interacting atoms within cutoff distance
     if use_cell_list:
         # Contact switch-off

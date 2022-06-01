@@ -71,6 +71,10 @@ class InvariantForceField(ForceField):
 
     def force_constant(self, atom_i, atom_j, sq_distance):
         return np.ones(len(atom_i))
+    
+    @property
+    def ff_type_cutoff(self):
+        return None
 
 class TypeSpecificForceField(ForceField):
     """
@@ -139,7 +143,8 @@ class TypeSpecificForceField(ForceField):
     #                 Added distance_specific_function attribute and @property
     #                 for now.
     def __init__(self, atoms, bonded, intra_chain, inter_chain,
-                 distance_edges=None, distance_specific_function=None):
+                 distance_edges=None, distance_specific_function=None, 
+                 ff_type_cutoff=None):
 
         if not isinstance(atoms, struc.AtomArray):
             raise TypeError(
@@ -161,6 +166,10 @@ class TypeSpecificForceField(ForceField):
         else:
             self._edges = None
         
+        if ff_type_cutoff is not None:
+            self._ff_type_cutoff = ff_type_cutoff
+        else:
+            self._ff_type_cutoff = ff_type_cutoff
 
         if distance_specific_function is not None:
             self._distfunc = np.vectorize(distance_specific_function)
@@ -252,6 +261,10 @@ class TypeSpecificForceField(ForceField):
     @property
     def distance_specific_function(self):
         return self._distfunc
+
+    @property
+    def ff_type_cutoff(self):
+        return self._ff_type_cutoff
 
     @staticmethod
     # TODO @ Patrick -> Provisorisch: Hinsen FF mit Lambda-Funktion
@@ -402,7 +415,7 @@ class TypeSpecificForceField(ForceField):
         """
         fc = _load_matrix("d_enm.csv")
         bin_edges = _load_matrix("d_enm_edges.csv")
-        return TypeSpecificForceField(atoms, 46.83, fc, fc, bin_edges)
+        return TypeSpecificForceField(atoms, 46.83, fc, fc, bin_edges, ff_type_cutoff = 16.01)
     
     @staticmethod
     def sd_enm(atoms):
@@ -442,7 +455,7 @@ class TypeSpecificForceField(ForceField):
         """
         fc = _load_matrix("sd_enm.csv").reshape(-1, 20, 20).T
         bin_edges = _load_matrix("d_enm_edges.csv")
-        return TypeSpecificForceField(atoms, 43.52, fc, fc, bin_edges)
+        return TypeSpecificForceField(atoms, 43.52, fc, fc, bin_edges, ff_type_cutoff = 16.01)
     
     @staticmethod
     def e_anm(atoms, nonbonded="standard", nonbonded_mean=False):
@@ -528,7 +541,7 @@ class TypeSpecificForceField(ForceField):
             intra = np.average(intra) * np.ones(shape=(20, 20))
             inter = np.average(inter) * np.ones(shape=(20, 20))
 
-        return TypeSpecificForceField(atoms, 82, intra, inter)
+        return TypeSpecificForceField(atoms, 82, intra, inter, ff_type_cutoff = 13)
     
     # TODO
     @staticmethod
