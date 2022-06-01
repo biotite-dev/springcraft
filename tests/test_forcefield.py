@@ -228,15 +228,68 @@ def test_type_specific_forcefield_predefined(atoms, name):
     ff = meth(atoms)
 
 def test_compare_with_biophysconnector(atoms_singlechain):
-    return # TODO: Fix test function
-    bpc = np.loadtxt("./data/interaction_biophysconnector.txt", usecols=range(20))
-    ff = springcraft.TypeSpecificForceField(atoms=atoms_singlechain, bonded=82, intra_chain=3.166, inter_chain=3.166)
-    hessian, pairs = springcraft.compute_hessian(atoms_singlechain.coord, ff, 13.0)
-    interaction = ff.interaction_matrix
-    print(bpc.shape)
-    print(interaction.shape)
-    print(bpc)
-    print(interaction)
-    np.set_printoptions(precision=4)
-    assert np.allclose(bpc, interaction, atol = 0.1)
+    """
+    Comparisons between Hessians computed for eANMs using springcraft
+    and BioPhysConnectoR.
+    Cut-off: 1.3 nm.
+    """
+    # Load model 1 from 1l2y.mmtf
+    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
+    atoms = mmtf.get_structure(mmtf_file, model=1)
+    ca = atoms[atoms.atom_name == "CA"]
+
+    ff = springcraft.TypeSpecificForceField.e_anm(atoms=ca)
+    # Load static class: eANM
+    test_hess, _ = springcraft.compute_hessian(ca.coord, ff, 13.0)
     
+    # Load .csv file data from BiophysConnectoR
+    ref_hess = np.genfromtxt("./data/hessian_eANM_BioPhysConnectoR.csv", skip_header=1, delimiter=",")
+    
+    assert np.allclose(test_hess, ref_hess)
+
+#def test_compare_with_bio3d(atoms_singlechain):
+#    """
+#    Comparisons between Hessians computed for ANMS using springcraft
+#    and Bio3D.
+#    The following ENM forcefields are compared:
+#    Hinsen-Calpha, sdENM and pfENM.
+#    Cut-off: 1.3 nm.
+#    """
+#    # Load model 1 from 1l2y.mmtf
+#    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
+#    atoms = mmtf.get_structure(mmtf_file, model=1)
+#    ca = atoms[atoms.atom_name == "CA"]
+#
+#    
+#    hinsen = springcraft.TypeSpecificForceField.hinsen_calpha(atoms=ca)
+#    sd = springcraft.TypeSpecificForceField.sd_enm(atoms=ca)
+#    pf = springcraft.TypeSpecificForceField.pf_enm(ca)
+#
+#    test_hess = []
+#
+#    test_hess.append(springcraft.compute_hessian(ca.coord, ff, 13.0) for ff in [hinsen, sd, pf])
+#    
+#    for ff in [hinsen, sd, pf]:
+#        # Load static class: eANM
+#        test_hess, _ = springcraft.compute_hessian(ca.coord, ff, 13.0)
+#
+#        # Load .csv file data from BiophysConnectoR
+#        ref_hess = np.genfromtxt("./data/hessian_eANM_BioPhysConnectoR.csv", skip_header=1, delimiter=",")
+#    
+#    assert np.allclose(test_hess, ref_hess)
+
+#def test_cov_noncov():
+#    # TODO Comment from Patrick:
+#    # TODO I think this test function is better organized into the
+#    # TODO existing 'test_forcefield.py'
+#    return # TODO: Fix test function
+#    mmtf_file = mmtf.MMTFFile.read("./data/1l2y.mmtf")    
+#    atoms = mmtf.get_structure(mmtf_file, model=1)
+#    ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
+#
+#    ff = springcraft.TypeSpecificForceField(ca)
+#    test_hessian, pairs = springcraft.compute_hessian(ca.coord, ff, 13.0)
+#
+#    biophysconnector_hessian = np.loadtxt("./data/hesse_1l2y_biophysconnector.txt", usecols=range(60))
+#
+#    assert test_hessian.flatten().tolist() == pytest.approx(biophysconnector_hessian.flatten().tolist())
