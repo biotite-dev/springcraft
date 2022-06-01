@@ -3,10 +3,7 @@ library(BioPhysConnectoR)
 # Get Hessian for eANM with biophysconnectoR for test purposes
 # 1L2Y as test peptide/protein
 
-wd <- getwd()
-print(wd)
-
-pdb <- extractPDB("./data/1l2y.pdb")
+pdb <- extractPDB("1l2y.pdb")
 
 contacts <- build.contacts(length(pdb$caseq), 13^2, pdb$coords)
 
