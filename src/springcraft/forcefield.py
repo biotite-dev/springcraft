@@ -63,7 +63,7 @@ class ForceField(metaclass=abc.ABCMeta):
         
         Notes
         -----
-        Implementations of this method does not need
+        Implementations of this method do not need
         to check whether two atoms are within the cutoff distance of the
         :class:`ForceField`:
         The given pairs of atoms are limited to pairs within cutoff
@@ -107,6 +107,65 @@ class InvariantForceField(ForceField):
     @property
     def cutoff_distance(self):
         return self._cutoff_distance
+    
+
+class HinsenForceField(ForceField):
+    """
+    The Hinsen force field was parametrized using the *Amber94* force
+    field for a local energy minimum, with crambin as template. 
+    In a strict distance-dependent manner, contacts are subdivided
+    into nearest-neighbour pairs along the backbone (r < 4 Å) and 
+    mid-/far-range pair interactions (r >= 4 Å).
+    Force constants for these interactions are computed with two
+    distinct formulas. 
+    2.9 Å is the lowest accepted distance between ``CA`` atoms.
+    Values below that threshold are set to 2.9 Å.
+
+    Parameters
+    ----------
+    atoms : AtomArray, shape=(n,)
+        The atoms in the model.
+    
+    References
+    ----------
+    .. [1] K Hinsen et al.,
+        "Harmonicity in small proteins." 
+        Chemical Physics 261(1-2): 25-37 (2000). 
+    """
+    def force_constant(self, atom_i, atom_j, sq_distance):
+        distance = np.sqrt(sq_distance)
+        distance = np.clip(distance, a_min=2.9)
+        return np.where(
+            distance < 4.0,
+            distance * 8.6e2 - 2.39e3,
+            distance**6 * 128e4
+        )
+    
+
+class ParameterFreeForceField(ForceField):
+    """
+    The "parameter free ANM" (pfENM) method is an extension of the
+    original implementation of the original ANM forcefield with
+    homogenous parametrization from the Bahar lab.
+    Unlike in other ANMs, neither distance cutoffs nor
+    distance-dependent spring constants are used.
+    Instead, the residue-pair superelement of the Hessian matrix is
+    weighted by the inverse of the squared distance between residue
+    pairs.
+
+    Parameters
+    ----------
+    atoms : AtomArray, shape=(n,)
+        The atoms in the model.
+    
+    References
+    ----------
+    .. [1] L Yanga, G Songa, and R L Jernigan,
+        "Protein elastic network models and the ranges of cooperativity."
+        PNAS.  106, 30, 12347-12352 (2009).
+    """
+    def force_constant(self, atom_i, atom_j, sq_distance):
+        return 1 / sq_distance
 
 class TabulatedForceField(ForceField):
     """
@@ -121,9 +180,9 @@ class TabulatedForceField(ForceField):
     ----------
     atoms : AtomArray, shape=(n,)
         The atoms in the model.
-        Must contain only `CA` atoms and only canonic amino acids.
-        `CA` atoms with the same chain ID and adjacent residue IDs
-        are treated as bonded
+        Must contain only ``CA`` atoms and only canonic amino acids.
+        ``CA`` atoms with the same chain ID and adjacent residue IDs
+        are treated as bonded.
     bonded, intra_chain, inter_chain : float or ndarray, shape=(k,) or 
         shape=(20, 20) or shape=(k, 20, 20), dtype=float
         The force constants for interactions between each combination of
@@ -284,11 +343,7 @@ class TabulatedForceField(ForceField):
         if len(self._edges) == 1 and self._distfunc is None:
             # Only a single distance bin -> No distance dependency
             return self._interaction_matrix[atom_i, atom_j, 0]
-        # Distance dependence: Use sq_distance to compute force constants
-        # directly.
-        elif self._distfunc is not None:
-            dist_force_constant = self._distfunc(sq_distance)
-            return dist_force_constant
+        # Distance dependence
         else:
             bin_indices = np.searchsorted(self._edges, sq_distance)
             try:
@@ -313,58 +368,7 @@ class TabulatedForceField(ForceField):
     @property
     def interaction_matrix(self):
         return self._interaction_matrix
-    
-    @property
-    def distance_specific_function(self):
-        return self._distfunc
-    
-    @property
-    def ff_rmin(self):
-        return self._ff_rmin
 
-    @staticmethod
-    def hinsen_calpha(atoms):
-        """
-        The Hinsen-Forcefield was parametrized using the Amber94 forcefield
-        for a local energy minimum, with Crambin as template. 
-        In a strict distance-dependent manner, contacts are subdivided
-        into nearest-neighbour pairs along the backbone (r < 4 Ang) and 
-        mid-/far-range pair interactions (r >= 4 Ang).
-        Force constants for these interactions are computed with two distinct
-        formulas. 
-        2.9 Ang is the lowest accepted calpha-calpha distance; values below that threshold
-        are set to 2.9 Ang.
-
-        Parameters
-        ----------
-        atoms : AtomArray, shape=(n,)
-            The atoms in the model.
-            Must contain only `CA` atoms and only canonic amino acids.
-            `CA` atoms with the same chain ID and adjacent residue IDs
-            are treated as bonded
-
-        Returns
-        -------
-        force_field : TabulatedForceField
-            Instance of TabulatedForceField object tailored to the 
-            sdENM forcefield
-        
-        References
-        ----------
-        .. [1] K Hinsen et al.,
-           "Harmonicity in small proteins." 
-           Chemical Physics 261(1-2): 25-37 (2000). 
-        """
-        # Create dummy matrices as input.
-        fc = np.ones(shape=(20, 20))
-        # Lambda-Function: r < 4 Ang -> Bonded; r >= 4 Ang -> Non-Bonded
-        # Convert sq_dist to dist beforehand
-        distance_specific_function = lambda r:(r)**0.5 * 8.6 * 10**2 - 2.39 * 10**3 if (r**0.5 < 4.0) else ((r)**(-0.5 * 6) * 128 * 10**4)
-        return TabulatedForceField(
-            atoms, fc, fc, fc, 10000,
-            distance_specific_function=distance_specific_function,
-            ff_type_rmin = 2.9
-        )
     
     @staticmethod
     def s_enm_10(atoms):
@@ -381,15 +385,14 @@ class TabulatedForceField(ForceField):
         ----------
         atoms : AtomArray, shape=(n,)
             The atoms in the model.
-            Must contain only `CA` atoms and only canonic amino acids.
-            `CA` atoms with the same chain ID and adjacent residue IDs
+            Must contain only ``CA`` atoms and only canonic amino acids.
+            ``CA`` atoms with the same chain ID and adjacent residue IDs
             are treated as bonded
 
         Returns
         -------
         force_field : TabulatedForceField
-            Instance of TabulatedForceField object tailored to the 
-            sdENM forcefield
+            Force field tailored to the sENM10 parameter set.
         
         References
         ----------
@@ -416,15 +419,14 @@ class TabulatedForceField(ForceField):
         ----------
         atoms : AtomArray, shape=(n,)
             The atoms in the model.
-            Must contain only `CA` atoms and only canonic amino acids.
-            `CA` atoms with the same chain ID and adjacent residue IDs
-            are treated as bonded
+            Must contain only ``CA`` atoms and only canonic amino acids.
+            ``CA`` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded.
 
         Returns
         -------
         force_field : TabulatedForceField
-            Instance of TabulatedForceField object tailored to the 
-            sdENM forcefield
+            Force field tailored to the sENM13 parameter set.
         
         References
         ----------
@@ -452,15 +454,14 @@ class TabulatedForceField(ForceField):
         ----------
         atoms : AtomArray, shape=(n,)
             The atoms in the model.
-            Must contain only `CA` atoms and only canonic amino acids.
-            `CA` atoms with the same chain ID and adjacent residue IDs
-            are treated as bonded
+            Must contain only ``CA`` atoms and only canonic amino acids.
+            ``CA`` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded.
 
         Returns
         -------
         force_field : TabulatedForceField
-            Instance of TabulatedForceField object tailored to the 
-            sdENM forcefield
+            Force field tailored to the dENM parameter set.
         
         References
         ----------
@@ -491,15 +492,14 @@ class TabulatedForceField(ForceField):
         ----------
         atoms : AtomArray, shape=(n,)
             The atoms in the model.
-            Must contain only `CA` atoms and only canonic amino acids.
-            `CA` atoms with the same chain ID and adjacent residue IDs
-            are treated as bonded
+            Must contain only ``CA`` atoms and only canonic amino acids.
+            ``CA`` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded.
 
         Returns
         -------
         force_field : TabulatedForceField
-            Instance of TabulatedForceField object tailored to the 
-            sdENM forcefield
+            Force field tailored to the sdENM parameter set.
         
         References
         ----------
@@ -537,9 +537,9 @@ class TabulatedForceField(ForceField):
         ----------
         atoms : AtomArray, shape=(n,)
             The atoms in the model.
-            Must contain only `CA` atoms and only canonic amino acids.
-            `CA` atoms with the same chain ID and adjacent residue IDs
-            are treated as bonded
+            Must contain only ``CA`` atoms and only canonic amino acids.
+            ``CA`` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded.
         nonbonded  : String (optional)
             Keyword to specify the treatment of non-bonded interactions.
             For "standard", both Miyazawa-Jernigan parameters and Keskin
@@ -557,8 +557,7 @@ class TabulatedForceField(ForceField):
         Returns
         -------
         force_field : TabulatedForceField
-            Instance of TabulatedForceField object tailored to the 
-            eANM method
+            Force field tailored to the eANM method.
         
         References
         ----------
@@ -599,45 +598,7 @@ class TabulatedForceField(ForceField):
             inter = np.average(inter) * np.ones(shape=(20, 20))
 
         return TabulatedForceField(atoms, 82.0, intra, inter, 13.0)
-    
-    @staticmethod
-    def pf_enm(atoms):
-        """
-        The "parameter free ANM" (pfENM) method is an extension of the original
-        implementation of the original ANM forcefield with homogenous
-        parametrization from the Bahar lab.
-        Unlike in other ANMs, neither distance cut-offs nor distance-dependent
-        spring constants are used.
-        Instead, the residue-pair superelement of the Hessian matrix is weighted 
-        by the inverse of the squared distance between residue pairs.
 
-        Parameters
-        ----------
-        atoms : AtomArray, shape=(n,)
-            The atoms in the model.
-            Must contain only `CA` atoms and only canonic amino acids.
-            `CA` atoms with the same chain ID and adjacent residue IDs
-            are treated as bonded
-       
-        Returns
-        -------
-        force_field : TabulatedForceField
-            Instance of TabulatedForceField object tailored to the 
-            eANM method
-        
-        References
-        ----------
-        .. [1] L Yanga, G Songa, and R L Jernigan,
-           "Protein elastic network models and the ranges of cooperativity."
-           PNAS.  106, 30, 12347-12352 (2009).
-        """
-        # Dummy input
-        fc = np.ones(shape=(20, 20))
-
-        # r**2 -> r**(-2)
-        distance_specific_function = lambda r:(r)**(-1)
-        return TabulatedForceField(atoms, fc, fc, fc, None,
-                        distance_specific_function=distance_specific_function)
 
 def _convert_to_matrix(value, n_bins):
     """
