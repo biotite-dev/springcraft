@@ -5,7 +5,8 @@ i.e. Kirchhoff and Hessian matrices.
 
 __name__ = "springcraft"
 __author__ = "Patrick Kunzmann"
-__all__ = ["ForceField", "InvariantForceField", "TabulatedForceField"]
+__all__ = ["ForceField", "InvariantForceField", "HinsenForceField",
+           "ParameterFreeForceField", "TabulatedForceField"]
 
 import numbers
 import abc
