@@ -14,7 +14,7 @@
   - Tests (e.g. comparison with ProDy) -> Faisal
 - Force fields
   - Docstrings for predefined force fields (static methods) including citations
-    in `TypeSpecificForceField` -> Jan
+    in `TabulatedForceField` -> Jan
   - Test predefined force fields with multi-chain structure and reference interaction matrix from
     ProDy, Bio3d or BioPhysConnector -> Faisal
   - Generalization to more types of molecules

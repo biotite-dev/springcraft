@@ -5,7 +5,7 @@ i.e. Kirchhoff and Hessian matrices.
 
 __name__ = "springcraft"
 __author__ = "Patrick Kunzmann"
-__all__ = ["ForceField", "InvariantForceField", "TypeSpecificForceField"]
+__all__ = ["ForceField", "InvariantForceField", "TabulatedForceField"]
 
 import numbers
 import abc
@@ -80,7 +80,7 @@ class InvariantForceField(ForceField):
     def ff_rmin(self):
         return None
 
-class TypeSpecificForceField(ForceField):
+class TabulatedForceField(ForceField):
     """
     This force field is able to treat interactions differently based
     on interacting amino acids and distances.
@@ -313,8 +313,8 @@ class TypeSpecificForceField(ForceField):
         Returns
         -------
         # TODO
-        TypeSpecificForcefield : Instance
-            Instance of TypeSpecificForcefield object tailored to the 
+        TabulatedForceField : Instance
+            Instance of TabulatedForceField object tailored to the 
             sdENM forcefield
         
         References
@@ -328,7 +328,7 @@ class TypeSpecificForceField(ForceField):
         # Lambda-Function: r < 4 Ang -> Bonded; r >= 4 Ang -> Non-Bonded
         # Convert sq_dist to dist beforehand
         distance_specific_function = lambda r:(r)**0.5 * 8.6 * 10**2 - 2.39 * 10**3 if (r**0.5 < 4.0) else ((r)**(-0.5 * 6) * 128 * 10**4)
-        return TypeSpecificForceField(atoms, fc, fc, fc, distance_edges=None,
+        return TabulatedForceField(atoms, fc, fc, fc, distance_edges=None,
                                       distance_specific_function=distance_specific_function,
                                       ff_type_rmin = 2.9)
     
@@ -354,8 +354,8 @@ class TypeSpecificForceField(ForceField):
         Returns
         -------
         # TODO
-        TypeSpecificForcefield : Instance
-            Instance of TypeSpecificForcefield object tailored to the 
+        TabulatedForceField : Instance
+            Instance of TabulatedForceField object tailored to the 
             sdENM forcefield
         
         References
@@ -366,7 +366,7 @@ class TypeSpecificForceField(ForceField):
            PLOS Computational Biology 9(8): e1003209 (2013). 
         """
         fc = _load_matrix("s_enm_10.csv")
-        return TypeSpecificForceField(atoms, 10, fc, fc)
+        return TabulatedForceField(atoms, 10, fc, fc)
     
     @staticmethod
     def s_enm_13(atoms):
@@ -390,8 +390,8 @@ class TypeSpecificForceField(ForceField):
         Returns
         -------
         # TODO
-        TypeSpecificForcefield : Instance
-            Instance of TypeSpecificForcefield object tailored to the 
+        TabulatedForceField : Instance
+            Instance of TabulatedForceField object tailored to the 
             sdENM forcefield
         
         References
@@ -402,7 +402,7 @@ class TypeSpecificForceField(ForceField):
            PLOS Computational Biology 9(8): e1003209 (2013). 
         """
         fc = _load_matrix("s_enm_13.csv")
-        return TypeSpecificForceField(atoms, 10, fc, fc)
+        return TabulatedForceField(atoms, 10, fc, fc)
     
     @staticmethod
     def d_enm(atoms):
@@ -427,8 +427,8 @@ class TypeSpecificForceField(ForceField):
         Returns
         -------
         # TODO
-        TypeSpecificForcefield : Instance
-            Instance of TypeSpecificForcefield object tailored to the 
+        TabulatedForceField : Instance
+            Instance of TabulatedForceField object tailored to the 
             sdENM forcefield
         
         References
@@ -440,7 +440,7 @@ class TypeSpecificForceField(ForceField):
         """
         fc = _load_matrix("d_enm.csv")
         bin_edges = _load_matrix("d_enm_edges.csv")
-        return TypeSpecificForceField(atoms, 46.83, fc, fc, bin_edges, ff_type_cutoff = 16.01)
+        return TabulatedForceField(atoms, 46.83, fc, fc, bin_edges, ff_type_cutoff = 16.01)
     
     @staticmethod
     def sd_enm(atoms):
@@ -467,8 +467,8 @@ class TypeSpecificForceField(ForceField):
         Returns
         -------
         # TODO
-        TypeSpecificForcefield : Instance
-            Instance of TypeSpecificForcefield object tailored to the 
+        TabulatedForceField : Instance
+            Instance of TabulatedForceField object tailored to the 
             sdENM forcefield
         
         References
@@ -482,7 +482,7 @@ class TypeSpecificForceField(ForceField):
         # TODO According to bio3d: sdENM in AU -> * R * T to scale to kJ/(mol*A**2) -> verify; seems dubious.
         #fc = fc*0.0083144621*300*10
         bin_edges = _load_matrix("d_enm_edges.csv")
-        return TypeSpecificForceField(atoms, 43.52, fc, fc, bin_edges)
+        return TabulatedForceField(atoms, 43.52, fc, fc, bin_edges)
     
     @staticmethod
     def e_anm(atoms, nonbonded="standard", nonbonded_mean=False):
@@ -526,8 +526,8 @@ class TypeSpecificForceField(ForceField):
         Returns
         -------
         # TODO
-        TypeSpecificForcefield : Instance
-            Instance of TypeSpecificForcefield object tailored to the 
+        TabulatedForceField : Instance
+            Instance of TabulatedForceField object tailored to the 
             eANM method
         
         References
@@ -568,7 +568,7 @@ class TypeSpecificForceField(ForceField):
             intra = np.average(intra) * np.ones(shape=(20, 20))
             inter = np.average(inter) * np.ones(shape=(20, 20))
 
-        return TypeSpecificForceField(atoms, 82, intra, inter, ff_type_cutoff = 13)
+        return TabulatedForceField(atoms, 82, intra, inter, ff_type_cutoff = 13)
     
     @staticmethod
     def pf_enm(atoms):
@@ -592,8 +592,8 @@ class TypeSpecificForceField(ForceField):
         Returns
         -------
         # TODO
-        TypeSpecificForcefield : Instance
-            Instance of TypeSpecificForcefield object tailored to the 
+        TabulatedForceField : Instance
+            Instance of TabulatedForceField object tailored to the 
             eANM method
         
         References
@@ -607,7 +607,7 @@ class TypeSpecificForceField(ForceField):
 
         # r**2 -> r**(-2)
         distance_specific_function = lambda r:(r)**(-1)
-        return TypeSpecificForceField(atoms, fc, fc, fc, distance_edges=None,
+        return TabulatedForceField(atoms, fc, fc, fc, distance_edges=None,
                         distance_specific_function=distance_specific_function)
 
 def _convert_to_matrix(value, n_bins):

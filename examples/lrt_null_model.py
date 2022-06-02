@@ -34,12 +34,12 @@ atoms = mmtf.get_structure(mmtf_file, model=1)
 ca = atoms[(atoms.atom_name == "CA") & struc.filter_amino_acids(atoms)]
 target_index = np.where(ca.res_id == TARGET_RES_ID)[0][0]
 
-ff = springcraft.TypeSpecificForceField.sd_enm(ca)
-anm = springcraft.ANM(ca, ff, 17.0)
+ff = springcraft.TabulatedForceField.sd_enm(ca)
+anm = springcraft.ANM(ca, ff, 13.0)
 #!#
 #np.random.seed(1)
 #cov = np.random.rand(*anm.covariance.shape)
-#anm.covariance = cov
+#anm.covariance = cov * cov.T
 #!#
 
 # Create evenly distributed force vectors

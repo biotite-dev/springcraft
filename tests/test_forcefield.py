@@ -23,7 +23,7 @@ def atoms():
     ca_new_chain.chain_id[:] = "B"
     # Simply merge both chains into new structure
     # The fact that both chains perfectly overlap
-    # does not influence TypeSpecificForceField
+    # does not influence TabulatedForceField
     return ca + ca_new_chain
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def test_type_specific_forcefield_homogeneous(atoms):
     INTRA = 2
     INTER = 3
 
-    ff = springcraft.TypeSpecificForceField(atoms, BONDED, INTRA, INTER)
+    ff = springcraft.TabulatedForceField(atoms, BONDED, INTRA, INTER)
 
     # Expect only a single distance bin in interaction matrix
     assert ff.interaction_matrix.shape[2] == 1
@@ -88,7 +88,7 @@ def test_type_specific_forcefield_inhomogeneous(atoms):
     triu = np.triu(np.random.rand(3, 20, 20))
     bonded, intra, inter = triu + np.transpose(triu, (0, 2, 1))
 
-    ff = springcraft.TypeSpecificForceField(atoms, bonded, intra, inter)
+    ff = springcraft.TabulatedForceField(atoms, bonded, intra, inter)
 
     # Expect only a single distance bin in interaction matrix
     assert ff.interaction_matrix.shape[2] == 1
@@ -141,7 +141,7 @@ def test_type_specific_forcefield_distance(atoms):
 
     # Only distance dependent force constants 
     fc = np.arange(N_EDGES + 1)
-    ff = springcraft.TypeSpecificForceField(atoms, fc, fc, fc, distance_edges)
+    ff = springcraft.TabulatedForceField(atoms, fc, fc, fc, distance_edges)
 
     ## Check correctness of interaction matrix
     assert ff.interaction_matrix.shape == (len(atoms), len(atoms), N_EDGES+1)
@@ -206,12 +206,12 @@ def test_type_specific_forcefield_input_shapes(atoms, shape, n_edges, is_valid):
     edges = np.arange(n_edges) if n_edges is not None else None
 
     if is_valid:
-        ff = springcraft.TypeSpecificForceField(atoms, fc, fc, fc, edges)
+        ff = springcraft.TabulatedForceField(atoms, fc, fc, fc, edges)
         n_bins = n_edges+1 if n_edges is not None else 1
         assert ff.interaction_matrix.shape == (40, 40, n_bins)
     else:
         with pytest.raises(IndexError):
-            ff = springcraft.TypeSpecificForceField(atoms, fc, fc, fc, edges)
+            ff = springcraft.TabulatedForceField(atoms, fc, fc, fc, edges)
 
 
 @pytest.mark.parametrize(
@@ -224,7 +224,7 @@ def test_type_specific_forcefield_predefined(atoms, name):
     These are implemented as static methods that merely require the
     structure as input.
     """
-    meth = getattr(springcraft.TypeSpecificForceField, name)
+    meth = getattr(springcraft.TabulatedForceField, name)
     ff = meth(atoms)
 
 def test_compare_with_biophysconnector(atoms_singlechain):
@@ -238,7 +238,7 @@ def test_compare_with_biophysconnector(atoms_singlechain):
     atoms = mmtf.get_structure(mmtf_file, model=1)
     ca = atoms[atoms.atom_name == "CA"]
 
-    ff = springcraft.TypeSpecificForceField.e_anm(atoms=ca)
+    ff = springcraft.TabulatedForceField.e_anm(atoms=ca)
     # Load static class: eANM
     test_hess, _ = springcraft.compute_hessian(ca.coord, ff, 13.0)
     
@@ -261,9 +261,9 @@ def test_compare_with_biophysconnector(atoms_singlechain):
 #    ca = atoms[atoms.atom_name == "CA"]
 #
 #    
-#    hinsen = springcraft.TypeSpecificForceField.hinsen_calpha(atoms=ca)
-#    sd = springcraft.TypeSpecificForceField.sd_enm(atoms=ca)
-#    pf = springcraft.TypeSpecificForceField.pf_enm(ca)
+#    hinsen = springcraft.TabulatedForceField.hinsen_calpha(atoms=ca)
+#    sd = springcraft.TabulatedForceField.sd_enm(atoms=ca)
+#    pf = springcraft.TabulatedForceField.pf_enm(ca)
 #
 #    test_hess = []
 #
