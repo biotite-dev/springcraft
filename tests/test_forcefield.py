@@ -2,6 +2,7 @@ import itertools
 from os.path import join
 import numpy as np
 import pytest
+import biotite.structure as struc
 import biotite.structure.io.mmtf as mmtf
 import biotite.sequence as seq
 import springcraft
@@ -127,12 +128,12 @@ def test_tabulated_forcefield_distance(atoms):
     field with distance depdendance, but no amino acid or connection
     dependence.
     """
-    N_EDGES = 100
+    N_BINS = 100
     MAX_DISTANCE = 30
     N_SAMPLE_INTERACTIONS = 500
 
     np.random.seed(0)
-    distance_edges = np.sort(np.random.rand(N_EDGES) * MAX_DISTANCE)
+    distance_edges = np.sort(np.random.rand(N_BINS) * MAX_DISTANCE)
     # Bin edges must be unique
     assert np.all(np.unique(distance_edges) == distance_edges)
     # All edges should be lower than MAX_DISTANCE to include the bin
@@ -140,11 +141,11 @@ def test_tabulated_forcefield_distance(atoms):
     assert np.all(distance_edges < MAX_DISTANCE)
 
     # Only distance dependent force constants 
-    fc = np.arange(N_EDGES + 1)
+    fc = np.arange(N_BINS)
     ff = springcraft.TabulatedForceField(atoms, fc, fc, fc, distance_edges)
 
     ## Check correctness of interaction matrix
-    assert ff.interaction_matrix.shape == (len(atoms), len(atoms), N_EDGES+1)
+    assert ff.interaction_matrix.shape == (len(atoms), len(atoms), N_BINS)
     for i in range(ff.interaction_matrix.shape[0]):
         for j in range(ff.interaction_matrix.shape[0]):
             if i == j:
@@ -156,7 +157,7 @@ def test_tabulated_forcefield_distance(atoms):
     ## Check if 'force_constant()' gives the correct values
     atom_i = np.random.randint(len(atoms), size=N_SAMPLE_INTERACTIONS)
     atom_j = np.random.randint(len(atoms), size=N_SAMPLE_INTERACTIONS)
-    sample_bin_indices = np.random.randint(N_EDGES+1, size=N_SAMPLE_INTERACTIONS)
+    sample_bin_indices = np.random.randint(N_BINS, size=N_SAMPLE_INTERACTIONS)
     sample_dist = np.append(distance_edges, [MAX_DISTANCE])[sample_bin_indices]
     assert MAX_DISTANCE in sample_dist
     test_force_constants = ff.force_constant(atom_i, atom_j, sample_dist)
@@ -228,8 +229,32 @@ def test_tabulated_forcefield_predefined(atoms, name):
     ff = meth(atoms)
 
 
+def test_parameterfree_forcefield():
+    """
+    Test whether all entries in the kirchhoff matrix are
+    -1 / distance^2.
+    """
+    N_ATOMS = 5
+
+    np.random.seed(0)
+    coord = np.random.rand(N_ATOMS, 3)
+    
+    dist_matrix = struc.distance(
+        coord[np.newaxis, :], coord[:, np.newaxis]
+    )
+    # Note that the main diagonal is not correct
+    ref_kirchhoff = -1 / dist_matrix**2
+
+    ff = springcraft.ParameterFreeForceField()
+    test_kirchhoff, _ = springcraft.compute_kirchhoff(coord, ff)
+    
+    # Ignore main diagonal -> Set main diagonal of both matrices to 0
+    np.fill_diagonal(ref_kirchhoff, 0)
+    np.fill_diagonal(test_kirchhoff, 0)
+    assert np.allclose(test_kirchhoff,  ref_kirchhoff)
+
+
 # TODO Test HinsenForceField
-# TODO Test ParameterFreeForceField
 
 
 def test_compare_with_biophysconnector(atoms_singlechain):
