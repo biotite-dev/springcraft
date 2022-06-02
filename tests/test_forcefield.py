@@ -31,7 +31,7 @@ def atoms_singlechain(atoms):
     ca = atoms[0:20]
     return ca
     
-def test_type_specific_forcefield_homogeneous(atoms):
+def test_tabulated_forcefield_homogeneous(atoms):
     """
     Check contents of position-specifc interaction matrix, where the
     interactions are independent of the amino acid.
@@ -68,7 +68,7 @@ def test_type_specific_forcefield_homogeneous(atoms):
                 raise
 
 
-def test_type_specific_forcefield_inhomogeneous(atoms):
+def test_tabulated_forcefield_inhomogeneous(atoms):
     """
     Check contents of position-specifc interaction matrix, where the
     interactions for each type of amino acid is chosen randomly.
@@ -121,7 +121,7 @@ def test_type_specific_forcefield_inhomogeneous(atoms):
                 raise
 
 
-def test_type_specific_forcefield_distance(atoms):
+def test_tabulated_forcefield_distance(atoms):
     """
     Check whether the calculated force constants are correct for a force
     field with distance depdendance, but no amino acid or connection
@@ -195,7 +195,7 @@ N_RES = 20
     [(20, 20,  1), None, True ],
     [(20, 20, 10), 10,   False],
 ])
-def test_type_specific_forcefield_input_shapes(atoms, shape, n_edges, is_valid):
+def test_tabulated_forcefield_input_shapes(atoms, shape, n_edges, is_valid):
     """
     Test whether all supported input shapes are handled properly.
     This is chaked based on the calculated interaction matrix.
@@ -216,9 +216,9 @@ def test_type_specific_forcefield_input_shapes(atoms, shape, n_edges, is_valid):
 
 @pytest.mark.parametrize(
     "name",
-    ["hinsen_calpha", "s_enm_10", "s_enm_13", "d_enm", "sd_enm", "e_anm", "pf_enm"]
+    ["s_enm_10", "s_enm_13", "d_enm", "sd_enm", "e_anm"]
 )
-def test_type_specific_forcefield_predefined(atoms, name):
+def test_tabulated_forcefield_predefined(atoms, name):
     """
     Test the instantiation of predefined force fields.
     These are implemented as static methods that merely require the
@@ -226,6 +226,10 @@ def test_type_specific_forcefield_predefined(atoms, name):
     """
     meth = getattr(springcraft.TabulatedForceField, name)
     ff = meth(atoms)
+
+
+# TODO Test HinsenForceField
+# TODO Test ParameterFreeForceField
 
 
 def test_compare_with_biophysconnector(atoms_singlechain):
