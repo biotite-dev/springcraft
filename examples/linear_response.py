@@ -32,8 +32,8 @@ mmtf_file = mmtf.MMTFFile.read(rcsb.fetch(PDB_ID, "mmtf"))
 atoms = mmtf.get_structure(mmtf_file, model=1)
 ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
 
-ff = springcraft.InvariantForceField()
-anm = springcraft.ANM(ca, ff, 13.0)
+ff = springcraft.InvariantForceField(13.0)
+anm = springcraft.ANM(ca, ff)
 AMPLITUDE = 100
 force = np.zeros((len(ca), 3))
 force[40] = [AMPLITUDE, 0, 0]

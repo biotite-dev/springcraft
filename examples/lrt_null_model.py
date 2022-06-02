@@ -35,7 +35,7 @@ ca = atoms[(atoms.atom_name == "CA") & struc.filter_amino_acids(atoms)]
 target_index = np.where(ca.res_id == TARGET_RES_ID)[0][0]
 
 ff = springcraft.TabulatedForceField.sd_enm(ca)
-anm = springcraft.ANM(ca, ff, 13.0)
+anm = springcraft.ANM(ca, ff)
 #!#
 #np.random.seed(1)
 #cov = np.random.rand(*anm.covariance.shape)

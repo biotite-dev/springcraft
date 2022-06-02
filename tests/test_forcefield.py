@@ -227,6 +227,7 @@ def test_type_specific_forcefield_predefined(atoms, name):
     meth = getattr(springcraft.TabulatedForceField, name)
     ff = meth(atoms)
 
+
 def test_compare_with_biophysconnector(atoms_singlechain):
     """
     Comparisons between Hessians computed for eANMs using springcraft
@@ -246,6 +247,7 @@ def test_compare_with_biophysconnector(atoms_singlechain):
     ref_hess = np.genfromtxt("./data/hessian_eANM_BioPhysConnectoR.csv", skip_header=1, delimiter=",")
     
     assert np.allclose(test_hess, ref_hess)
+
 
 #def test_compare_with_bio3d(atoms_singlechain):
 #    """

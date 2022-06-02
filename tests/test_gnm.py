@@ -14,8 +14,8 @@ def prepare_gnms(file_path, cutoff):
     atoms = mmtf.get_structure(mmtf_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
 
-    ff = springcraft.InvariantForceField()
-    test_gnm = springcraft.GNM(ca, ff, cutoff)
+    ff = springcraft.InvariantForceField(cutoff)
+    test_gnm = springcraft.GNM(ca, ff)
     
     ref_gnm = prody.GNM()
     ref_gnm.buildKirchhoff(ca.coord, gamma=1.0, cutoff=cutoff)

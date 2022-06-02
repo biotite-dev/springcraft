@@ -17,8 +17,8 @@ def prepare_anms(file_path, cutoff):
     atoms = mmtf.get_structure(mmtf_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
 
-    ff = springcraft.InvariantForceField()
-    test_anm = springcraft.ANM(ca, ff, cutoff)
+    ff = springcraft.InvariantForceField(cutoff)
+    test_anm = springcraft.ANM(ca, ff)
     
     ref_anm = prody.ANM()
     ref_anm.buildHessian(ca.coord, gamma=1.0, cutoff=13)
@@ -29,7 +29,7 @@ def prepare_anms(file_path, cutoff):
         glob.glob(join(data_dir(), "*.mmtf"))
 )
 def test_covariance(file_path):
-    test_anm, ref_anm = prepare_anms(file_path, cutoff= 13)
+    test_anm, _ = prepare_anms(file_path, cutoff=13)
     test_hessian = test_anm.hessian
     test_covariance = test_anm.covariance
 

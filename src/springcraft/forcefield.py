@@ -34,6 +34,10 @@ class ForceField(metaclass=abc.ABCMeta):
 
     Attributes
     ----------
+    cutoff_distance : float or None
+        The interaction of two atoms is only considered, if the distance
+        between them is smaller or equal to this value.
+        If ``None``, the interaction between all atoms is considered.
     natoms : int or None
         The number of atoms in the model.
         If a :class:`ForceField` does not depend on the respective
@@ -56,8 +60,23 @@ class ForceField(metaclass=abc.ABCMeta):
         sq_distance : ndarray, shape=(n,), dtype=float
             The distance between the atoms indicated by `atom_i` and
             `atom_j`.
+        
+        Notes
+        -----
+        Implementations of this method does not need
+        to check whether two atoms are within the cutoff distance of the
+        :class:`ForceField`:
+        The given pairs of atoms are limited to pairs within cutoff
+        distance of each other.
+        However, if `cutoff_distance` is ``None``, the atom indices
+        contain the Cartesian product of all atom indices, i.e. each
+        possible combination.
         """
         pass
+
+    @property
+    def cutoff_distance(self):
+        return None
 
     @property
     def natoms(self):
@@ -67,26 +86,36 @@ class InvariantForceField(ForceField):
     """
     This force field treats every interaction with the same force
     constant.
+
+    Parameters
+    ----------
+    cutoff_distance : float
+        The interaction of two atoms is only considered, if the distance
+        between them is smaller or equal to this value.
     """
+    def __init__(self, cutoff_distance):
+        if cutoff_distance is None:
+            # A value of 'None' would give a fully connected network
+            # with equal force constants for each connection,
+            # which is unreasonable
+            raise ValueError("Cutoff distance must be a float")
+        self._cutoff_distance = cutoff_distance
 
     def force_constant(self, atom_i, atom_j, sq_distance):
         return np.ones(len(atom_i))
     
     @property
-    def ff_type_cutoff(self):
-        return None
-    
-    @property
-    def ff_rmin(self):
-        return None
+    def cutoff_distance(self):
+        return self._cutoff_distance
 
 class TabulatedForceField(ForceField):
     """
-    This force field is able to treat interactions differently based
-    on interacting amino acids and distances.
+    This force field uses tabulated force constants for interactions
+    between atoms, based on amino acid type and distance between the
+    atoms.
 
     The distances are separated into bins.
-    A `value` is within `bin[i]`, if `value <= distance_edges[i]`.
+    A `value` is within `bin[i]`, if `value <= cutoff_distance[i]`.
 
     Parameters
     ----------
@@ -116,8 +145,6 @@ class TabulatedForceField(ForceField):
               Same value for all amino acid types and distances.
             - 1-dim array:
               Individual value for each distance bin.
-              Note that the array is one element larger than the
-              `distance_edges`
             - 2-dim array:
               Individual value for each pair of amino acid types.
               Note the alphabetical order shown above.
@@ -125,25 +152,25 @@ class TabulatedForceField(ForceField):
               Individual value for each distance bin and pair of amino
               acid types.
 
-    distance_edges : ndarray, shape=(k-1,), dtype=float, optional
-        Number of distance bins used in combination with tabulated distance-dependent
-        spring-constants.
-
+    cutoff_distance : float or ndarray, shape=(k), dtype=float,
+        If no distance dependent values are given for `bonded`,
+        `intra_chain` and `inter_chain`, this parameter accepts a float,
+        that represents the general cutoff distance, below which
+        interactions between atoms are considered.
+        Otherwise, an array of monotonically increasing distance bin
+        edges must be given.
+        The edges represent the right edge of each bin.
+        All interactions at distances above the last edge are not
+        considered.
     distance_specific_function : anonymous function, optional
         If set, interactions are directly computed using a distance dependent function.
         Differentiations between bonded/non-bonded interactions can be implemented by
         using in-line conditionals using distance thresholds.
         Functional expressions are prioritized over table-derived spring constants.
-
-    ff_type_cutoff : int, float, optional -> internal use only
-        Forcefield specific cut-offs for preset forcefields.
-        These variable is discarded, if a value is assigned to cutoff_distance in compute_kirchhoff
-        or compute_hessian.
-
     ff_type_rmin : int, float, optional
         Lower distance threshold; this value overwrites all values below the threshold.
         In the main use case, this is combined with distance_specific_functions to correct
-        computational artefacts for low calpha-distances.
+        computational artifacts for low calpha-distances.
 
     Attributes
     ----------
@@ -151,15 +178,15 @@ class TabulatedForceField(ForceField):
         The number of atoms in the model.
     interaction_matrix : ndarray, shape=(n, n, k), dtype=float
         Force constants between the atoms in `atoms`.
-        If `distance_edges` is set, *k* is the number of distance bins.
-        Otherwise, *k = 1*.
+        If the tabulated force constants are distance dependent,
+        *k* is the number of distance bins. Otherwise, *k = 1*.
         This is not a copy, modifications on this array affect the force
         field.
     """
 
-    def __init__(self, atoms, bonded, intra_chain, inter_chain,
-                 distance_edges=None, distance_specific_function=None, 
-                 ff_type_cutoff=None, ff_type_rmin=None):
+    def __init__(self, atoms, cutoff_distance,
+                 bonded, intra_chain, inter_chain,
+                 distance_specific_function=None, ff_type_rmin=None):
 
         if not isinstance(atoms, struc.AtomArray):
             raise TypeError(
@@ -172,24 +199,21 @@ class TabulatedForceField(ForceField):
         
         self._natoms = atoms.array_length()
         
-        if distance_edges is not None:
-            self._edges = np.asarray(distance_edges)
+
+        if isinstance(cutoff_distance, numbers.Real):
+            self._edges = np.array([cutoff_distance])
+        else:
+            self._edges = np.asarray(cutoff_distance)
             if not np.all(np.diff(self._edges) >= 0):
                 raise ValueError(
                     "Distance bin edges are not sorted in increasing order"
                 )
-        else:
-            self._edges = None
+        n_bins = len(self._edges)
 
         if distance_specific_function is not None:
             self._distfunc = np.vectorize(distance_specific_function)
         else:
             self._distfunc = None
-        
-        if ff_type_cutoff is not None:
-            self._ff_type_cutoff = ff_type_cutoff
-        else:
-            self._ff_type_cutoff = ff_type_cutoff
         
         if ff_type_rmin is not None:
             self._ff_rmin = ff_type_rmin
@@ -198,7 +222,6 @@ class TabulatedForceField(ForceField):
             
         # Always create 3D matrices, even if no bins are given,
         # to generalize the code
-        n_bins = 1 if self._edges is None else len(self._edges) + 1
         self._bonded = _convert_to_matrix(bonded, n_bins)
         self._intra_chain = _convert_to_matrix(intra_chain, n_bins)
         self._inter_chain = _convert_to_matrix(inter_chain, n_bins)
@@ -258,7 +281,8 @@ class TabulatedForceField(ForceField):
 
 
     def force_constant(self, atom_i, atom_j, sq_distance):
-        if self._edges is None and self._distfunc is None:
+        if len(self._edges) == 1 and self._distfunc is None:
+            # Only a single distance bin -> No distance dependency
             return self._interaction_matrix[atom_i, atom_j, 0]
         # Distance dependence: Use sq_distance to compute force constants
         # directly.
@@ -267,8 +291,21 @@ class TabulatedForceField(ForceField):
             return dist_force_constant
         else:
             bin_indices = np.searchsorted(self._edges, sq_distance)
-            return self._interaction_matrix[atom_i, atom_j, bin_indices]
+            try:
+                return self._interaction_matrix[atom_i, atom_j, bin_indices]
+            except IndexError:
+                if (bin_indices >= len(self._edges)).any():
+                    raise ValueError(
+                        "Atom interactions above cutoff distance are not "
+                        "allowed in TabulatedForceField"
+                    )
+                else:
+                    raise
     
+    @property
+    def cutoff_distance(self):
+        return self._edges[-1]
+
     @property
     def natoms(self):
         return self._natoms
@@ -280,10 +317,6 @@ class TabulatedForceField(ForceField):
     @property
     def distance_specific_function(self):
         return self._distfunc
-
-    @property
-    def ff_type_cutoff(self):
-        return self._ff_type_cutoff
     
     @property
     def ff_rmin(self):
@@ -312,8 +345,7 @@ class TabulatedForceField(ForceField):
 
         Returns
         -------
-        # TODO
-        TabulatedForceField : Instance
+        force_field : TabulatedForceField
             Instance of TabulatedForceField object tailored to the 
             sdENM forcefield
         
@@ -328,9 +360,11 @@ class TabulatedForceField(ForceField):
         # Lambda-Function: r < 4 Ang -> Bonded; r >= 4 Ang -> Non-Bonded
         # Convert sq_dist to dist beforehand
         distance_specific_function = lambda r:(r)**0.5 * 8.6 * 10**2 - 2.39 * 10**3 if (r**0.5 < 4.0) else ((r)**(-0.5 * 6) * 128 * 10**4)
-        return TabulatedForceField(atoms, fc, fc, fc, distance_edges=None,
-                                      distance_specific_function=distance_specific_function,
-                                      ff_type_rmin = 2.9)
+        return TabulatedForceField(
+            atoms, fc, fc, fc, 10000,
+            distance_specific_function=distance_specific_function,
+            ff_type_rmin = 2.9
+        )
     
     @staticmethod
     def s_enm_10(atoms):
@@ -353,8 +387,7 @@ class TabulatedForceField(ForceField):
 
         Returns
         -------
-        # TODO
-        TabulatedForceField : Instance
+        force_field : TabulatedForceField
             Instance of TabulatedForceField object tailored to the 
             sdENM forcefield
         
@@ -366,7 +399,7 @@ class TabulatedForceField(ForceField):
            PLOS Computational Biology 9(8): e1003209 (2013). 
         """
         fc = _load_matrix("s_enm_10.csv")
-        return TabulatedForceField(atoms, 10, fc, fc)
+        return TabulatedForceField(atoms, 10.0, fc, fc, 10.0)
     
     @staticmethod
     def s_enm_13(atoms):
@@ -389,8 +422,7 @@ class TabulatedForceField(ForceField):
 
         Returns
         -------
-        # TODO
-        TabulatedForceField : Instance
+        force_field : TabulatedForceField
             Instance of TabulatedForceField object tailored to the 
             sdENM forcefield
         
@@ -402,7 +434,7 @@ class TabulatedForceField(ForceField):
            PLOS Computational Biology 9(8): e1003209 (2013). 
         """
         fc = _load_matrix("s_enm_13.csv")
-        return TabulatedForceField(atoms, 10, fc, fc)
+        return TabulatedForceField(atoms, 10.0, fc, fc, 13.0)
     
     @staticmethod
     def d_enm(atoms):
@@ -426,8 +458,7 @@ class TabulatedForceField(ForceField):
 
         Returns
         -------
-        # TODO
-        TabulatedForceField : Instance
+        force_field : TabulatedForceField
             Instance of TabulatedForceField object tailored to the 
             sdENM forcefield
         
@@ -440,7 +471,7 @@ class TabulatedForceField(ForceField):
         """
         fc = _load_matrix("d_enm.csv")
         bin_edges = _load_matrix("d_enm_edges.csv")
-        return TabulatedForceField(atoms, 46.83, fc, fc, bin_edges, ff_type_cutoff = 16.01)
+        return TabulatedForceField(atoms, 46.83, fc, fc, bin_edges)
     
     @staticmethod
     def sd_enm(atoms):
@@ -466,8 +497,7 @@ class TabulatedForceField(ForceField):
 
         Returns
         -------
-        # TODO
-        TabulatedForceField : Instance
+        force_field : TabulatedForceField
             Instance of TabulatedForceField object tailored to the 
             sdENM forcefield
         
@@ -479,7 +509,8 @@ class TabulatedForceField(ForceField):
            PLOS Computational Biology 9(8): e1003209 (2013). 
         """
         fc = _load_matrix("sd_enm.csv").reshape(-1, 20, 20).T
-        # TODO According to bio3d: sdENM in AU -> * R * T to scale to kJ/(mol*A**2) -> verify; seems dubious.
+        # TODO According to bio3d: sdENM in AU
+        # -> * R * T to scale to kJ/(mol*A**2) -> verify; seems dubious.
         #fc = fc*0.0083144621*300*10
         bin_edges = _load_matrix("d_enm_edges.csv")
         return TabulatedForceField(atoms, 43.52, fc, fc, bin_edges)
@@ -525,8 +556,7 @@ class TabulatedForceField(ForceField):
 
         Returns
         -------
-        # TODO
-        TabulatedForceField : Instance
+        force_field : TabulatedForceField
             Instance of TabulatedForceField object tailored to the 
             eANM method
         
@@ -568,7 +598,7 @@ class TabulatedForceField(ForceField):
             intra = np.average(intra) * np.ones(shape=(20, 20))
             inter = np.average(inter) * np.ones(shape=(20, 20))
 
-        return TabulatedForceField(atoms, 82, intra, inter, ff_type_cutoff = 13)
+        return TabulatedForceField(atoms, 82.0, intra, inter, 13.0)
     
     @staticmethod
     def pf_enm(atoms):
@@ -591,8 +621,7 @@ class TabulatedForceField(ForceField):
        
         Returns
         -------
-        # TODO
-        TabulatedForceField : Instance
+        force_field : TabulatedForceField
             Instance of TabulatedForceField object tailored to the 
             eANM method
         
@@ -607,7 +636,7 @@ class TabulatedForceField(ForceField):
 
         # r**2 -> r**(-2)
         distance_specific_function = lambda r:(r)**(-1)
-        return TabulatedForceField(atoms, fc, fc, fc, distance_edges=None,
+        return TabulatedForceField(atoms, fc, fc, fc, None,
                         distance_specific_function=distance_specific_function)
 
 def _convert_to_matrix(value, n_bins):

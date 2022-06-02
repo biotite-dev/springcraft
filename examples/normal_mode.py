@@ -34,8 +34,8 @@ protein_chain = structure[
 # Filter CA atoms
 ca = protein_chain[protein_chain.atom_name == "CA"]
 
-ff = springcraft.InvariantForceField()
-anm = springcraft.ANM(ca, ff, 13.0)
+ff = springcraft.InvariantForceField(13.0)
+anm = springcraft.ANM(ca, ff)
 disp = anm.normal_mode(MODE, AMPLITUDE, FRAMES)
 
 # Apply oscillation of CA atom to all atoms in the corresponding residue
