@@ -168,6 +168,7 @@ class ParameterFreeForceField(ForceField):
     def force_constant(self, atom_i, atom_j, sq_distance):
         return 1 / sq_distance
 
+
 class TabulatedForceField(ForceField):
     """
     This force field uses tabulated force constants for interactions
@@ -269,16 +270,6 @@ class TabulatedForceField(ForceField):
                     "Distance bin edges are not sorted in increasing order"
                 )
         n_bins = len(self._edges)
-
-        if distance_specific_function is not None:
-            self._distfunc = np.vectorize(distance_specific_function)
-        else:
-            self._distfunc = None
-        
-        if ff_type_rmin is not None:
-            self._ff_rmin = ff_type_rmin
-        else:
-            self._ff_rmin = None
             
         # Always create 3D matrices, even if no bins are given,
         # to generalize the code
@@ -341,11 +332,11 @@ class TabulatedForceField(ForceField):
 
 
     def force_constant(self, atom_i, atom_j, sq_distance):
-        if len(self._edges) == 1 and self._distfunc is None:
+        if len(self._edges) == 1:
             # Only a single distance bin -> No distance dependency
             return self._interaction_matrix[atom_i, atom_j, 0]
-        # Distance dependence
         else:
+            # Distance dependence
             bin_indices = np.searchsorted(self._edges, sq_distance)
             try:
                 return self._interaction_matrix[atom_i, atom_j, bin_indices]
@@ -509,11 +500,13 @@ class TabulatedForceField(ForceField):
            Cooperativity and Sequence-Specificity of Protein Dynamics." 
            PLOS Computational Biology 9(8): e1003209 (2013). 
         """
-        fc = _load_matrix("sd_enm.csv").reshape(-1, 20, 20).T
+        fc = _load_matrix("sd_enm.csv").reshape(-1, 20, 20)
         # TODO According to bio3d: sdENM in AU
         # -> * R * T to scale to kJ/(mol*A**2) -> verify; seems dubious.
         #fc = fc*0.0083144621*300*10
         bin_edges = _load_matrix("d_enm_edges.csv")
+        print(bin_edges.shape)
+        print(fc.shape)
         return TabulatedForceField(atoms, 43.52, fc, fc, bin_edges)
     
     @staticmethod
