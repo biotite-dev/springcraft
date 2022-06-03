@@ -5,8 +5,9 @@ i.e. Kirchhoff and Hessian matrices.
 
 __name__ = "springcraft"
 __author__ = "Patrick Kunzmann"
-__all__ = ["ForceField", "InvariantForceField", "HinsenForceField",
-           "ParameterFreeForceField", "TabulatedForceField"]
+__all__ = ["ForceField", "PatchedForceField", "InvariantForceField",
+           "HinsenForceField", "ParameterFreeForceField",
+           "TabulatedForceField"]
 
 import numbers
 import abc
@@ -114,37 +115,69 @@ class PatchedForceField(ForceField):
                  contact_pair_on=None, force_constants=None):
         # Support other array-like objects
         self._force_field = force_field
-        self._contact_shutdown = np.asarray(contact_shutdown)
-        self._contact_pair_off = np.asarray(contact_pair_off)
-        self._contact_pair_on = np.asarray(contact_pair_on)
+        self._contact_shutdown = (
+            np.asarray(contact_shutdown)
+            if contact_shutdown is not None else None
+        )
+        self._contact_pair_off = (
+            np.asarray(contact_pair_off)
+            if contact_pair_off is not None else None
+        )
+        self._contact_pair_on = (
+            np.asarray(contact_pair_on)
+            if contact_pair_on is not None else None
+        )
+        self._force_constants = (
+            np.asarray(force_constants)
+            if force_constants is not None else None
+        )
 
         # Input argument checks
         _check_indices(self._contact_shutdown, force_field.natoms)
         _check_indices(self._contact_pair_off, force_field.natoms)
         _check_indices(self._contact_pair_on, force_field.natoms)
-        if contact_pair_on is not None:
-            if force_constants is None:
+        if self._contact_pair_on is not None:
+            if self._force_constants is None:
                 raise TypeError(
                     "Individual force constants must be given, "
                     "if contacts are turned on"
                 )
-            if len(force_constants) != len(contact_pair_on):
+            if len(self._force_constants) != len(self._contact_pair_on):
                 raise IndexError(
-                    f"{len(force_constants)} force constants were given for "
-                    f"{len(contact_pair_on)} switched on contact_pairs"
+                    f"{len(self._force_constants)} force constants were "
+                    f"given for "
+                    f"{len(self._contact_pair_on)} switched on contact_pairs"
                 )
-        
-        # Matrix containing patched force constants
-        # -1 for atom pairs with no patched force constants
-        patch_matrix = np.full()
-        # TODO
 
     def force_constant(self, atom_i, atom_j, sq_distance):
         force_constants = self._force_field.force_constant(
             atom_i, atom_j, sq_distance
         )
-        # TODO
-        force_constants
+        if self._contact_pair_on is not None:
+            patch_atom_i, patch_atom_j = self._contact_pair_on.T
+            # The minimum required size of the patch matrix is the
+            # maximum of the indices + 1 
+            required_size = np.max([
+                np.max(patch_atom_i), np.max(patch_atom_j),
+                np.max(atom_i), np.max(atom_j)
+            ]) + 1
+            # Fill matrix containing patched force constants
+            # -1 for atom pairs with no patched force constants
+            patch_matrix = np.full((required_size, required_size), -1, dtype=float)
+            patch_matrix[patch_atom_i, patch_atom_j] = self._force_constants
+            patch_matrix[patch_atom_j, patch_atom_i] = self._force_constants
+            
+            patched_force_constants = patch_matrix[atom_i, atom_j]
+
+            # Return regular force constants for pairs where no patch exists
+            return np.where(
+                patched_force_constants == -1,
+                force_constants,
+                patched_force_constants
+            )
+        else:
+            # No pairs are switched on -> no patching necessary
+            return force_constants
     
     @property
     def cutoff_distance(self):

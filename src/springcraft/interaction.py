@@ -194,7 +194,7 @@ def _patch_adjacency_matrix(matrix, contact_shutdown,
         matrix[atom_j, atom_i] = False
     if contact_pair_on is not None:
         atom_i, atom_j = contact_pair_on.T
-        if atom_i == atom_j.any():
+        if (atom_i == atom_j).any():
             raise ValueError(
                 "Cannot turn on interaction of an atom with itself"
             )

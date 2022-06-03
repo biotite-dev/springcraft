@@ -6,6 +6,7 @@ import biotite.structure as struc
 import biotite.structure.io.mmtf as mmtf
 import biotite.sequence as seq
 import springcraft
+from springcraft.forcefield import InvariantForceField
 from .util import data_dir
 
 
@@ -31,6 +32,93 @@ def atoms():
 def atoms_singlechain(atoms):
     ca = atoms[0:20]
     return ca
+
+
+def test_patched_force_field_shutdown(atoms):
+    N_CONTACTS = 5
+    
+    np.random.seed(0)
+    shutdown_indices = np.random.choice(
+        np.arange(len(atoms)), size=N_CONTACTS, replace=False
+    )
+    
+    ref_ff = InvariantForceField(7.0)
+    ref_kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, ref_ff)
+    # Manual shutdown of contacts after Kirchhoff calculation
+    ref_kirchhoff[shutdown_indices, :] = 0
+    ref_kirchhoff[:, shutdown_indices] = 0
+    
+    test_ff = springcraft.PatchedForceField(
+        ref_ff,
+        contact_shutdown=shutdown_indices
+    )
+    test_kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, test_ff)
+    
+    # Main diagonal is not easily adjusted
+    # -> simply set main diagonal of ref and test matrix to 0
+    np.fill_diagonal(test_kirchhoff, 0)
+    np.fill_diagonal(ref_kirchhoff, 0)
+    assert np.all(test_kirchhoff == ref_kirchhoff)
+
+
+def test_patched_force_field_pairs_off(atoms):
+    N_CONTACTS = 5
+    
+    np.random.seed(0)
+    off_indices = np.random.choice(
+        np.arange(len(atoms)), size=(N_CONTACTS, 2), replace=False
+    )
+    
+    ref_ff = InvariantForceField(7.0)
+    ref_kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, ref_ff)
+    # Manual shutdown of contacts after Kirchhoff calculation
+    atom_i, atom_j = off_indices.T
+    ref_kirchhoff[atom_i, atom_j] = 0
+    ref_kirchhoff[atom_j, atom_i] = 0
+    
+    test_ff = springcraft.PatchedForceField(
+        ref_ff,
+        contact_pair_off=off_indices
+    )
+    test_kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, test_ff)
+    
+    # Main diagonal is not easily adjusted
+    # -> simply set main diagonal of ref and test matrix to 0
+    np.fill_diagonal(test_kirchhoff, 0)
+    np.fill_diagonal(ref_kirchhoff, 0)
+    assert np.all(test_kirchhoff == ref_kirchhoff)
+
+
+def test_patched_force_field_pairs_on(atoms):
+    N_CONTACTS = 5
+    
+    np.random.seed(0)
+    on_indices = np.random.choice(
+        np.arange(len(atoms)), size=(N_CONTACTS, 2), replace=False
+    )
+    force_constants = np.random.rand(N_CONTACTS)
+    
+    ref_ff = InvariantForceField(7.0)
+    ref_kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, ref_ff)
+    # Manual shutdown of contacts after Kirchhoff calculation
+    atom_i, atom_j = on_indices.T
+    ref_kirchhoff[atom_i, atom_j] = -force_constants
+    ref_kirchhoff[atom_j, atom_i] = -force_constants
+    
+    test_ff = springcraft.PatchedForceField(
+        ref_ff,
+        contact_pair_on=on_indices,
+        force_constants=force_constants
+    )
+    test_kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, test_ff)
+    
+    # Main diagonal is not easily adjusted
+    # -> simply set main diagonal of ref and test matrix to 0
+    np.fill_diagonal(test_kirchhoff, 0)
+    np.fill_diagonal(ref_kirchhoff, 0)
+    np.set_printoptions(threshold=10000, linewidth=1000)
+    assert np.all(test_kirchhoff == ref_kirchhoff)
+
     
 def test_tabulated_forcefield_homogeneous(atoms):
     """
@@ -326,6 +414,5 @@ def test_compare_with_bio3d(atoms_singlechain, ff_name):
         join(data_dir(), ref_file),
         skip_header=1, delimiter=","
     )
-
 
     assert np.allclose(test_hessian, ref_hessian)
