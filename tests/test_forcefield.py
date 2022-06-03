@@ -307,9 +307,9 @@ def test_compare_with_bio3d(atoms_singlechain, ff_name):
     Hinsen-Calpha, sdENM and pfENM.
     Cut-off: 1.3 nm.
     """
-    #TODO needs to be fixed
+    # TODO Fix tests
     #pytest.skip()
-    
+
     if ff_name == "Hinsen":
         ff = springcraft.HinsenForceField()
         ref_file = "hessian_calpha_bio3d.csv"
