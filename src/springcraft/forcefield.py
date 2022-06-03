@@ -124,8 +124,10 @@ class HinsenForceField(ForceField):
 
     Parameters
     ----------
-    atoms : AtomArray, shape=(n,)
-        The atoms in the model.
+    cutoff_distance : float, optional
+        The interaction of two atoms is only considered, if the distance
+        between them is smaller or equal to this value.
+        By default all interactions are included.
     
     References
     ----------
@@ -133,6 +135,9 @@ class HinsenForceField(ForceField):
         "Harmonicity in small proteins." 
         Chemical Physics 261(1-2): 25-37 (2000). 
     """
+    def __init__(self, cutoff_distance=None):
+        self._cutoff_distance = cutoff_distance
+
     def force_constant(self, atom_i, atom_j, sq_distance):
         distance = np.sqrt(sq_distance)
         distance = np.clip(distance, a_min=2.9, a_max=None)
@@ -141,6 +146,10 @@ class HinsenForceField(ForceField):
             distance * 8.6e2 - 2.39e3,
             distance**6 * 128e4
         )
+    
+    @property
+    def cutoff_distance(self):
+        return self._cutoff_distance
     
 
 class ParameterFreeForceField(ForceField):
@@ -156,8 +165,10 @@ class ParameterFreeForceField(ForceField):
 
     Parameters
     ----------
-    atoms : AtomArray, shape=(n,)
-        The atoms in the model.
+    cutoff_distance : float, optional
+        The interaction of two atoms is only considered, if the distance
+        between them is smaller or equal to this value.
+        By default all interactions are included.
     
     References
     ----------
@@ -165,8 +176,15 @@ class ParameterFreeForceField(ForceField):
         "Protein elastic network models and the ranges of cooperativity."
         PNAS.  106, 30, 12347-12352 (2009).
     """
+    def __init__(self, cutoff_distance=None):
+        self._cutoff_distance = cutoff_distance
+
     def force_constant(self, atom_i, atom_j, sq_distance):
         return 1 / sq_distance
+    
+    @property
+    def cutoff_distance(self):
+        return self._cutoff_distance
 
 
 class TabulatedForceField(ForceField):
