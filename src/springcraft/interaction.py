@@ -139,11 +139,11 @@ def _prepare_values_for_interaction_matrix(coord, force_field, use_cell_list):
             f"but forcefield was built for {force_field.natoms} atoms"
         )
     
+    # Find interacting atoms within cutoff distance
     cutoff_distance = force_field.cutoff_distance
     if cutoff_distance is None:
         # Include all possible interactions, except an atom with itself
         adj_matrix = np.ones((len(coord), len(coord)), dtype=bool)
-    # Find interacting atoms within cutoff distance
     elif use_cell_list:
         cell_list = struc.CellList(coord, cutoff_distance,)
         adj_matrix = cell_list.create_adjacency_matrix(cutoff_distance)
