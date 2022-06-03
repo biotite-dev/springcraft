@@ -44,6 +44,17 @@ class ForceField(metaclass=abc.ABCMeta):
         If a :class:`ForceField` does not depend on the respective
         atoms, i.e. `atom_i` and `atom_j` is unused in
         :meth:`force_constant()`, this attribute is ``None`` instead.
+    contact_shutdown : ndarray, shape=(n,), dtype=float, optional
+        Indices that point to atoms, whose contacts to all other atoms
+        are artificially switched off.
+    contact_pair_off : ndarray, shape=(n,2), dtype=int, optional
+        Indices that point to pairs of atoms, whose contacts
+        are artificially switched off.
+        If ``None``, no contacts are switched off.
+    contact_pair_on : ndarray, shape=(n,2), dtype=int, optional
+        Indices that point to pairs of atoms, whose contacts
+        are are established in any case.
+        If ``None``, no contacts are artificially switched on.
     """
 
     @abc.abstractmethod
@@ -78,10 +89,98 @@ class ForceField(metaclass=abc.ABCMeta):
     @property
     def cutoff_distance(self):
         return None
+    
+    @property
+    def contact_shutdown(self):
+        return None
+
+    @property
+    def contact_pair_off(self):
+        return None
+    
+    @property
+    def contact_pair_on(self):
+        return None
 
     @property
     def natoms(self):
         return None
+
+
+class PatchedForceField(ForceField):
+    
+    def __init__(self, force_field,
+                 contact_shutdown=None, contact_pair_off=None,
+                 contact_pair_on=None, force_constants=None):
+        # Support other array-like objects
+        self._force_field = force_field
+        self._contact_shutdown = np.asarray(contact_shutdown)
+        self._contact_pair_off = np.asarray(contact_pair_off)
+        self._contact_pair_on = np.asarray(contact_pair_on)
+
+        # Input argument checks
+        _check_indices(self._contact_shutdown, force_field.natoms)
+        _check_indices(self._contact_pair_off, force_field.natoms)
+        _check_indices(self._contact_pair_on, force_field.natoms)
+        if contact_pair_on is not None:
+            if force_constants is None:
+                raise TypeError(
+                    "Individual force constants must be given, "
+                    "if contacts are turned on"
+                )
+            if len(force_constants) != len(contact_pair_on):
+                raise IndexError(
+                    f"{len(force_constants)} force constants were given for "
+                    f"{len(contact_pair_on)} switched on contact_pairs"
+                )
+        
+        # Matrix containing patched force constants
+        # -1 for atom pairs with no patched force constants
+        patch_matrix = np.full()
+        # TODO
+
+    def force_constant(self, atom_i, atom_j, sq_distance):
+        force_constants = self._force_field.force_constant(
+            atom_i, atom_j, sq_distance
+        )
+        # TODO
+        force_constants
+    
+    @property
+    def cutoff_distance(self):
+        return self._force_field.cutoff_distance
+    
+    @property
+    def contact_shutdown(self):
+        if self._force_field.contact_shutdown is None:
+            return self._contact_shutdown
+        else:
+            return np.concatenate(
+                [self._contact_shutdown, self._force_field.contact_shutdown]
+            ) 
+
+    @property
+    def contact_pair_off(self):
+        if self._force_field.contact_pair_off is None:
+            return self._contact_pair_off
+        else:
+            return np.concatenate(
+                [self._contact_pair_off, self._force_field.contact_pair_off]
+            )
+    
+    @property
+    def contact_pair_on(self):
+        if self._force_field.contact_pair_on is None:
+            return self._contact_pair_on
+        else:
+            return np.concatenate(
+                [self._contact_pair_on, self._force_field.contact_pair_on]
+            )
+
+    @property
+    def natoms(self):
+        return self._force_field.natoms
+
 
 class InvariantForceField(ForceField):
     """
@@ -680,6 +779,7 @@ def _check_matrix(matrix):
             "Input matrix is not symmetric"
         )
 
+
 matrices = {}
 def _load_matrix(fname):
     if fname in matrices:
@@ -689,3 +789,15 @@ def _load_matrix(fname):
     matrix = np.loadtxt(join(DATA_DIR, fname), delimiter=",")
     matrices[fname] = matrix
     return matrix
+
+
+def _check_indices(length, indices):
+    if indices is None or length is None:
+        return
+    flat_indices = indices.flatten()
+    out_of_bounds_i = np.where(flat_indices >= length)[0]
+    if len(out_of_bounds_i) > 0:
+        raise IndexError(
+            f"Index {flat_indices[out_of_bounds_i[0]]} is out of bounds "
+            f"for a structure of length {length}"
+        )

@@ -11,8 +11,7 @@ import numpy as np
 import biotite.structure as struc
 
 
-def compute_kirchhoff(coord, force_field, use_cell_list=True,
-                      contact_pair_off=None, contact_pair_on=None):
+def compute_kirchhoff(coord, force_field, use_cell_list=True):
     """
     Compute the *Kirchhoff* matrix for atoms with given coordinates and
     the chosen force field.
@@ -30,12 +29,6 @@ def compute_kirchhoff(coord, force_field, use_cell_list=True,
         atoms, but is slower for very small systems.
         If the `force_field` does not provide a cutoff, no cell list is
         used regardless.
-    contact_pair_off : ndarray, shape=(n,2), dtype=float, optional
-        Indices that point to pairs of atoms, whose contacts
-        are switched off.
-    contact_pair_on : ndarray, shape=(n,2), dtype=float, optional
-        Indices that point to pairs of atoms, whose contacts
-        are are established in any case.
 
     Returns
     -------
@@ -43,7 +36,7 @@ def compute_kirchhoff(coord, force_field, use_cell_list=True,
         The computed *Kirchhoff* matrix.
     """
     pairs, _, sq_dist = _prepare_values_for_interaction_matrix(
-        coord, force_field, use_cell_list, contact_pair_off, contact_pair_on
+        coord, force_field, use_cell_list
     )
 
     kirchhoff = np.zeros((len(coord), len(coord)))
@@ -57,8 +50,7 @@ def compute_kirchhoff(coord, force_field, use_cell_list=True,
     return kirchhoff, pairs
 
 
-def compute_hessian(coord, force_field, use_cell_list=True,
-                    contact_pair_off=None, contact_pair_on=None):
+def compute_hessian(coord, force_field, use_cell_list=True):
     """
     Compute the *Hessian* matrix for atoms with given coordinates and
     the chosen force field.
@@ -75,13 +67,7 @@ def compute_hessian(coord, force_field, use_cell_list=True,
         This significantly increases the performance for large number of
         atoms, but is slower for very small systems.
         If the `force_field` does not provide a cutoff, no cell list is
-        used regardless. 
-    contact_pair_off : ndarray, shape=(n,2), dtype=float, optional
-        Indices that point to pairs of atoms, whose contacts
-        are switched off.
-    contact_pair_on : ndarray, shape=(n,2), dtype=float, optional
-        Indices that point to pairs of atoms, whose contacts
-        are are established in any case.
+        used regardless.
 
     Returns
     -------
@@ -92,7 +78,7 @@ def compute_hessian(coord, force_field, use_cell_list=True,
     """
 
     pairs, disp, sq_dist = _prepare_values_for_interaction_matrix(
-        coord, force_field, use_cell_list, contact_pair_off, contact_pair_on
+        coord, force_field, use_cell_list
     )
 
     # Hessian matrix has 3x3 matrices as superelements
@@ -116,10 +102,7 @@ def compute_hessian(coord, force_field, use_cell_list=True,
     return hessian, pairs
     
 
-def _prepare_values_for_interaction_matrix(coord, force_field,
-                                           use_cell_list,
-                                           contact_pair_off, 
-                                           contact_pair_on):
+def _prepare_values_for_interaction_matrix(coord, force_field, use_cell_list):
     """
     Check input values and calculate common intermediate values for
     :func:`compute_kirchhoff()` and :func:`compute_hessian()`.
@@ -135,12 +118,6 @@ def _prepare_values_for_interaction_matrix(coord, force_field,
         distance instead of a brute-force approach.
         This significantly increases the performance for large number of
         atoms, but is slower for very small systems.
-    contact_pair_off : ndarray, shape=(n,2), dtype=float, optional
-        Indices that point to pairs of atoms, whose contacts
-        are switched off.
-    contact_pair_on : ndarray, shape=(n,2), dtype=float, optional
-        Indices that point to pairs of atoms, whose contacts
-        are are established in any case.
 
     Returns
     -------
@@ -180,7 +157,8 @@ def _prepare_values_for_interaction_matrix(coord, force_field,
     # Remove interactions of atoms with themselves
     np.fill_diagonal(adj_matrix, False)
     _patch_adjacency_matrix(
-        adj_matrix, contact_pair_off, contact_pair_on
+        adj_matrix, force_field.contact_shutdown,
+        force_field.contact_pair_off, force_field.contact_pair_on
     )
     
     # Convert matrix to indices where interaction exists
@@ -200,12 +178,25 @@ def _prepare_values_for_interaction_matrix(coord, force_field,
     return pairs, disp, sq_dist
 
 
-def _patch_adjacency_matrix(matrix, contact_pair_off, contact_pair_on):
+def _patch_adjacency_matrix(matrix, contact_shutdown,
+                            contact_pair_off, contact_pair_on):
+    """
+    Apply contacts that are artificially switched off/on to an
+    adjacency matrix.
+    The matrix is modified in-place.
+    """
+    if contact_shutdown is not None:
+        matrix[:, contact_shutdown] = False
+        matrix[contact_shutdown, :] = False
     if contact_pair_off is not None:
-        matrix[tuple(contact_pair_off.T)] = False
+        atom_i, atom_j = contact_pair_off.T
+        matrix[atom_i, atom_j] = False
+        matrix[atom_j, atom_i] = False
     if contact_pair_on is not None:
-        if (contact_pair_off[:,0]) == (contact_pair_off[:,1]).any():
+        atom_i, atom_j = contact_pair_on.T
+        if atom_i == atom_j.any():
             raise ValueError(
                 "Cannot turn on interaction of an atom with itself"
             )
-        matrix[tuple(contact_pair_on.T)] = True
+        matrix[atom_i, atom_j] = True
+        matrix[atom_j, atom_i] = True
