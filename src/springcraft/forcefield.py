@@ -186,7 +186,7 @@ class TabulatedForceField(ForceField):
         ``CA`` atoms with the same chain ID and adjacent residue IDs
         are treated as bonded.
     bonded, intra_chain, inter_chain : float or ndarray, shape=(k,) or 
-        shape=(20, 20) or shape=(k, 20, 20), dtype=float
+        shape=(20, 20) or shape=(20, 20, k), dtype=float
         The force constants for interactions between each combination of
         amino acid type and for each distance bin.
         The order of amino acids is alphabetically with respect to the
@@ -213,11 +213,12 @@ class TabulatedForceField(ForceField):
               Individual value for each distance bin and pair of amino
               acid types.
 
-    cutoff_distance : float or ndarray, shape=(k), dtype=float,
+    cutoff_distance : float or None or ndarray, shape=(k), dtype=float
         If no distance dependent values are given for `bonded`,
         `intra_chain` and `inter_chain`, this parameter accepts a float,
         that represents the general cutoff distance, below which
-        interactions between atoms are considered.
+        interactions between atoms are considered
+        (or None for no cutoff distance).
         Otherwise, an array of monotonically increasing distance bin
         edges must be given.
         The edges represent the right edge of each bin.
@@ -245,9 +246,8 @@ class TabulatedForceField(ForceField):
         field.
     """
 
-    def __init__(self, atoms, cutoff_distance,
-                 bonded, intra_chain, inter_chain,
-                 distance_specific_function=None, ff_type_rmin=None):
+    def __init__(self, atoms,
+                 bonded, intra_chain, inter_chain, cutoff_distance):
 
         if not isinstance(atoms, struc.AtomArray):
             raise TypeError(
@@ -500,7 +500,7 @@ class TabulatedForceField(ForceField):
            Cooperativity and Sequence-Specificity of Protein Dynamics." 
            PLOS Computational Biology 9(8): e1003209 (2013). 
         """
-        fc = _load_matrix("sd_enm.csv").reshape(-1, 20, 20)
+        fc = _load_matrix("sd_enm.csv").reshape(-1, 20, 20).T
         # TODO According to bio3d: sdENM in AU
         # -> * R * T to scale to kJ/(mol*A**2) -> verify; seems dubious.
         #fc = fc*0.0083144621*300*10
