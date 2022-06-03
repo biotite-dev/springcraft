@@ -224,15 +224,6 @@ class TabulatedForceField(ForceField):
         The edges represent the right edge of each bin.
         All interactions at distances above the last edge are not
         considered.
-    distance_specific_function : anonymous function, optional
-        If set, interactions are directly computed using a distance dependent function.
-        Differentiations between bonded/non-bonded interactions can be implemented by
-        using in-line conditionals using distance thresholds.
-        Functional expressions are prioritized over table-derived spring constants.
-    ff_type_rmin : int, float, optional
-        Lower distance threshold; this value overwrites all values below the threshold.
-        In the main use case, this is combined with distance_specific_functions to correct
-        computational artifacts for low calpha-distances.
 
     Attributes
     ----------
@@ -261,15 +252,19 @@ class TabulatedForceField(ForceField):
         self._natoms = atoms.array_length()
         
 
-        if isinstance(cutoff_distance, numbers.Real):
+        if cutoff_distance is None:
+            self._edges = None
+            n_bins = 1
+        elif isinstance(cutoff_distance, numbers.Real):
             self._edges = np.array([cutoff_distance])
+            n_bins = 1
         else:
             self._edges = np.asarray(cutoff_distance)
             if not np.all(np.diff(self._edges) >= 0):
                 raise ValueError(
                     "Distance bin edges are not sorted in increasing order"
                 )
-        n_bins = len(self._edges)
+            n_bins = len(self._edges)
             
         # Always create 3D matrices, even if no bins are given,
         # to generalize the code
@@ -351,7 +346,7 @@ class TabulatedForceField(ForceField):
     
     @property
     def cutoff_distance(self):
-        return self._edges[-1]
+        return None if self._edges is None else self._edges[-1]
 
     @property
     def natoms(self):
