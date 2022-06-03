@@ -135,7 +135,7 @@ class HinsenForceField(ForceField):
     """
     def force_constant(self, atom_i, atom_j, sq_distance):
         distance = np.sqrt(sq_distance)
-        distance = np.clip(distance, a_min=2.9)
+        distance = np.clip(distance, a_min=2.9, a_max=None)
         return np.where(
             distance < 4.0,
             distance * 8.6e2 - 2.39e3,
@@ -327,7 +327,7 @@ class TabulatedForceField(ForceField):
 
 
     def force_constant(self, atom_i, atom_j, sq_distance):
-        if len(self._edges) == 1:
+        if self._edges is None or len(self._edges) == 1:
             # Only a single distance bin -> No distance dependency
             return self._interaction_matrix[atom_i, atom_j, 0]
         else:
@@ -465,15 +465,16 @@ class TabulatedForceField(ForceField):
     def sd_enm(atoms):
         """
         The sdENM forcefield by Dehouck and Mikhailov was parametrized
-        by statisctical analysis of a NMR conformational ensemble dataset.
-        Effective harmonic potentials for non-bonded interactions between
-        amino acid pairs are evaluated according to interacting amino acid
-        species as well as the spatial distance between them.
-        Spatial distances are divided into 27 bins, with amino acid specific
-        interaction tables for each distance bin.
+        by statistical analysis of a NMR conformational ensemble
+        dataset.
+        Effective harmonic potentials for non-bonded interactions
+        between amino acid pairs are evaluated according to interacting
+        amino acid species as well as the spatial distance between them.
+        Spatial distances are divided into 27 bins, with amino acid
+        specific interaction tables for each distance bin.
         Bonded interactions are evaluated with  43.52 R*T/(Ang**2), 
-        corresponding to the tenfold mean of all amino acid species interactions
-        at a distance 0f 3.5 nm.
+        corresponding to the tenfold mean of all amino acid species
+        interactions at a distance 0f 3.5 nm.
 
         Parameters
         ----------
@@ -500,20 +501,19 @@ class TabulatedForceField(ForceField):
         # -> * R * T to scale to kJ/(mol*A**2) -> verify; seems dubious.
         #fc = fc*0.0083144621*300*10
         bin_edges = _load_matrix("d_enm_edges.csv")
-        print(bin_edges.shape)
-        print(fc.shape)
         return TabulatedForceField(atoms, 43.52, fc, fc, bin_edges)
     
     @staticmethod
     def e_anm(atoms, nonbonded="standard", nonbonded_mean=False):
         """
-        The "extended ANM" (eANM) method discriminates between non-bonded 
-        interactions of amino acids within a single polypeptide chain 
-        (intrachain) and those present in different chains (interchain) 
-        in a residue-specific manner:
-        the former are described by Miyazawa-Jernigan parameters, the latter
-        by Keskin parameters, which are both derived by mean-force statistical
-        analysis of protein structures resolved by X-ray crystallography.
+        The "extended ANM" (eANM) method discriminates between
+        non-bonded interactions of amino acids within a single
+        polypeptide chain (intrachain) and those present in different
+        chains (interchain) in a residue-specific manner:
+        the former are described by Miyazawa-Jernigan parameters, the 
+        latter by Keskin parameters, which are both derived by
+        mean-force statistical analysis of protein structures resolved
+        by X-ray crystallography.
         Bonded interactions are evaluated with  82 R*T/(Ang**2).
 
         As variants, only Miyazawa-Jernigan- or Keskin- parameters are
@@ -532,16 +532,17 @@ class TabulatedForceField(ForceField):
         nonbonded  : String (optional)
             Keyword to specify the treatment of non-bonded interactions.
             For "standard", both Miyazawa-Jernigan parameters and Keskin
-            parameters are used for the treatment of non-bonded intra- and
-            intermolecular interactions, respectively.
+            parameters are used for the treatment of non-bonded intra-
+            and intermolecular interactions, respectively.
             To use either of both parameter sets for both intra- and 
             interchain non-bonded interactions, use "miyazawa-jernigan" 
-            (abbreviation: "mj") or "keskin" (abbrev.: "k") respectively.
+            (abbreviation: "mj") or "keskin" (abbrev.: "k")
+            respectively.
         nonbonded_mean  :  Booleam  (optional)
-            If True, the average of nonbonded interaction tables is computed
-            and used for nonbonded interactions, which yields an homogenous,
-            amino acid-species ignorant parametrization of non-bonded
-            contacts.
+            If True, the average of nonbonded interaction tables is
+            computed and used for nonbonded interactions, which yields 
+            an homogenous, amino acid-species ignorant parametrization
+            of non-bonded contacts.
 
         Returns
         -------
@@ -576,8 +577,10 @@ class TabulatedForceField(ForceField):
             intra_key = "keskin"
             inter_key = "keskin"
         else:
-            print(f"Wrong input keyword. Expected 'standard', 'mj' or 'k' as\
-                    input for nonbonded, got '{nonbonded}' instead.")
+            raise ValueError(
+                f"Unknown keyword '{nonbonded}' for "
+                f"treatment of nonbonded interactions"
+            )
 
         intra = _load_matrix(f"{intra_key}.csv")
         inter = _load_matrix(f"{inter_key}.csv")

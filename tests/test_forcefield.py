@@ -42,7 +42,7 @@ def test_tabulated_forcefield_homogeneous(atoms):
     INTRA = 2
     INTER = 3
 
-    ff = springcraft.TabulatedForceField(atoms, BONDED, INTRA, INTER)
+    ff = springcraft.TabulatedForceField(atoms, BONDED, INTRA, INTER, None)
 
     # Expect only a single distance bin in interaction matrix
     assert ff.interaction_matrix.shape[2] == 1
@@ -89,7 +89,7 @@ def test_tabulated_forcefield_inhomogeneous(atoms):
     triu = np.triu(np.random.rand(3, 20, 20))
     bonded, intra, inter = triu + np.transpose(triu, (0, 2, 1))
 
-    ff = springcraft.TabulatedForceField(atoms, bonded, intra, inter)
+    ff = springcraft.TabulatedForceField(atoms, bonded, intra, inter, None)
 
     # Expect only a single distance bin in interaction matrix
     assert ff.interaction_matrix.shape[2] == 1
@@ -125,7 +125,7 @@ def test_tabulated_forcefield_inhomogeneous(atoms):
 def test_tabulated_forcefield_distance(atoms):
     """
     Check whether the calculated force constants are correct for a force
-    field with distance depdendance, but no amino acid or connection
+    field with distance dependence, but no amino acid or connection
     dependence.
     """
     N_BINS = 100
@@ -158,8 +158,7 @@ def test_tabulated_forcefield_distance(atoms):
     atom_i = np.random.randint(len(atoms), size=N_SAMPLE_INTERACTIONS)
     atom_j = np.random.randint(len(atoms), size=N_SAMPLE_INTERACTIONS)
     sample_bin_indices = np.random.randint(N_BINS, size=N_SAMPLE_INTERACTIONS)
-    sample_dist = np.append(distance_edges, [MAX_DISTANCE])[sample_bin_indices]
-    assert MAX_DISTANCE in sample_dist
+    sample_dist = distance_edges[sample_bin_indices]
     test_force_constants = ff.force_constant(atom_i, atom_j, sample_dist)
     # Force constants (i.e. 'fc') are designed such that the force is
     # the index of the bin
@@ -171,30 +170,56 @@ def test_tabulated_forcefield_distance(atoms):
     assert np.allclose(test_force_constants, ref_force_constans)
 
 
-N_RES = 20
+@pytest.mark.parametrize("cutoff_distance", [None, 7])
+def test_tabulated_forcefield_cutoff(atoms, cutoff_distance):
+    """
+    Check whether a :class:`TabulatedForceField` with equal force
+    constant for each pair of atoms result in a kirchhoff matrix,
+    that simply represents adjacency.
+    """
+    ff = springcraft.TabulatedForceField(atoms, 1, 1, 1, cutoff_distance)
+    kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, ff)
+    ref_adj_matrix = -kirchhoff
+    np.fill_diagonal(ref_adj_matrix, 0)
+    assert np.isin(ref_adj_matrix.flatten(), [0,1]).all()
+    ref_adj_matrix = ref_adj_matrix.astype(bool)
+
+    if cutoff_distance is None:
+        # All atoms are connected except atoms with themselves
+        test_adj_matrix = ~np.identity(atoms.array_length(), dtype=bool)
+    else:
+        # Search pairs of atoms within cutoff distance
+        cell_list = struc.CellList(atoms, cutoff_distance)
+        test_adj_matrix = cell_list.create_adjacency_matrix(cutoff_distance)
+        np.fill_diagonal(test_adj_matrix, False)
+    
+    assert np.all(test_adj_matrix == ref_adj_matrix)
+
+
 @pytest.mark.parametrize("shape, n_edges, is_valid", [
     [(),           None, True ],
     [(),           1,    True ],
     [(),           10,   True ],
     [(10,),        None, False],
     [(10,),        1,    False],
-    [(10,),        10,   False],
-    [(11,),        10,   True ],
+    [( 9,),        10,   False],
+    [(10,),        10,   True ],
     [( 1,),        None, True ],
-    [(20,  1),     None, False],
-    [(20, 30),     None, False],
-    [( 1, 20),     None, False],
-    [(30, 20),     None, False],
-    [(20, 20),     None, True ],
+    [(20,  1),     1,    False],
+    [(20, 30),     1,    False],
+    [( 1, 20),     1,    False],
+    [(30, 20),     1,    False],
     [(20, 20),     1,    True ],
+    [(20, 20),     None, True ],
     [(20, 20),     10,   True ],
-    [(20,  1, 11), 10,   False],
-    [(20, 30, 11), 10,   False],
-    [( 1, 20, 11), 10,   False],
-    [(30, 20, 11), 10,   False],
-    [(20, 20, 11), 10,   True ],
+    [(20,  1, 10), 10,   False],
+    [(20, 30, 10), 10,   False],
+    [( 1, 20, 10), 10,   False],
+    [(30, 20, 10), 10,   False],
+    [(20, 20, 10), 10,   True ],
+    [(20, 20,  1), 1,    True ],
     [(20, 20,  1), None, True ],
-    [(20, 20, 10), 10,   False],
+    [(20, 20, 10), 9,    False],
 ])
 def test_tabulated_forcefield_input_shapes(atoms, shape, n_edges, is_valid):
     """
@@ -208,7 +233,7 @@ def test_tabulated_forcefield_input_shapes(atoms, shape, n_edges, is_valid):
 
     if is_valid:
         ff = springcraft.TabulatedForceField(atoms, fc, fc, fc, edges)
-        n_bins = n_edges+1 if n_edges is not None else 1
+        n_bins = n_edges if n_edges is not None else 1
         assert ff.interaction_matrix.shape == (40, 40, n_bins)
     else:
         with pytest.raises(IndexError):
@@ -254,57 +279,52 @@ def test_parameterfree_forcefield():
     assert np.allclose(test_kirchhoff,  ref_kirchhoff)
 
 
-# TODO Test HinsenForceField
-
-
 def test_compare_with_biophysconnector(atoms_singlechain):
     """
     Comparisons between Hessians computed for eANMs using springcraft
     and BioPhysConnectoR.
     Cut-off: 1.3 nm.
     """
-    # Load model 1 from 1l2y.mmtf
-    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
-    atoms = mmtf.get_structure(mmtf_file, model=1)
-    ca = atoms[atoms.atom_name == "CA"]
-
-    ff = springcraft.TabulatedForceField.e_anm(atoms=ca)
+    ff = springcraft.TabulatedForceField.e_anm(atoms_singlechain)
     # Load static class: eANM
-    test_hess, _ = springcraft.compute_hessian(ca.coord, ff, 13.0)
+    test_hessian, _ = springcraft.compute_hessian(atoms_singlechain.coord, ff)
     
     # Load .csv file data from BiophysConnectoR
-    ref_hess = np.genfromtxt("./data/hessian_eANM_BioPhysConnectoR.csv", skip_header=1, delimiter=",")
+    ref_hessian = np.genfromtxt(
+        join(data_dir(), "hessian_eANM_BioPhysConnectoR.csv"),
+        skip_header=1, delimiter=","
+    )
     
-    assert np.allclose(test_hess, ref_hess)
+    assert np.allclose(test_hessian, ref_hessian)
 
 
-#def test_compare_with_bio3d(atoms_singlechain):
-#    """
-#    Comparisons between Hessians computed for ANMS using springcraft
-#    and Bio3D.
-#    The following ENM forcefields are compared:
-#    Hinsen-Calpha, sdENM and pfENM.
-#    Cut-off: 1.3 nm.
-#    """
-#    # Load model 1 from 1l2y.mmtf
-#    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
-#    atoms = mmtf.get_structure(mmtf_file, model=1)
-#    ca = atoms[atoms.atom_name == "CA"]
-#
-#    
-#    hinsen = springcraft.TabulatedForceField.hinsen_calpha(atoms=ca)
-#    sd = springcraft.TabulatedForceField.sd_enm(atoms=ca)
-#    pf = springcraft.TabulatedForceField.pf_enm(ca)
-#
-#    test_hess = []
-#
-#    test_hess.append(springcraft.compute_hessian(ca.coord, ff, 13.0) for ff in [hinsen, sd, pf])
-#    
-#    for ff in [hinsen, sd, pf]:
-#        # Load static class: eANM
-#        test_hess, _ = springcraft.compute_hessian(ca.coord, ff, 13.0)
-#
-#        # Load .csv file data from BiophysConnectoR
-#        ref_hess = np.genfromtxt("./data/hessian_eANM_BioPhysConnectoR.csv", skip_header=1, delimiter=",")
-#    
-#    assert np.allclose(test_hess, ref_hess)
+@pytest.mark.parametrize("ff_name", ["Hinsen", "sdENM", "pfENM"])
+def test_compare_with_bio3d(atoms_singlechain, ff_name):
+    """
+    Comparisons between Hessians computed for ANMs using springcraft
+    and Bio3D on different force fields.
+    The following ENM forcefields are compared:
+    Hinsen-Calpha, sdENM and pfENM.
+    Cut-off: 1.3 nm.
+    """
+    #TODO needs to be fixed
+    #pytest.skip()
+    
+    if ff_name == "Hinsen":
+        ff = springcraft.HinsenForceField()
+        ref_file = "hessian_calpha_bio3d.csv"
+    if ff_name == "sdENM":
+        ff = springcraft.TabulatedForceField.sd_enm(atoms_singlechain)
+        ref_file = "hessian_sdenm_bio3d.csv"
+    if ff_name == "pfENM":
+        ref_file = "hessian_pfenm_bio3d.csv"
+        ff = springcraft.ParameterFreeForceField()
+
+    test_hessian, _ = springcraft.compute_hessian(atoms_singlechain.coord, ff)
+
+    ref_hessian = np.genfromtxt(
+        join(data_dir(), ref_file),
+        skip_header=1, delimiter=","
+    )
+
+    assert np.allclose(test_hessian, ref_hessian)
