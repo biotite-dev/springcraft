@@ -332,7 +332,9 @@ class TabulatedForceField(ForceField):
             return self._interaction_matrix[atom_i, atom_j, 0]
         else:
             # Distance dependence
-            bin_indices = np.searchsorted(self._edges, sq_distance)
+            # Edges represent distances
+            # -> square to obtain squared distances
+            bin_indices = np.searchsorted(self._edges**2, sq_distance)
             try:
                 return self._interaction_matrix[atom_i, atom_j, bin_indices]
             except IndexError:

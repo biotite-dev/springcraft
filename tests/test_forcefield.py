@@ -159,7 +159,7 @@ def test_tabulated_forcefield_distance(atoms):
     atom_j = np.random.randint(len(atoms), size=N_SAMPLE_INTERACTIONS)
     sample_bin_indices = np.random.randint(N_BINS, size=N_SAMPLE_INTERACTIONS)
     sample_dist = distance_edges[sample_bin_indices]
-    test_force_constants = ff.force_constant(atom_i, atom_j, sample_dist)
+    test_force_constants = ff.force_constant(atom_i, atom_j, sample_dist**2)
     # Force constants (i.e. 'fc') are designed such that the force is
     # the index of the bin
     ref_force_constans = np.where(
