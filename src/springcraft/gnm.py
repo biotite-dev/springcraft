@@ -40,6 +40,10 @@ class GNM:
     kirchhoff : ndarray, shape=(n,n), dtype=float
         The *Kirchhoff* matrix for this model.
         This is not a copy: Create a copy before modifying this matrix.
+    covariance : ndarray, shape=(n*3,n*3), dtype=float
+        The covariance matrix for this model, i.e. the inverted
+        *Kirchhofff* matrix.
+        This is not a copy: Create a copy before modifying this matrix.
     """
 
     def __init__(self, atoms, force_field, use_cell_list=True):
@@ -47,7 +51,7 @@ class GNM:
         self._ff = force_field
         self._use_cell_list = use_cell_list
         self._kirchhoff = None
-        self._inv_kirchhoff = None
+        self._covariance = None
 
     @property
     def kirchhoff(self):
@@ -59,14 +63,31 @@ class GNM:
     
     @kirchhoff.setter
     def kirchhoff(self, value):
-        if value.shape != (self._coord, self._coord):
+        if value.shape != (len(self._coord), len(self._coord)):
             raise ValueError(
-                f"Expected shape {(self._coord, self._coord)}, "
+                f"Expected shape "
+                f"{(len(self._coord), len(self._coord))}, "
                 f"got {value.shape}"
             )
         self._kirchhoff = value
         # Invalidate downstream values
-        self._inv_kirchhoff = None
+        self._covariance = None
+    
+    @property
+    def covariance(self):
+        if self._covariance is None:
+            self._covariance = np.linalg.pinv(self.kirchhoff)
+        return self._covariance
+    
+    @covariance.setter
+    def covariance(self, value):
+        if value.shape != (len(self._coord), len(self._coord)):
+            raise IndexError(
+                f"Expected shape "
+                f"{(len(self._coord), len(self._coord))}, "
+                f"got {value.shape}"
+            )
+        self._covariance = value
     
     def correlation_matrix(self, temperature):
         """
@@ -77,9 +98,7 @@ class GNM:
         correlation_matrix : ndarray, shape=(n,n), dtype=float
             The correlation matrix.
         """
-        if self._inv_kirchhoff is None:
-            self._inv_kirchhoff = np.linalg.pinv(self._kirchhoff)
-        return K_B * temperature * self._inv_kirchhoff
+        return K_B * temperature * self.covariance
     
     def mean_square_fluctuation(self, temperature):
         """
