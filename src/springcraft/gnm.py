@@ -76,7 +76,9 @@ class GNM:
     @property
     def covariance(self):
         if self._covariance is None:
-            self._covariance = np.linalg.pinv(self.kirchhoff)
+            self._covariance = np.linalg.pinv(
+                self.kirchhoff, hermitian=True, rcond=1e-6
+            )
         return self._covariance
     
     @covariance.setter
