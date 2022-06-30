@@ -35,6 +35,9 @@ def compute_kirchhoff(coord, force_field, use_cell_list=True):
     kirchhoff : ndarray, shape=(n,n), dtype=float
         The computed *Kirchhoff* matrix.
     """
+    # Convert into higher precision to avert numerical issues in
+    # pseudoinverse calculation
+    coord = coord.astype(np.float64, copy=False)
     pairs, _, sq_dist = _prepare_values_for_interaction_matrix(
         coord, force_field, use_cell_list
     )
@@ -76,7 +79,9 @@ def compute_hessian(coord, force_field, use_cell_list=True):
         Each dimension is partitioned in the form
         ``[x1, y1, z1, ... xn, yn, zn]``.
     """
-
+    # Convert into higher precision to avert numerical issues in
+    # pseudoinverse calculation
+    coord = coord.astype(np.float64, copy=False)
     pairs, disp, sq_dist = _prepare_values_for_interaction_matrix(
         coord, force_field, use_cell_list
     )
