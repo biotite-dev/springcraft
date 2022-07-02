@@ -34,13 +34,8 @@ atoms = mmtf.get_structure(mmtf_file, model=1)
 ca = atoms[(atoms.atom_name == "CA") & struc.filter_amino_acids(atoms)]
 target_index = np.where(ca.res_id == TARGET_RES_ID)[0][0]
 
-ff = springcraft.TabulatedForceField.sd_enm(ca)
+ff = springcraft.TabulatedForceField.e_anm(ca)
 anm = springcraft.ANM(ca, ff)
-#!#
-#np.random.seed(1)
-#cov = np.random.rand(*anm.covariance.shape)
-#anm.covariance = cov * cov.T
-#!#
 
 # Create evenly distributed force vectors
 force_vectors = create_fibonacci_points(N_FORCE)
@@ -67,21 +62,15 @@ kmeans = KMeans(n_clusters=CLUSTERS, random_state=0).fit(displacements)
 clusters = kmeans.labels_
 
 
-# Create 'dummy' molecule to display sphere in PyMOL
-dummy = struc.AtomArray(N_FORCE)
-dummy.chain_id[:] = "D"
-dummy.res_id[:] = 1
-dummy.res_name[:] = "DUM"
-dummy.hetero[:] = True
-dummy.atom_name[:] = "DUM"
-dummy.element[:] = "C"
-dummy.coord = ca.coord[target_index] + force_vectors * SPHERE_RADIUS
-
 ammolite.launch_interactive_pymol()
 
 pymol_protein = ammolite.PyMOLObject.from_structure(ca)
-pymol_dummy = ammolite.PyMOLObject.from_structure(dummy)
-pymol_dummy.show_as("nb_spheres")
-for cluster, color in zip(np.unique(clusters), ["red", "green", "blue", "yellow"]):
-    pymol_dummy.color(color, clusters == cluster)
-pymol_dummy.set("sphere_scale", 0.5)
+coord = ca.coord[target_index] + force_vectors * SPHERE_RADIUS
+colors = [(1,0,0), (0,1,0), (0,0,1), (1,0,1)]
+# Draw sphere of force vectors
+ammolite.draw_cgo(
+    [
+        ammolite.get_sphere_cgo(coord[i], 0.2, colors[clusters[i]])
+        for i in range(N_FORCE)
+    ]
+)
