@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "springcraft"
 version = "0.1.0"
-description = "Investigate molecular dynmaics with elastic network models"
+description = "Investigate molecular dynamics with elastic network models"
 readme = "README.rst"
 license = "BSD-3-Clause"
 authors = [
