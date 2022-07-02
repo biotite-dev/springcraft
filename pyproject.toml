@@ -8,9 +8,9 @@ authors = [
     "Patrick Kunzmann <patrick.kunzm@gmail.com>",
     "..."
 ]
-#homepage = "https://springcraft.biotite-python.org"
-#repository = "https://github.com/biotite-dev/springcraft"
-#documentation = "https://springcraft.biotite-python.org"
+homepage = "https://springcraft.biotite-python.org"
+repository = "https://github.com/biotite-dev/springcraft"
+documentation = "https://springcraft.biotite-python.org"
 keywords = [
     "Bioinformatics",
     "Computational biology",
