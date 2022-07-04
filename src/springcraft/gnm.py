@@ -4,7 +4,7 @@ calculations using *Gaussian Network Models*.
 """
 
 __name__ = "springcraft"
-__author__ = "Patrick Kunzmann"
+__author__ = "Patrick Kunzmann, Faisal Islam"
 __all__ = ["GNM"]
 
 import numpy as np

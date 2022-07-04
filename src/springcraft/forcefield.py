@@ -4,7 +4,7 @@ i.e. Kirchhoff and Hessian matrices.
 """
 
 __name__ = "springcraft"
-__author__ = "Patrick Kunzmann"
+__author__ = "Patrick Kunzmann, Jan Krumbach"
 __all__ = ["ForceField", "PatchedForceField", "InvariantForceField",
            "HinsenForceField", "ParameterFreeForceField",
            "TabulatedForceField"]
