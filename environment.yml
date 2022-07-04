@@ -14,3 +14,7 @@ dependencies:
   - matplotlib >=3.3
   - ammolite >=0.7.0
   - poetry >=1.0
+  - sphinx >=3.0
+  - sphinx-gallery =0.9.0
+  - numpydoc >=0.8
+  - ammolite >=0.8
