@@ -393,10 +393,7 @@ def test_compare_with_bio3d(atoms_singlechain, ff_name):
     and Bio3D on different force fields.
     The following ENM forcefields are compared:
     Hinsen-Calpha, sdENM and pfENM.
-    Cut-off: 1.3 nm.
     """
-    # TODO Fix tests
-    pytest.skip()
 
     if ff_name == "Hinsen":
         ff = springcraft.HinsenForceField()
@@ -415,4 +412,8 @@ def test_compare_with_bio3d(atoms_singlechain, ff_name):
         skip_header=1, delimiter=","
     )
 
-    assert np.allclose(test_hessian, ref_hessian)
+    # Higher deviation for Hinsen-FF
+    if ff_name == "Hinsen":
+        assert np.allclose(test_hessian, ref_hessian, atol=1e-04)
+    else:
+        assert np.allclose(test_hessian, ref_hessian)

@@ -276,7 +276,7 @@ class HinsenForceField(ForceField):
         return np.where(
             distance < 4.0,
             distance * 8.6e2 - 2.39e3,
-            distance**6 * 128e4
+            distance**(-6) * 128e4
         )
     
     @property
@@ -649,11 +649,12 @@ class TabulatedForceField(ForceField):
            PLOS Computational Biology 9(8): e1003209 (2013). 
         """
         fc = _load_matrix("sd_enm.csv").reshape(-1, 20, 20).T
-        # TODO According to bio3d: sdENM in AU
-        # -> * R * T to scale to kJ/(mol*A**2) -> verify; seems dubious.
-        #fc = fc*0.0083144621*300*10
+        # sdENM: Tabulated values in AU
+        # -> * R * T to scale to kJ/(mol*A**2) -> verify
+        fc = fc*0.0083144621*300*10
+        bonded = 43.52*0.0083144621*300*10
         bin_edges = _load_matrix("d_enm_edges.csv")
-        return TabulatedForceField(atoms, 43.52, fc, fc, bin_edges)
+        return TabulatedForceField(atoms, bonded, fc, fc, bin_edges)
     
     @staticmethod
     def e_anm(atoms, nonbonded="standard", nonbonded_mean=False):
