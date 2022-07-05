@@ -110,34 +110,34 @@ class ForceField(metaclass=abc.ABCMeta):
 
 
 class PatchedForceField(ForceField):
+    """
+    This force field wraps another force field and applies custom
+    changes to selected pairs of atoms.
+
+    Parameters
+    ----------
+    force_field : ForceField
+        The base force field.
+        For all atoms pairs, that are not patched, the force
+        constant from the base force field is taken
+    contact_shutdown : ndarray, shape=(n,), dtype=float, optional
+        Indices that point to atoms, whose contacts to all other
+        atoms are artificially switched off.
+    contact_pair_off : ndarray, shape=(n,2), dtype=int, optional
+        Indices that point to pairs of atoms, whose contacts
+        are artificially switched off.
+    contact_pair_on : ndarray, shape=(n,2), dtype=int, optional
+        Indices that point to pairs of atoms, whose contacts
+        are are artificially established.
+    force_constants : ndarray, shape=(n,), dtype=float, optional
+        Individual force constants for artificially established
+        contacts.
+        Must be given, if `contact_pair_on` is set.
+    """
     
     def __init__(self, force_field,
                  contact_shutdown=None, contact_pair_off=None,
                  contact_pair_on=None, force_constants=None):
-        """
-        This force field wraps another force field and applies custom
-        changes to selected pairs of atoms.
-
-        Parameters
-        ----------
-        force_field : ForceField
-            The base force field.
-            For all atoms pairs, that are not patched, the force
-            constant from the base force field is taken
-        contact_shutdown : ndarray, shape=(n,), dtype=float, optional
-            Indices that point to atoms, whose contacts to all other
-            atoms are artificially switched off.
-        contact_pair_off : ndarray, shape=(n,2), dtype=int, optional
-            Indices that point to pairs of atoms, whose contacts
-            are artificially switched off.
-        contact_pair_on : ndarray, shape=(n,2), dtype=int, optional
-            Indices that point to pairs of atoms, whose contacts
-            are are artificially established.
-        force_constants : ndarray, shape=(n,), dtype=float, optional
-            Individual force constants for artificially established
-            contacts.
-            Must be given, if `contact_pair_on` is set.
-        """
         # Support other array-like objects
         self._force_field = force_field
         self._contact_shutdown = (
