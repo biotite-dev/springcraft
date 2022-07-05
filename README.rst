@@ -30,8 +30,7 @@ or
 
    $ conda install -c conda-forge springcraft
 
-You can also install *Springcraft* from source on
-`GitHub <https://github.com/biotite-dev/springcraft>`_.
+You can also install *Springcraft* from source.
 The package uses `Poetry <https://python-poetry.org/>`_ for building
 distributions.
 Via :pep:`517` it is possible to install the package from local source code
@@ -47,9 +46,9 @@ Example
 
 .. code-block:: python
 
+   import numpy as np
    import biotite.structure.io.pdbx as pdbx
    import springcraft
-   import numpy as np
 
 
    pdbx_file = pdbx.PDBxFile.read("path/to/1l2y.cif")

@@ -76,6 +76,7 @@ html_theme_options = {
     "github_banner" : "true",
     "github_type"   : "star",
     "fixed_sidebar" : "true",
+    "page_width"    : "1200px",
 }
 sphinx_gallery_conf = {
     "examples_dirs"             : "examples/scripts",
