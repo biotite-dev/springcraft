@@ -315,7 +315,7 @@ class ParameterFreeForceField(ForceField):
     """
     The "parameter free ANM" (pfENM) method is an extension of the
     original implementation of the original ANM forcefield with
-    homogenous parametrization from the Bahar lab.
+    homogenous parametrization from the *Jernigan* lab.
     Unlike in other ANMs, neither distance cutoffs nor
     distance-dependent spring constants are used.
     Instead, the residue-pair superelement of the Hessian matrix is
