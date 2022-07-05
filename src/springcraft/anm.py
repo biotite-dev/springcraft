@@ -100,9 +100,9 @@ class ANM:
 
         Returns
         -------
-        eig_values : ndarray, shape=(n,), dtype=float
+        eig_values : ndarray, shape=(k,), dtype=float
             Eigenvalues of the *Hessian* matrix in ascending order.
-        eig_vectors : ndarray, shape=(n,), dtype=float
+        eig_vectors : ndarray, shape=(k,n), dtype=float
             Eigenvectors of the *Hessian* matrix.
             ``eig_values[i]`` corresponds to ``eigenvectors[i]``.
         """
@@ -169,7 +169,7 @@ class ANM:
     def linear_response(self, force):
         """
         Compute the atom displacement induced by the given force using
-        *Linear Response Theory*.
+        *Linear Response Theory*. [1]_
 
         Parameters
         ----------
@@ -186,6 +186,13 @@ class ANM:
             The vector of displacement induced by the given force.
             The first dimension represents the atom index,
             the second dimension represents spatial dimension.
+        
+        References
+        ----------
+        .. [1] M Ikeguchi, J Ueno, M Sato, A Kidera,
+            "Protein Structural Change Upon Ligand Binding:
+            Linear Response Theory."
+            Phys Rev Lett. 94, 7, 078102 (2005).
 
         """
         if force.ndim == 2:
@@ -224,6 +231,3 @@ class ANM:
         diagsum = np.sum(reshape_diag, axis=2)
     
         return diagsum
-
-
-# TODO Test 6 last eigenmodes for constant displacement

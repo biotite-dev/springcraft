@@ -48,6 +48,7 @@ class ForceField(metaclass=abc.ABCMeta):
     contact_shutdown : ndarray, shape=(n,), dtype=float, optional
         Indices that point to atoms, whose contacts to all other atoms
         are artificially switched off.
+        If ``None``, no contacts are switched off.
     contact_pair_off : ndarray, shape=(n,2), dtype=int, optional
         Indices that point to pairs of atoms, whose contacts
         are artificially switched off.
@@ -113,6 +114,30 @@ class PatchedForceField(ForceField):
     def __init__(self, force_field,
                  contact_shutdown=None, contact_pair_off=None,
                  contact_pair_on=None, force_constants=None):
+        """
+        This force field wraps another force field and applies custom
+        changes to selected pairs of atoms.
+
+        Parameters
+        ----------
+        force_field : ForceField
+            The base force field.
+            For all atoms pairs, that are not patched, the force
+            constant from the base force field is taken
+        contact_shutdown : ndarray, shape=(n,), dtype=float, optional
+            Indices that point to atoms, whose contacts to all other
+            atoms are artificially switched off.
+        contact_pair_off : ndarray, shape=(n,2), dtype=int, optional
+            Indices that point to pairs of atoms, whose contacts
+            are artificially switched off.
+        contact_pair_on : ndarray, shape=(n,2), dtype=int, optional
+            Indices that point to pairs of atoms, whose contacts
+            are are artificially established.
+        force_constants : ndarray, shape=(n,), dtype=float, optional
+            Individual force constants for artificially established
+            contacts.
+            Must be given, if `contact_pair_on` is set.
+        """
         # Support other array-like objects
         self._force_field = force_field
         self._contact_shutdown = (
@@ -163,7 +188,9 @@ class PatchedForceField(ForceField):
             ]) + 1
             # Fill matrix containing patched force constants
             # -1 for atom pairs with no patched force constants
-            patch_matrix = np.full((required_size, required_size), -1, dtype=float)
+            patch_matrix = np.full(
+                (required_size, required_size), -1, dtype=float
+            )
             patch_matrix[patch_atom_i, patch_atom_j] = self._force_constants
             patch_matrix[patch_atom_j, patch_atom_i] = self._force_constants
             

@@ -5,6 +5,7 @@
 __author__ = "Patrick Kunzmann"
 
 from os.path import realpath, dirname, join
+import types
 import sys
 
 # Include 'src/' in PYTHONPATH
@@ -40,6 +41,11 @@ version = springcraft.__version__
 
 exclude_patterns = ["build"]
 
+numpydoc_show_class_members = False
+autodoc_default_options = {
+    "show-inheritance": True
+}
+
 pygments_style = "sphinx"
 
 todo_include_todos = False
@@ -64,7 +70,7 @@ htmlhelp_basename = "SpringcraftDoc"
 html_theme_options = {
     "description"   : "Investigate molecular dynamics with elastic network models",
     "logo"          : "assets/springcraft_logo.svg",
-    "logo_name"     : "false",
+    "logo_name"     : "true",
     "github_user"   : "biotite-dev",
     "github_repo"   : "springcraft",
     "github_banner" : "true",
@@ -85,3 +91,21 @@ sphinx_gallery_conf = {
     # by the overwritten 'ammolite.show()'
     "capture_repr"              : (),
 }
+
+
+#### App setup ####
+
+def skip_non_methods(app, what, name, obj, skip, options):
+    if skip:
+        return True
+    if what == "class":
+        # Functions
+        if type(obj) in [
+            types.FunctionType, types.BuiltinFunctionType, types.MethodType
+        ]:
+            return False
+        return True
+
+
+def setup(app):
+    app.connect("autodoc-skip-member", skip_non_methods)
