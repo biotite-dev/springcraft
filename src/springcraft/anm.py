@@ -58,9 +58,14 @@ class ANM:
     @property
     def hessian(self):
         if self._hessian is None:
-            self._hessian, _ = compute_hessian(
-                self._coord, self._ff, self._use_cell_list
-            )
+            if self._covariance is None:
+                self._hessian, _ = compute_hessian(
+                    self._coord, self._ff, self._use_cell_list
+                )
+            else:
+                self._hessian = np.linalg.pinv(
+                    self._covariance, hermitian=True, rcond=1e-6
+                )
         return self._hessian
     
     @hessian.setter
@@ -72,7 +77,7 @@ class ANM:
                 f"got {value.shape}"
             )
         self._hessian = value
-        # Invalidate downstream values
+        # Invalidate dependent values
         self._covariance = None
     
     @property
@@ -92,6 +97,8 @@ class ANM:
                 f"got {value.shape}"
             )
         self._covariance = value
+        # Invalidate dependent values
+        self._hessian = None
     
     def eigen(self):
         """

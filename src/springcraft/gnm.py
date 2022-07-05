@@ -12,9 +12,6 @@ import biotite.structure as struc
 from .interaction import compute_kirchhoff
 
 
-K_B = 1 # TODO
-
-
 class GNM:
     """
     This class represents a *Gaussian Network Model*.
@@ -56,9 +53,14 @@ class GNM:
     @property
     def kirchhoff(self):
         if self._kirchhoff is None:
-            self._kirchhoff, _ = compute_kirchhoff(
-                self._coord, self._ff, self._use_cell_list
-            )
+            if self._covariance is None:
+                self._kirchhoff, _ = compute_kirchhoff(
+                    self._coord, self._ff, self._use_cell_list
+                )
+            else:
+                self._kirchhoff = np.linalg.pinv(
+                    self._covariance, hermitian=True, rcond=1e-6
+                )
         return self._kirchhoff
     
     @kirchhoff.setter
@@ -70,7 +72,7 @@ class GNM:
                 f"got {value.shape}"
             )
         self._kirchhoff = value
-        # Invalidate downstream values
+        # Invalidate dependent values
         self._covariance = None
     
     @property
@@ -90,6 +92,8 @@ class GNM:
                 f"got {value.shape}"
             )
         self._covariance = value
+        # Invalidate dependent values
+        self._kirchhoff = None
     
     def correlation_matrix(self, temperature):
         """
