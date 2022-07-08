@@ -4,7 +4,7 @@ i.e. Kirchhoff and Hessian matrices.
 """
 
 __name__ = "springcraft"
-__author__ = "Patrick Kunzmann"
+__author__ = "Patrick Kunzmann, Jan Krumbach"
 __all__ = ["ForceField", "PatchedForceField", "InvariantForceField",
            "HinsenForceField", "ParameterFreeForceField",
            "TabulatedForceField"]
@@ -48,6 +48,7 @@ class ForceField(metaclass=abc.ABCMeta):
     contact_shutdown : ndarray, shape=(n,), dtype=float, optional
         Indices that point to atoms, whose contacts to all other atoms
         are artificially switched off.
+        If ``None``, no contacts are switched off.
     contact_pair_off : ndarray, shape=(n,2), dtype=int, optional
         Indices that point to pairs of atoms, whose contacts
         are artificially switched off.
@@ -109,6 +110,30 @@ class ForceField(metaclass=abc.ABCMeta):
 
 
 class PatchedForceField(ForceField):
+    """
+    This force field wraps another force field and applies custom
+    changes to selected pairs of atoms.
+
+    Parameters
+    ----------
+    force_field : ForceField
+        The base force field.
+        For all atoms pairs, that are not patched, the force
+        constant from the base force field is taken
+    contact_shutdown : ndarray, shape=(n,), dtype=float, optional
+        Indices that point to atoms, whose contacts to all other
+        atoms are artificially switched off.
+    contact_pair_off : ndarray, shape=(n,2), dtype=int, optional
+        Indices that point to pairs of atoms, whose contacts
+        are artificially switched off.
+    contact_pair_on : ndarray, shape=(n,2), dtype=int, optional
+        Indices that point to pairs of atoms, whose contacts
+        are are artificially established.
+    force_constants : ndarray, shape=(n,), dtype=float, optional
+        Individual force constants for artificially established
+        contacts.
+        Must be given, if `contact_pair_on` is set.
+    """
     
     def __init__(self, force_field,
                  contact_shutdown=None, contact_pair_off=None,
@@ -163,7 +188,9 @@ class PatchedForceField(ForceField):
             ]) + 1
             # Fill matrix containing patched force constants
             # -1 for atom pairs with no patched force constants
-            patch_matrix = np.full((required_size, required_size), -1, dtype=float)
+            patch_matrix = np.full(
+                (required_size, required_size), -1, dtype=float
+            )
             patch_matrix[patch_atom_i, patch_atom_j] = self._force_constants
             patch_matrix[patch_atom_j, patch_atom_i] = self._force_constants
             
@@ -288,7 +315,7 @@ class ParameterFreeForceField(ForceField):
     """
     The "parameter free ANM" (pfENM) method is an extension of the
     original implementation of the original ANM forcefield with
-    homogenous parametrization from the Bahar lab.
+    homogenous parametrization from the *Jernigan* lab.
     Unlike in other ANMs, neither distance cutoffs nor
     distance-dependent spring constants are used.
     Instead, the residue-pair superelement of the Hessian matrix is

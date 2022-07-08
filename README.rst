@@ -1,42 +1,87 @@
 Springcraft
 ===========
 
-The project in the CBS Hackathon to compute *Elastic Network Models*
-with *Biotite*.
+*Springcraft* is a *Biotite* extension package, that allows the analysis
+of `AtomArray` objects via *Elastic Network Models* (ENMs).
+An ENM can be thought of as a system that connects residues via springs:
+Interaction of nearby residues is governed by a harmonic potential, with the
+native (input) conformation representing the energy minimum.
+Normal mode analysis allows the researcher to investigate global
+functional movements of a protein in a fast coarse-grained manner.
+
+.. note::
+
+  *Springcraft* is still in alpha stage.
+  Although most implemented functionalities should already work as
+  expected, some features are not well tested, yet.
 
 Installation
 ------------
 
-All packages required for the development (including tests) are installed via
+*Springcraft* can be installed via
 
 .. code-block:: console
 
-   $ conda env create -f environment.yml
+   $ pip install springcraft
 
-if *Conda* installed.
-The package is installed for development via
+or 
 
 .. code-block:: console
 
-   $ pip install -e .
+   $ conda install -c conda-forge springcraft
 
-This command requires a recent *pip* version.
+You can also install *Springcraft* from source.
+The package uses `Poetry <https://python-poetry.org/>`_ for building
+distributions.
+Via :pep:`517` it is possible to install the package from local source code
+via *pip*:
+
+.. code-block:: console
+
+   $ git clone https://github.com/biotite-dev/springcraft.git
+   $ pip install ./springcraft
 
 Example
 =======
 
 .. code-block:: python
 
-   import biotite.structure.io.mmtf as mmtf
-   import springcraft
    import numpy as np
-   
-   
-   mmtf_file = mmtf.MMTFFile.read("path/to/1l2y.mmtf")
-   atoms = mmtf.get_structure(mmtf_file, model=1)
+   import biotite.structure.io.pdbx as pdbx
+   import springcraft
+
+
+   pdbx_file = pdbx.PDBxFile.read("path/to/1l2y.cif")
+   atoms = pdbx.get_structure(pdbx_file, model=1)
    ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
-   ff = springcraft.InvariantForceField()
-   hessian, pairs = springcraft.compute_hessian(ca.coord, ff, 7.0)
-   
+   ff = springcraft.InvariantForceField(cutoff_distance=7.0)
+   gnm = springcraft.GNM(ca, ff)
+   kirchhoff = gnm.kirchhoff
+
    np.set_printoptions(linewidth=100)
-   print(hessian)
+   print(kirchhoff)
+
+Output:
+
+.. code-block:: none
+
+   [[ 4. -1. -1. -1. -1.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.]
+    [-1.  6. -1. -1. -1. -1.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0. -1.  0.]
+    [-1. -1.  7. -1. -1. -1. -1.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0. -1.  0.]
+    [-1. -1. -1.  7. -1. -1. -1. -1.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.]
+    [-1. -1. -1. -1.  8. -1. -1. -1. -1.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.]
+    [ 0. -1. -1. -1. -1.  9. -1. -1. -1.  0. -1.  0.  0.  0.  0.  0.  0. -1.  0.  0.]
+    [ 0.  0. -1. -1. -1. -1.  8. -1. -1. -1. -1.  0.  0.  0.  0.  0.  0.  0.  0.  0.]
+    [ 0.  0.  0. -1. -1. -1. -1.  7. -1. -1. -1.  0.  0.  0.  0.  0.  0.  0.  0.  0.]
+    [ 0.  0.  0.  0. -1. -1. -1. -1.  7. -1. -1.  0.  0. -1.  0.  0.  0.  0.  0.  0.]
+    [ 0.  0.  0.  0.  0.  0. -1. -1. -1.  7. -1. -1. -1. -1.  0.  0.  0.  0.  0.  0.]
+    [ 0.  0.  0.  0.  0. -1. -1. -1. -1. -1.  8. -1. -1. -1.  0.  0.  0.  0.  0.  0.]
+    [ 0.  0.  0.  0.  0.  0.  0.  0.  0. -1. -1.  7. -1. -1. -1. -1. -1.  0.  0.  0.]
+    [ 0.  0.  0.  0.  0.  0.  0.  0.  0. -1. -1. -1.  5. -1. -1.  0.  0.  0.  0.  0.]
+    [ 0.  0.  0.  0.  0.  0.  0.  0. -1. -1. -1. -1. -1.  7. -1. -1.  0.  0.  0.  0.]
+    [ 0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0. -1. -1. -1.  4. -1.  0.  0.  0.  0.]
+    [ 0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0. -1.  0. -1. -1.  5. -1. -1.  0.  0.]
+    [ 0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0. -1.  0.  0.  0. -1.  4. -1. -1.  0.]
+    [ 0.  0.  0.  0.  0. -1.  0.  0.  0.  0.  0.  0.  0.  0.  0. -1. -1.  5. -1. -1.]
+    [ 0. -1. -1.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0. -1. -1.  5. -1.]
+    [ 0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0. -1. -1.  2.]]

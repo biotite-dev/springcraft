@@ -4,7 +4,7 @@ i.e. Kirchhoff and Hessian matrices.
 """
 
 __name__ = "springcraft"
-__author__ = "Patrick Kunzmann"
+__author__ = "Patrick Kunzmann, Jan Krumbach"
 __all__ = ["compute_kirchhoff", "compute_hessian"]
 
 import numpy as np
@@ -34,6 +34,9 @@ def compute_kirchhoff(coord, force_field, use_cell_list=True):
     -------
     kirchhoff : ndarray, shape=(n,n), dtype=float
         The computed *Kirchhoff* matrix.
+    pairs : ndarray, shape=(k,2), dtype=int
+        Indices for interacting atoms, i.e. atoms within
+        `cutoff_distance`.
     """
     # Convert into higher precision to avert numerical issues in
     # pseudoinverse calculation
@@ -78,6 +81,9 @@ def compute_hessian(coord, force_field, use_cell_list=True):
         The computed *Hessian* matrix.
         Each dimension is partitioned in the form
         ``[x1, y1, z1, ... xn, yn, zn]``.
+    pairs : ndarray, shape=(k,2), dtype=int
+        Indices for interacting atoms, i.e. atoms within
+        `cutoff_distance`.
     """
     # Convert into higher precision to avert numerical issues in
     # pseudoinverse calculation

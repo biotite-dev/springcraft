@@ -4,7 +4,7 @@ calculations using *Gaussian Network Models*.
 """
 
 __name__ = "springcraft"
-__author__ = "Patrick Kunzmann"
+__author__ = "Patrick Kunzmann, Faisal Islam"
 __all__ = ["GNM"]
 
 import numpy as np
@@ -128,9 +128,9 @@ class GNM:
 
         Returns
         -------
-        eig_values : ndarray, shape=(n,), dtype=float
+        eig_values : ndarray, shape=(k,), dtype=float
             Eigenvalues of the *Kirchhoff* matrix in ascending order.
-        eig_vectors : ndarray, shape=(n,), dtype=float
+        eig_vectors : ndarray, shape=(k,n), dtype=float
             Eigenvectors of the *Kirchhoff* matrix.
             ``eig_values[i]`` corresponds to ``eigenvectors[i]``.
         """
