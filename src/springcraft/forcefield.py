@@ -684,7 +684,7 @@ class TabulatedForceField(ForceField):
         return TabulatedForceField(atoms, bonded, fc, fc, bin_edges)
     
     @staticmethod
-    def e_anm(atoms, nonbonded="standard", nonbonded_mean=False):
+    def e_anm(atoms, nonbonded_mean=False):
         """
         The "extended ANM" (eANM) method discriminates between
         non-bonded interactions of amino acids within a single
@@ -695,9 +695,8 @@ class TabulatedForceField(ForceField):
         mean-force statistical analysis of protein structures resolved
         by X-ray crystallography.
         Bonded interactions are evaluated with  82 R*T/(Ang**2).
+        For noncovalent interactions, the cut-off is set to 13 Ang.
 
-        As variants, only Miyazawa-Jernigan- or Keskin- parameters are
-        considered for non-bonded interactions.
         By averaging over all non-bonded residue-specific parameters,
         an eANM variant with homogenous parametrization of non-bonded
         interactions can be derived.  
@@ -709,15 +708,6 @@ class TabulatedForceField(ForceField):
             Must contain only ``CA`` atoms and only canonic amino acids.
             ``CA`` atoms with the same chain ID and adjacent residue IDs
             are treated as bonded.
-        nonbonded  : String (optional)
-            Keyword to specify the treatment of non-bonded interactions.
-            For "standard", both Miyazawa-Jernigan parameters and Keskin
-            parameters are used for the treatment of non-bonded intra-
-            and intermolecular interactions, respectively.
-            To use either of both parameter sets for both intra- and 
-            interchain non-bonded interactions, use "miyazawa-jernigan" 
-            (abbreviation: "mj") or "keskin" (abbrev.: "k")
-            respectively.
         nonbonded_mean  :  Booleam  (optional)
             If True, the average of nonbonded interaction tables is
             computed and used for nonbonded interactions, which yields 
@@ -747,23 +737,9 @@ class TabulatedForceField(ForceField):
            and inter-molecular inter-residue interactions."
            Protein Science, 7 2578-2586 (1998)
         """
-        if nonbonded == "standard":
-            intra_key = "miyazawa"
-            inter_key = "keskin"
-        elif nonbonded in ["miyazawa-jernigan", "mj"]:
-            intra_key = "miyazawa"
-            inter_key = "miyazawa"
-        elif nonbonded in ["keskin", "k"]:
-            intra_key = "keskin"
-            inter_key = "keskin"
-        else:
-            raise ValueError(
-                f"Unknown keyword '{nonbonded}' for "
-                f"treatment of nonbonded interactions"
-            )
 
-        intra = _load_matrix(f"{intra_key}.csv")
-        inter = _load_matrix(f"{inter_key}.csv")
+        intra = _load_matrix(f"miyazawa.csv")
+        inter = _load_matrix(f"keskin.csv")
         
         if nonbonded_mean:
             intra = np.average(intra) * np.ones(shape=(20, 20))
@@ -771,6 +747,99 @@ class TabulatedForceField(ForceField):
 
         return TabulatedForceField(atoms, 82.0, intra, inter, 13.0)
 
+    def e_anm_mj(atoms, nonbonded_mean=False):
+        """
+        In this variant of the "extended ANM" (eANM) method, non-bonded interactions
+        between amino acids are parametrized in a residue-specific manner using
+        solely Miyazawa-Jernigan (MJ) parameters. 
+        MJ parameters were derived from contact numbers between amino acids
+        in a X-ray structure dataset of globular proteins using the Bethe approximation.
+        Bonded interactions are evaluated with  82 R*T/(Ang**2).
+        For noncovalent interactions, the cut-off is set to 13 Ang.
+
+        Averaging over all non-bonded residue-specific parameters yields a homogenous
+        description of non-bonded interactions. 
+
+        Parameters
+        ----------
+        atoms : AtomArray, shape=(n,)
+            The atoms in the model.
+            Must contain only ``CA`` atoms and only canonic amino acids.
+            ``CA`` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded.
+        nonbonded_mean  :  Booleam  (optional)
+            If True, the average of nonbonded interaction tables is
+            computed and used for nonbonded interactions, which yields 
+            an homogenous, amino acid-species ignorant parametrization
+            of non-bonded contacts.
+
+        Returns
+        -------
+        force_field : TabulatedForceField
+            Force field tailored to the eANM method in the MJ parameterset variant.
+
+        .. [1] S Miyazawa, R L Jernigan,
+           "Residue – Residue Potentials with a Favorable Contact Pair Term and 
+           an Unfavorable High Packing Density Term, for Simulation 
+           and Threading."  
+           J Mol Biol., 256(3) 623-44 (1996).
+        @TODO Additional citations
+        """
+
+        intra = _load_matrix("miyazawa.csv") 
+        inter = _load_matrix("miyazawa.csv")
+
+        if nonbonded_mean:
+            intra = np.average(intra) * np.ones(shape=(20, 20))
+            inter = np.average(inter) * np.ones(shape=(20, 20))
+
+        return TabulatedForceField(atoms, 82.0, intra, inter, 13.0)
+        
+    def e_anm_ke(atoms, nonbonded_mean=False):
+        """
+        For this variant of the "extended ANM" (eANM), non-bonded interactions between
+        amino-acid pairs are parametrized in a residue-specific manner using
+        Keskin parameters. This parameterset was derived from contact frequencies between
+        different protein monomers using the methodology established by Miyazawa-Jernigan.
+        Bonded interactions are evaluated with  82 R*T/(Ang**2).
+        For noncovalent interactions, the cut-off is set to 13 Ang. 
+
+        Averaging over all non-bonded residue-specific parameters yields a homogenous
+        description of non-bonded interactions.
+
+        Parameters
+        ----------
+        atoms : AtomArray, shape=(n,)
+            The atoms in the model.
+            Must contain only ``CA`` atoms and only canonic amino acids.
+            ``CA`` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded.
+        nonbonded_mean  :  Booleam  (optional)
+            If True, the average of nonbonded interaction tables is
+            computed and used for nonbonded interactions, which yields 
+            an homogenous, amino acid-species ignorant parametrization
+            of non-bonded contacts.
+
+        Returns
+        -------
+        force_field : TabulatedForceField
+            Force field tailored to the eANM method in the Keskin parameterset variant.
+
+        .. [1] O Keskin, I Bahar, R L Jernigan, A Y Badretdinov, O B Ptitsyn, 
+           "Empirical solvent-mediated potentials hold for both intra-molecular 
+           and inter-molecular inter-residue interactions."
+           Protein Science, 7 2578-2586 (1998)
+           @TODO Additional citations
+        """
+
+        intra = _load_matrix("keskin.csv") 
+        inter = _load_matrix("keskin.csv")
+
+        if nonbonded_mean:
+            intra = np.average(intra) * np.ones(shape=(20, 20))
+            inter = np.average(inter) * np.ones(shape=(20, 20))
+
+        return TabulatedForceField(atoms, 82.0, intra, inter, 13.0)
 
 def _convert_to_matrix(value, n_bins):
     """
