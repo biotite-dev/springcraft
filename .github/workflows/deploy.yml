@@ -49,7 +49,7 @@ jobs:
           mamba-version: "*"
           channels: conda-forge,defaults
       - name: Installing dependencies
-        run: conda install -c conda-forge pymol-open-source poetry
+        run: conda install -c conda-forge pymol-open-source poetry "Jinja2<3.1"
       - name: Installing Springcraft
         run: poetry install
       - name: Building documentation
