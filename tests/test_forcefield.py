@@ -367,24 +367,37 @@ def test_parameterfree_forcefield():
     assert np.allclose(test_kirchhoff,  ref_kirchhoff)
 
 
-def test_compare_with_biophysconnector(atoms_singlechain):
+@pytest.mark.parametrize("ff_name", ["e_anm", "e_anm_mj", "e_anm_ke"])
+def test_compare_with_biophysconnector_heterogenous(atoms_singlechain, ff_name):
     """
-    Comparisons between Hessians computed for eANMs using springcraft
+    Comparisons between Hessians computed for eANM variants using springcraft
     and BioPhysConnectoR.
     Cut-off: 1.3 nm.
     """
-    ff = springcraft.TabulatedForceField.e_anm(atoms_singlechain)
-    # Load static class: eANM
+
+    if ff_name == "e_anm":
+        ff = springcraft.TabulatedForceField.e_anm(atoms_singlechain)
+        ref_file = "hessian_eANM_BioPhysConnectoR.csv"
+    if ff_name == "e_anm_mj":
+        ff = springcraft.TabulatedForceField.e_anm_mj(atoms_singlechain)
+        ref_file = "hessian_eANM_mj_BioPhysConnectoR.csv"
+    if ff_name == "e_anm_ke":
+        ff = springcraft.TabulatedForceField.e_anm_ke(atoms_singlechain)
+        ref_file = "hessian_eANM_ke_BioPhysConnectoR.csv"
+    
     test_hessian, _ = springcraft.compute_hessian(atoms_singlechain.coord, ff)
     
     # Load .csv file data from BiophysConnectoR
     ref_hessian = np.genfromtxt(
-        join(data_dir(), "hessian_eANM_BioPhysConnectoR.csv"),
+        join(data_dir(), ref_file),
         skip_header=1, delimiter=","
     )
-    
-    assert np.allclose(test_hessian, ref_hessian)
 
+    # Higher deviation for eANM_Ke-FF
+    if ff_name == "e_anm_ke":
+        assert np.allclose(test_hessian, ref_hessian, atol=1e-04)
+    else:
+        assert np.allclose(test_hessian, ref_hessian)
 
 @pytest.mark.parametrize("ff_name", ["Hinsen", "sdENM", "pfENM"])
 def test_compare_with_bio3d(atoms_singlechain, ff_name):
