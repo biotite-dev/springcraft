@@ -46,6 +46,8 @@ jobs:
           activate-environment: springcraft-dev
           auto-update-conda: true
           python-version: '3.9'
+          mamba-version: "*"
+          channels: conda-forge,defaults
       - name: Installing dependencies
         run: conda install -c conda-forge pymol-open-source poetry
       - name: Installing Springcraft
