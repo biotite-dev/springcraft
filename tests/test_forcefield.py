@@ -430,3 +430,19 @@ def test_compare_with_bio3d(atoms_singlechain, ff_name):
         assert np.allclose(test_hessian, ref_hessian, atol=1e-04)
     else:
         assert np.allclose(test_hessian, ref_hessian)
+
+def test_compare_eigenvals(atoms_singlechain):
+    ff = springcraft.TabulatedForceField.e_anm(atoms_singlechain)
+    eanm = springcraft.ANM(atoms_singlechain, ff)
+
+    ref_file = "eigenval_eANM_BioPhysConnectoR.csv"
+
+    test_eigenval, _ = eanm.eigen()
+
+    # Load .csv file data from BiophysConnectoR
+    ref_eigenval = np.genfromtxt(
+        join(data_dir(), ref_file),
+        skip_header=1, delimiter=","
+    )
+
+    assert np.allclose(test_eigenval, ref_eigenval)

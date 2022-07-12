@@ -17,7 +17,7 @@ K_B = 1 # TODO
 
 class ANM:
     """
-    This class represents a *Anisotropic Network Model*.
+    This class represents an *Anisotropic Network Model*.
 
     Parameters
     ----------
@@ -50,10 +50,46 @@ class ANM:
 
     def __init__(self, atoms, force_field, use_cell_list=True):
         self._coord = struc.coord(atoms)
+        self._atoms = atoms
         self._ff = force_field
         self._use_cell_list = use_cell_list
+        self._mass_weights = None
         self._hessian = None
+        self._hessian_mw = None
         self._covariance = None
+        self._covariance_mw = None
+
+    @property
+    def mass_weights(self):
+        if self._mass_weights is None:
+            # Get residue masses; x3 for dimensionality
+            masses = []
+            # Vectorize function with numpy instead (similar performance expected)?
+            for atom in self._atoms:
+                m = struc.info.mass(atom.res_name, is_residue=True)
+                masses += [m]*3
+            masses = np.array(masses)
+
+            mw_matrix = np.empty((len(masses), len(masses)))
+            for en, m in enumerate(masses):
+                row = (masses*masses[en])**0.5
+                mw_matrix[en] = row
+            
+            self._mass_weights = np.array(masses)
+        return self._mass_weights
+
+    @mass_weights.setter
+    def mass_weights(self, value):
+        if value.shape != (len(self._coord) * 3, len(self._coord) * 3):
+            raise IndexError(
+                f"Expected shape "
+                f"{(len(self._coord) * 3, len(self._coord) * 3)}, "
+                f"got {value.shape}"
+            )
+        self._mass_weights = value
+        # Invalidate dependent values
+        self._hessian_mw = None
+        self._covariance_mw = None
 
     @property
     def hessian(self):
@@ -79,7 +115,24 @@ class ANM:
         self._hessian = value
         # Invalidate dependent values
         self._covariance = None
-    
+
+    @property
+    def hessian_mw(self):
+        self._hessian_mw = self.mass_weights @ self.hessian
+
+    @hessian_mw.setter
+    def hessian_mw(self, value):
+        if value.shape != (len(self._coord) * 3, len(self._coord) * 3):
+            raise IndexError(
+                f"Expected shape "
+                f"{(len(self._coord) * 3, len(self._coord) * 3)}, "
+                f"got {value.shape}"
+            )
+        self._hessian_mw = value
+        # Invalidate dependent values
+        self._mass_weights = None
+        self._covariance_mw = None
+         
     @property
     def covariance(self):
         if self._covariance is None:
@@ -99,6 +152,26 @@ class ANM:
         self._covariance = value
         # Invalidate dependent values
         self._hessian = None
+
+    @property
+    def covariance_mw(self):
+        if self._covariance_mw is None:
+            self._covariance_mw = np.linalg.pinv(
+                self.hessian_mw, hermitian=True, rcond=1e-6
+            ) 
+
+    @covariance_mw.setter
+    def hessian_mw(self, value):
+        if value.shape != (len(self._coord) * 3, len(self._coord) * 3):
+            raise IndexError(
+                f"Expected shape "
+                f"{(len(self._coord) * 3, len(self._coord) * 3)}, "
+                f"got {value.shape}"
+            )
+        self._covariance_mw = value
+        # Invalidate dependent values
+        self._mass_weights = None
+        self._hessian_mw = None
     
     def eigen(self):
         """
@@ -222,9 +295,44 @@ class ANM:
 
         return np.dot(self.covariance, force).reshape(len(self._coord), 3)
     
+    def mean_square_fluctuation(self):
+        """
+        Compute the *mean square fluctuation* for the atoms according
+        to the ANM.
+        This is equal to the sum of the diagonal of each 3x3 superelement of
+        the covariance matrix.
 
+        Returns
+        -------
+        msqf : ndarray, shape=(n,), dtype=float
+            The mean square fluctuations for each atom in the model.
+        """
+        diag = self.covariance.diagonal()
+        reshape_diag = np.reshape(diag, (len(self._coord),-1))
+
+        msqf = np.sum(reshape_diag, axis=1)
+
+        return msqf
+
+    def frequencies(self):
+        """
+        Computes the frequency associated with each mode.
+
+        Returns
+        -------
+        freq : ndarray, shape=(n,), dtype=float
+            The frequency in ascending order of the associated modes'
+            eigenvalues.
+        """
+        eigenval, _ = self.eigen()
+        freq = 1/(2*np.pi)*np.sqrt(eigenval)
+
+        return freq
+
+    # TODO: Check prefactors and scaling factor (again).
     def bfactor(self):
         """
+        To predict B-factors/temperature factors" of atoms in the model, 
         Compute the b-factors of each C-alpha atom by summing up the diagonal 
         of the *covariance* matrix.
 
@@ -233,8 +341,8 @@ class ANM:
         bfac_values : ndarray, shape=(n,), dtype=float
             B-factors of C-alpha atoms.
         """
-        diag = self.covariance.diagonal()
-        reshape_diag = np.reshape(diag, (len(self.coord)/3,-1))
-        diagsum = np.sum(reshape_diag, axis=2)
-    
-        return diagsum
+        msqf = self.mean_square_fluctuation()
+
+        b_factors = ((8*np.pi**2)/3)*msqf
+
+        return b_factors

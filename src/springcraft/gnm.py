@@ -106,7 +106,7 @@ class GNM:
         """
         return K_B * temperature * self.covariance
     
-    def mean_square_fluctuation(self, temperature):
+    def mean_square_fluctuation(self):
         """
         Compute the *mean square fluctuation* for the atoms in the
         model.
