@@ -4,7 +4,7 @@ i.e. Kirchhoff and Hessian matrices.
 """
 
 __name__ = "springcraft"
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Patrick Kunzmann"
 __all__ = []
 
