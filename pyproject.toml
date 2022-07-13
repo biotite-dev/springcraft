@@ -19,7 +19,7 @@ keywords = [
     "Normal mode analysis"
 ]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha ",
+    "Development Status :: 1 - Alpha ",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
