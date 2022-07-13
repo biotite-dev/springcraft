@@ -253,6 +253,7 @@ class ANM:
         """
         eigenval, _ = self.eigen()
         eigenval[np.isclose(eigenval, 0)] = np.nan
-        freq = 1/(2*np.pi)*np.sqrt(eigenval)
+        freq = np.sqrt(eigenval)
+        #freq = 1/(2*np.pi)*np.sqrt(eigenval)
 
         return freq
