@@ -6,7 +6,7 @@ elastic network model (ENM) of a protein is conducted.
 """
 
 
-# Code source: 
+# Code source: Jan Krumbach
 # License: BSD 3 clause
 
 import numpy as np
