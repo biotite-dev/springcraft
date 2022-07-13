@@ -10,13 +10,13 @@ elastic network model (ENM) of a protein is conducted.
 # License: BSD 3 clause
 
 import numpy as np
+import matplotlib.pyplot as plt
 import biotite
 import biotite.structure as struc
 import biotite.structure.io.mmtf as mmtf
 import biotite.database.rcsb as rcsb
 import springcraft
 
-import matplotlib.pyplot as plt
 
 # Fetch G:T/U Mismatch-specific DNA glycosylase from E. coli
 PDB_ID = "1MUG"
@@ -40,7 +40,8 @@ msqf = eanm.mean_square_fluctuation()
 freq = eanm.frequencies()[6:]
 
 ## Plot
-fig = plt.figure(figsize=(10,10))
+fig = plt.figure(figsize=(8,8))
+ax = fig.add_subplot(111)
 grid = fig.add_gridspec(nrows=2, ncols=2)
 
 ax00 = fig.add_subplot(grid[0, 0])

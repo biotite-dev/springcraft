@@ -85,7 +85,7 @@ sphinx_gallery_conf = {
     "download_all_examples"     : False,
     # Never report run time
     "min_reported_time"         : sys.maxsize,
-    "image_scrapers"            : (scraper.pymol_scraper,),
+    "image_scrapers"            : ("matplotlib", scraper.pymol_scraper,),
     # Replace 'ammolite.show()'
     "reset_modules"             : (scraper.overwrite_display_func,),
     # Do not capture file path string output
