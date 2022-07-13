@@ -5,8 +5,9 @@ description = "Investigate molecular dynamics with elastic network models"
 readme = "README.rst"
 license = "BSD-3-Clause"
 authors = [
-    "Patrick Kunzmann <patrick.kunzm@gmail.com>",
-    "..."
+    "Patrick Kunzmann <padix.key@gmail.com>",
+    "Jan Krumbach <jhkr@web.de>",
+    "Faisal Islam<faisalislam98@yahoo.de>"
 ]
 homepage = "https://springcraft.biotite-python.org"
 repository = "https://github.com/biotite-dev/springcraft"
