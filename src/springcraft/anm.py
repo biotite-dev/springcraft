@@ -17,7 +17,7 @@ K_B = 1 # TODO
 
 class ANM:
     """
-    This class represents a *Anisotropic Network Model*.
+    This class represents an *Anisotropic Network Model*.
 
     Parameters
     ----------
@@ -79,7 +79,7 @@ class ANM:
         self._hessian = value
         # Invalidate dependent values
         self._covariance = None
-    
+         
     @property
     def covariance(self):
         if self._covariance is None:
@@ -222,19 +222,38 @@ class ANM:
 
         return np.dot(self.covariance, force).reshape(len(self._coord), 3)
     
-
-    def bfactor(self):
+    def mean_square_fluctuation(self):
         """
-        Compute the b-factors of each C-alpha atom by summing up the diagonal 
-        of the *covariance* matrix.
+        Compute the *mean square fluctuation* for the atoms according
+        to the ANM.
+        This is equal to the sum of the diagonal of each 3x3 superelement of
+        the covariance matrix.
 
         Returns
         -------
-        bfac_values : ndarray, shape=(n,), dtype=float
-            B-factors of C-alpha atoms.
+        msqf : ndarray, shape=(n,), dtype=float
+            The mean square fluctuations for each atom in the model.
         """
         diag = self.covariance.diagonal()
-        reshape_diag = np.reshape(diag, (len(self.coord)/3,-1))
-        diagsum = np.sum(reshape_diag, axis=2)
-    
-        return diagsum
+        reshape_diag = np.reshape(diag, (len(self._coord),-1))
+
+        msqf = np.sum(reshape_diag, axis=1)
+
+        return msqf
+
+    def frequencies(self):
+        """
+        Computes the frequency associated with each mode.
+
+        Returns
+        -------
+        freq : ndarray, shape=(n,), dtype=float
+            The frequency in ascending order of the associated modes'
+            eigenvalues.
+        """
+        eigenval, _ = self.eigen()
+        eigenval[np.isclose(eigenval, 0)] = np.nan
+        freq = np.sqrt(eigenval)
+        #freq = 1/(2*np.pi)*np.sqrt(eigenval)
+
+        return freq

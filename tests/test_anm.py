@@ -36,3 +36,26 @@ def test_covariance(file_path):
     assert np.allclose(test_hessian, np.dot(test_hessian, np.dot(test_covariance, test_hessian)))
     assert np.allclose(test_covariance, np.dot(test_covariance, np.dot(test_hessian, test_covariance)))
 
+## Will be merged with prepare_anms
+# Compare msqf with BioPhysConnectoR B-factors
+@pytest.mark.parametrize("file_path",
+        glob.glob(join(data_dir(), "*.mmtf"))
+)
+def test_mean_square_fluctuation(file_path):
+    mmtf_file = mmtf.MMTFFile.read(file_path)
+
+    atoms = mmtf.get_structure(mmtf_file, model=1)
+    ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
+
+    ff_eanm = springcraft.TabulatedForceField.e_anm(ca)
+    test_eanm = springcraft.ANM(ca, ff_eanm)
+    test_msqf = test_eanm.mean_square_fluctuation()
+
+    # Load .csv file data from BiophysConnectoR
+    ref_file = "bfacs_eANM_mj_BioPhysConnectoR.csv"
+    ref_msqf = np.genfromtxt(
+        join(data_dir(), ref_file),
+        skip_header=1, delimiter=","
+    )
+
+    assert np.allclose(test_msqf, ref_msqf)

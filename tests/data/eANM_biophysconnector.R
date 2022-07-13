@@ -26,6 +26,16 @@ print(hessian)
 # Export as .csv
 write.csv(hessian,"./hessian_eANM_BioPhysConnectoR.csv", row.names = FALSE)
 
+# Compute & export eigenvalues as .csv
+eigen <- get.svd(hessian)
+write.csv(eigen$ev,"./eigenval_eANM_BioPhysConnectoR.csv", row.names = FALSE)
+
+# Compute the (predicted) anisotropic B-factors using the covariance matrix
+covmat <- get.cov(contacts$cm, intmat, contacts$deltas)
+bfacs <- get.bfacs(covmat)
+
+# Export as .csv
+write.csv(bfacs,"./bfacs_eANM_mj_BioPhysConnectoR.csv", row.names = FALSE)
 
 ## MJ for non-bonded interactions
 intmat_mj <- build.interact(pdb$caseq, mj1 = mj, mj2 = mj, d = pdb$chains, 
