@@ -11,6 +11,7 @@ elastic network model (ENM) of a protein is conducted.
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 import biotite
 import biotite.structure as struc
 import biotite.structure.io.mmtf as mmtf
@@ -40,8 +41,7 @@ msqf = eanm.mean_square_fluctuation()
 freq = eanm.frequencies()[6:]
 
 ## Plot
-fig = plt.figure(figsize=(8,8))
-ax = fig.add_subplot(111)
+fig = plt.figure(figsize=(8.0, 8.0), constrained_layout=True)
 grid = fig.add_gridspec(nrows=2, ncols=2)
 
 ax00 = fig.add_subplot(grid[0, 0])
@@ -55,10 +55,10 @@ ax01.bar(x=np.arange(1, len(freq)+1), height=freq, color=biotite_c)
 ax1.bar(x=np.arange(1, len(msqf)+1), height=msqf, color=biotite_c) 
 
 ax00.set_xlabel("Mode", size=16)
+ax00.set_ylabel(r"Eigenvalue $\lambda$", size=16)
 ax01.set_xlabel("Mode", size=16)
+ax01.set_ylabel(r"Frequency $\nu$ / A.U.", size=16)
 ax1.set_xlabel("Amino Acid Residue ID", size=16)
-ax1.set_ylabel(r"Frequency $\nu$", size=16)
-
-fig.tight_layout()
+ax1.set_ylabel("Mean squared fluctuation / A.U.", size=16)
 
 plt.show()
