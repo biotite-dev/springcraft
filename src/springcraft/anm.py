@@ -257,3 +257,21 @@ class ANM:
         #freq = 1/(2*np.pi)*np.sqrt(eigenval)
 
         return freq
+    
+    # TODO: Check prefactors and scaling factor (again).
+    def bfactor(self):
+        """
+        To predict B-factors/temperature factors" of atoms in the model, 
+        Compute the b-factors of each C-alpha atom by summing up the diagonal 
+        of the *covariance* matrix.
+
+        Returns
+        -------
+        bfac_values : ndarray, shape=(n,), dtype=float
+            B-factors of C-alpha atoms.
+        """
+        msqf = self.mean_square_fluctuation()
+
+        b_factors = ((8*np.pi**2)/3)*msqf
+
+        return b_factors

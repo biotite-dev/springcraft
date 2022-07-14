@@ -1,8 +1,8 @@
 """
 Basic NMA of a Protein-ENM
 ==========================
-In this example script, a basic normal mode analysis (NMA) of a coarse-grained
-elastic network model (ENM) of a protein is conducted.
+In this example script, a basic normal mode analysis (NMA) of a protein 
+coarse-grained elastic network model (ENM) is conducted.
 """
 
 
@@ -11,7 +11,6 @@ elastic network model (ENM) of a protein is conducted.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 import biotite
 import biotite.structure as struc
 import biotite.structure.io.mmtf as mmtf
