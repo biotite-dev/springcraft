@@ -158,9 +158,9 @@ class PatchedForceField(ForceField):
         )
 
         # Input argument checks
-        _check_indices(self._contact_shutdown, force_field.natoms)
-        _check_indices(self._contact_pair_off, force_field.natoms)
-        _check_indices(self._contact_pair_on, force_field.natoms)
+        _check_indices(force_field.natoms, self._contact_shutdown)
+        _check_indices(force_field.natoms, self._contact_pair_off)
+        _check_indices(force_field.natoms, self._contact_pair_on)
         if self._contact_pair_on is not None:
             if self._force_constants is None:
                 raise TypeError(
