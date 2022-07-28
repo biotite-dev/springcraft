@@ -12,8 +12,8 @@ import biotite.structure as struc
 from .interaction import compute_hessian
 
 
-K_B = 1 # TODO
-
+K_B = 1.380649e-23
+N_A = 6.02214076e23
 
 class ANM:
     """
@@ -49,11 +49,45 @@ class ANM:
     """
 
     def __init__(self, atoms, force_field, use_cell_list=True):
+        self._atoms = atoms
         self._coord = struc.coord(atoms)
         self._ff = force_field
         self._use_cell_list = use_cell_list
+
+        self._masses = None
         self._hessian = None
+        self._hessian_mw = None
         self._covariance = None
+        self._covariance_mw = None
+
+    @property
+    def masses(self):
+        if self._masses is None:
+            # Assign masses to AS residues
+            masslist=[]
+            for a in self._atoms.res_name:
+                masslist += [struc.info.mass(a, is_residue=True)] * 3
+            self._masses = np.array(masslist)
+        return self._masses
+    
+    @masses.setter
+    def masses(self, value): 
+        if value.shape != (len(self._coord) * 3, 1):
+            if value.shape == (len(self._coord), 1):
+                extender = []
+                for v in value:
+                    extender += [v]*3
+                value = np.array(extender)
+            else:
+                raise IndexError(
+                    f"Expected shape "
+                    f"{(len(self._coord) * 3, 1)}, "
+                    f"would tolerate {(len(self._coord), 1)}, "
+                    f"got {value.shape}."
+                )
+        self._masses = value
+        # Invalidate dependent values
+        # TODO
 
     @property
     def hessian(self):
@@ -79,7 +113,38 @@ class ANM:
         self._hessian = value
         # Invalidate dependent values
         self._covariance = None
-         
+    
+    @property
+    def hessian_mw(self):
+        if self._hessian_mw is None:
+            if self._covariance_mw is None:
+                masses_3n = self.masses
+
+                mass_matrix = []
+                for m in masses_3n:
+                    row = 1/(np.sqrt(m)*np.sqrt(masses_3n))
+                    mass_matrix.append(row.tolist())
+                mass_matrix = np.array(mass_matrix)
+                # Multiply elementwise
+                self._hessian_mw = mass_matrix * self.hessian
+            else:
+                self._hessian_mw = np.linalg.pinv(
+                    self._covariance_mw, hermitian=True, rcond=1e-6
+                )
+        return self._hessian_mw
+
+    @hessian_mw.setter
+    def hessian_mw(self, value):
+        if value.shape != (len(self._coord) * 3, len(self._coord) * 3):
+            raise IndexError(
+                f"Expected shape "
+                f"{(len(self._coord) * 3, len(self._coord) * 3)}, "
+                f"got {value.shape}"
+            )
+        self._hessian_mw = value
+        # Invalidate dependent values
+        self._covariance_mw = None
+    
     @property
     def covariance(self):
         if self._covariance is None:
@@ -100,11 +165,44 @@ class ANM:
         # Invalidate dependent values
         self._hessian = None
     
-    def eigen(self):
+    @property
+    def covariance_mw(self):
+        if self._covariance_mw is None:
+            self._covariance_mw = np.linalg.pinv(
+                self.hessian_mw, hermitian=True, rcond=1e-6
+            )
+        return self._covariance_mw
+
+    @covariance_mw.setter
+    def covariance_mw(self, value):
+        if value.shape != (len(self._coord) * 3, len(self._coord) * 3):
+            raise IndexError(
+                f"Expected shape "
+                f"{(len(self._coord) * 3, len(self._coord) * 3)}, "
+                f"got {value.shape}"
+            )
+        self._covariance_mw = value
+        # Invalidate dependent values
+        self._hessian_mw = None
+
+    def eigen(self, start_mode=6, mass_weighting=False):
         """
         Compute the eigenvalues and eigenvectors of the
         *Hessian* matrix.
+        In the standard case, the first six trivial modes are omitted. 
 
+        Parameters
+        ----------
+        start_mode: int, optional
+            Specifies the starting index number of the returned eigenvalues
+            and eigenvectors, in ascending order with regards to the eigenvalues
+            starting from 0.
+            Usually, the first 6 trivial modes resulting from
+            rigid body movements are omitted.
+        mass_weighting : bool, optional
+            If True, a mass-weighted Hessian of the ANM is used to compute
+            Eigenvalues. 
+        
         Returns
         -------
         eig_values : ndarray, shape=(k,), dtype=float
@@ -113,11 +211,16 @@ class ANM:
             Eigenvectors of the *Hessian* matrix.
             ``eig_values[i]`` corresponds to ``eigenvectors[i]``.
         """
+        if mass_weighting:
+            hess = self.hessian_mw
+        else:
+            hess = self.hessian
+
         # 'np.eigh' can be used since the Kirchhoff matrix is symmetric 
-        eig_values, eig_vectors = np.linalg.eigh(self.hessian)
-        return eig_values, eig_vectors.T
+        eig_values, eig_vectors = np.linalg.eigh(hess)
+        return eig_values[start_mode:], eig_vectors.T[start_mode:]
     
-    def normal_mode(self, index, amplitude, frames, movement="sine"):
+    def normal_mode(self, index, amplitude, frames, movement="sine", start_mode=6, mass_weighting=False):
         """
         Create displacements for a trajectory depicting the given normal
         mode.
@@ -145,14 +248,23 @@ class ANM:
             If set to ``'sine'`` the atom movement is sinusoidal.
             If set to ``'triangle'`` the atom movement is linear with
             *sharp* amplitude.
-        
+        start_mode: int, optional
+            Specifies the starting eigenvector included in the computation of
+            mode vectors by index.
+            Eigenvectors are enumerated starting with 0 in ascending order
+            of their associated eigenvalues. 
+            Usually, the first 6 trivial modes resulting from
+            rigid body movements are omitted.
+        mass_weighting : bool, optional
+            If True, a mass-weighted Hessian of the ANM is used to compute
+            Eigenvalues.
         Returns
         -------
         displacement : ndarray, shape=(m,n,3), dtype=float
             Atom displacements that depict a single oscillation.
             *m* is the number of frames.
         """
-        _, eigenvectors = self.eigen()
+        _, eigenvectors = self.eigen(start_mode=start_mode, mass_weighting=mass_weighting)
         # Extract vectors for given mode and reshape to (n,3) array
         mode_vectors = eigenvectors[index].reshape((-1, 3))
         # Rescale, so that the largest vector has the length 'amplitude'
@@ -222,28 +334,59 @@ class ANM:
 
         return np.dot(self.covariance, force).reshape(len(self._coord), 3)
     
-    def mean_square_fluctuation(self):
+    def mean_square_fluctuation(self, T=None, mass_weighting=False):
         """
         Compute the *mean square fluctuation* for the atoms according
         to the ANM.
         This is equal to the sum of the diagonal of each 3x3 superelement of
         the covariance matrix.
+        
+        Parameters
+        ----------
+        T : int, float, None, optional
+            Temperature in Kelvin to compute the temperature scaling factor.
+            If T is None, the temperature scaling factor is set to 1. 
+        mass_weighting : bool, optional
+            If True, a mass-weighted Hessian of the ANM is used to compute
+            Eigenvalues.
 
         Returns
         -------
         msqf : ndarray, shape=(n,), dtype=float
             The mean square fluctuations for each atom in the model.
         """
-        diag = self.covariance.diagonal()
+        if mass_weighting:
+            cov = self.covariance_mw
+        else:
+            cov = self.covariance
+
+        diag = cov.diagonal()
         reshape_diag = np.reshape(diag, (len(self._coord),-1))
-
-        msqf = np.sum(reshape_diag, axis=1)
-
+        
+        # Temperature scaling factor
+        if T is not None:
+            temp_scaling = 3*K_B*T
+        else:
+            temp_scaling = 1
+        
+        msqf = np.sum(reshape_diag, axis=1)*temp_scaling
         return msqf
 
-    def frequencies(self):
+    def frequencies(self, start_mode=6, mass_weighting=False):
         """
         Computes the frequency associated with each mode.
+
+        Parameters
+        ----------
+        start_mode: int, optional
+            Specifies the starting eigenvalue included in the computation of
+            mode vectors by index.
+            Eigenvalues are enumerated starting with 0 in ascending order. 
+            Usually, the first 6 trivial eigenvalues resulting from
+            rigid body movements are omitted.
+        mass_weighting : bool, optional
+            If True, a mass-weighted Hessian of the ANM is used to compute
+            Eigenvalues.
 
         Returns
         -------
@@ -251,27 +394,34 @@ class ANM:
             The frequency in ascending order of the associated modes'
             eigenvalues.
         """
-        eigenval, _ = self.eigen()
+        eigenval, _ = self.eigen(start_mode=start_mode, mass_weighting=mass_weighting)
         eigenval[np.isclose(eigenval, 0)] = np.nan
         freq = np.sqrt(eigenval)
         #freq = 1/(2*np.pi)*np.sqrt(eigenval)
 
         return freq
     
-    # TODO: Check prefactors and scaling factor (again).
-    def bfactor(self):
+    def bfactor(self, T=None, mass_weighting=False):
         """
-        To predict B-factors/temperature factors" of atoms in the model, 
-        Compute the b-factors of each C-alpha atom by summing up the diagonal 
-        of the *covariance* matrix.
+        Computes the isotropic B-factors/temperature factors/Deby-Waller factors using 
+        the mean-square fluctuation.
+
+        Parameters
+        ----------
+        T : int, float, None, optional
+            Temperature in Kelvin to compute the temperature scaling factor.
+            If T is None, the temperature scaling factor is set to 1. 
+        mass_weighting : bool, optional
+            If True, a mass-weighted Hessian of the ANM is used to compute
+            Eigenvalues.
 
         Returns
         -------
         bfac_values : ndarray, shape=(n,), dtype=float
             B-factors of C-alpha atoms.
         """
-        msqf = self.mean_square_fluctuation()
+        msqf = self.mean_square_fluctuation(T=T, mass_weighting=mass_weighting)
 
-        b_factors = ((8*np.pi**2)/3)*msqf
+        b_factors = ((8*np.pi**2)*msqf**2)/3
 
         return b_factors

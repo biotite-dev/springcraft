@@ -11,6 +11,7 @@ import numpy as np
 import biotite.structure as struc
 from .interaction import compute_kirchhoff
 
+K_B = 1 #TODO
 
 class GNM:
     """

@@ -37,7 +37,7 @@ def test_covariance(file_path):
     assert np.allclose(test_covariance, np.dot(test_covariance, np.dot(test_hessian, test_covariance)))
 
 ## Will be merged with prepare_anms
-# Compare msqf with BioPhysConnectoR B-factors
+# Compare msqf with BioPhysConnectoR "B-factors"
 @pytest.mark.parametrize("file_path",
         glob.glob(join(data_dir(), "*.mmtf"))
 )

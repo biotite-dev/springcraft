@@ -30,8 +30,9 @@ ff = springcraft.TabulatedForceField.e_anm(ca)
 eanm = springcraft.ANM(ca, ff)
 
 ## NMA
-# Compute eigenvalues and eigenvectors; remove the first six eigenvals./eigenvecs
-# corresponding to trivial modes (translation/rotation).
+# Compute eigenvalues and eigenvectors. 
+# The first 6 eigenvals./eigenvecs corresponding to trivial modes 
+# (translation/rotation) are automatically omitted.
 eigenval, eigenvec = eanm.eigen()
 eigenval = eigenval[6:]
 
