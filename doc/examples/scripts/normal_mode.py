@@ -22,9 +22,10 @@ PNG_SIZE = (800, 800)
 
 PDB_ID = "1MUG"
 # The normal mode to be visualized
-# '6' is the slowest (most significant) one that does not correspond to
-# translation or rotation of the system
-MODE = 6
+# '0' is the slowest (most significant) one that does not correspond to
+# translation or rotation of the system, as the first six modes are 
+# discarded in the standard case. 
+MODE = 0
 # The maximum arrow length depicting the displacement
 # (The length of the ANM's eigenvectors make only sense when compared
 # relative to each other, the absolute values have no significance)
