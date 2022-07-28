@@ -184,7 +184,7 @@ class ANM:
         self._covariance_mw = value
         # Invalidate dependent values
         self._hessian_mw = None
-
+        
     def eigen(self, start_mode=6, mass_weighting=False):
         """
         Compute the eigenvalues and eigenvectors of the
@@ -396,8 +396,8 @@ class ANM:
         """
         eigenval, _ = self.eigen(start_mode=start_mode, mass_weighting=mass_weighting)
         eigenval[np.isclose(eigenval, 0)] = np.nan
-        freq = np.sqrt(eigenval)
-        #freq = 1/(2*np.pi)*np.sqrt(eigenval)
+        #freq = np.sqrt(eigenval)
+        freq = 1/(2*np.pi)*np.sqrt(eigenval)
 
         return freq
     

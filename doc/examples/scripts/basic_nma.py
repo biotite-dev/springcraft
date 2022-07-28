@@ -33,12 +33,13 @@ eanm = springcraft.ANM(ca, ff)
 # Compute eigenvalues and eigenvectors. 
 # The first 6 eigenvals./eigenvecs corresponding to trivial modes 
 # (translation/rotation) are automatically omitted.
+# -> analyse modes 7-107
 eigenval, eigenvec = eanm.eigen()
-eigenval = eigenval[6:]
+eigenval = eigenval[0:101]
 
-# Compute fluctuations and frequencies for modes
+# Compute fluctuations for all residues and frequencies for modes 7-107
 msqf = eanm.mean_square_fluctuation()
-freq = eanm.frequencies()[6:]
+freq = eanm.frequencies()[0:101]
 
 ## Plot
 fig = plt.figure(figsize=(8.0, 8.0), constrained_layout=True)
@@ -50,8 +51,8 @@ ax1 = fig.add_subplot(grid[1, :])
 
 biotite_c = biotite.colors["orange"]
 
-ax00.bar(x=np.arange(1, len(eigenval)+1), height=eigenval, color=biotite_c)
-ax01.bar(x=np.arange(1, len(freq)+1), height=freq, color=biotite_c)
+ax00.bar(x=np.arange(7, len(eigenval)+7), height=eigenval, color=biotite_c)
+ax01.bar(x=np.arange(7, len(freq)+7), height=freq, color=biotite_c)
 ax1.bar(x=np.arange(1, len(msqf)+1), height=msqf, color=biotite_c) 
 
 ax00.set_xlabel("Mode", size=16)
