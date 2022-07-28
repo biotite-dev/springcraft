@@ -445,5 +445,6 @@ def test_compare_eigenvals(atoms_singlechain):
         skip_header=1, delimiter=","
     )
 
-    # Omit modes belonging to trivial modes -> Numerical deviations
-    assert np.allclose(test_eigenval[6:], ref_eigenval[6:])
+    # Omit modes belonging to trivial modes in reference -> Numerical deviations
+    # (automatically omitted in ANM.eigen())
+    assert np.allclose(test_eigenval, ref_eigenval[6:])
