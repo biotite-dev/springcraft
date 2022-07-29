@@ -185,20 +185,17 @@ class ANM:
         # Invalidate dependent values
         self._hessian_mw = None
         
-    def eigen(self, start_mode=6, mass_weighting=False):
+    def eigen(self, mass_weighting=False):
         """
         Compute the eigenvalues and eigenvectors of the
         *Hessian* matrix.
-        In the standard case, the first six trivial modes are omitted. 
+
+        The first six eigenvalues/eigenvectors correspond to trivial modes 
+        (translations/rotations) and are usually omitted 
+        in normal mode analysis.
 
         Parameters
         ----------
-        start_mode: int, optional
-            Specifies the starting index number of the returned eigenvalues
-            and eigenvectors, in ascending order with regards to the eigenvalues
-            starting from 0.
-            Usually, the first 6 trivial modes resulting from
-            rigid body movements are omitted.
         mass_weighting : bool, optional
             If True, a mass-weighted Hessian of the ANM is used to compute
             Eigenvalues. 
@@ -218,15 +215,18 @@ class ANM:
 
         # 'np.eigh' can be used since the Kirchhoff matrix is symmetric 
         eig_values, eig_vectors = np.linalg.eigh(hess)
-        return eig_values[start_mode:], eig_vectors.T[start_mode:]
+        return eig_values, eig_vectors.T
     
-    def normal_mode(self, index, amplitude, frames, movement="sine", start_mode=6, mass_weighting=False):
+    def normal_mode(self, index, amplitude, frames, movement="sine", mass_weighting=False):
         """
         Create displacements for a trajectory depicting the given normal
         mode.
 
         This is especially useful for molecular animations of the chosen
         oscillation mode.
+
+        Note, that the first six modes correspond to rigid-body translations/
+        rotations and are usually omitted in normal mode analysis.
 
         Parameters
         ----------
@@ -236,11 +236,8 @@ class ANM:
             :meth:`eigen()`:
             Increasing indices refer to oscillations with increasing
             frequency.
-            Note, that index 0 refers to mode 7 in the standard case, 
-            as the first 6 oscillations conferring to rotations and translations
-            are omitted unless specified otherwise.
-            Trivial modes can be included by adjusting the parameter
-            'start_mode'.
+            The first 6 modes represent tigid body movements
+            (rotations and translations). 
         amplitude : int
             The oscillation amplitude is scaled so that the maximum
             value for an atom is the given value.
@@ -251,13 +248,6 @@ class ANM:
             If set to ``'sine'`` the atom movement is sinusoidal.
             If set to ``'triangle'`` the atom movement is linear with
             *sharp* amplitude.
-        start_mode: int, optional
-            Specifies the starting eigenvector included in the computation of
-            mode vectors by index.
-            Eigenvectors are enumerated starting with 0 in ascending order
-            of their associated eigenvalues. 
-            In the standard case, the first 6 trivial modes resulting from
-            rigid body movements are omitted.
         mass_weighting : bool, optional
             If True, a mass-weighted Hessian of the ANM is used to compute
             Eigenvalues.
@@ -267,7 +257,7 @@ class ANM:
             Atom displacements that depict a single oscillation.
             *m* is the number of frames.
         """
-        _, eigenvectors = self.eigen(start_mode=start_mode, mass_weighting=mass_weighting)
+        _, eigenvectors = self.eigen(mass_weighting=mass_weighting)
         # Extract vectors for given mode and reshape to (n,3) array
         mode_vectors = eigenvectors[index].reshape((-1, 3))
         # Rescale, so that the largest vector has the length 'amplitude'
@@ -343,7 +333,7 @@ class ANM:
         to the ANM.
         This is equal to the sum of the diagonal of each 3x3 superelement of
         the covariance matrix.
-        
+
         Parameters
         ----------
         T : int, float, None, optional
@@ -375,18 +365,15 @@ class ANM:
         msqf = np.sum(reshape_diag, axis=1)*temp_scaling
         return msqf
 
-    def frequencies(self, start_mode=6, mass_weighting=False):
+    def frequencies(self, mass_weighting=False):
         """
         Computes the frequency associated with each mode.
 
+        The first six modes correspond to rigid-body translations/
+        rotations and are usually omitted in normal mode analysis.
+
         Parameters
         ----------
-        start_mode: int, optional
-            Specifies the starting eigenvalue included in the computation of
-            mode vectors by index.
-            Eigenvalues are enumerated starting with 0 in ascending order. 
-            Usually, the first 6 trivial eigenvalues resulting from
-            rigid body movements are omitted.
         mass_weighting : bool, optional
             If True, a mass-weighted Hessian of the ANM is used to compute
             Eigenvalues.
@@ -397,11 +384,13 @@ class ANM:
             The frequency in ascending order of the associated modes'
             eigenvalues.
         """
-        eigenval, _ = self.eigen(start_mode=start_mode, mass_weighting=mass_weighting)
-        eigenval[np.isclose(eigenval, 0)] = np.nan
-        #freq = np.sqrt(eigenval)
-        freq = 1/(2*np.pi)*np.sqrt(eigenval)
+        eigenval, _ = self.eigen(mass_weighting=mass_weighting)
+        
+        # The first six eigenvalues are usually close to 0; but can have a negative
+        # sign. -> Take absolute value of first six modes
+        eigenval[0:6] = np.abs(eigenval[0:6])
 
+        freq = 1/(2*np.pi)*np.sqrt(eigenval)
         return freq
     
     def bfactor(self, T=None, mass_weighting=False):

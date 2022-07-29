@@ -31,15 +31,13 @@ eanm = springcraft.ANM(ca, ff)
 
 ## NMA
 # Compute eigenvalues and eigenvectors. 
-# The first 6 eigenvals./eigenvecs corresponding to trivial modes 
-# (translation/rotation) are automatically omitted.
+# The first 6 eigenvals./eigenvecs corresponding to trivial modes are omitted.
 # -> analyse modes 7-107
 eigenval, eigenvec = eanm.eigen()
-eigenval = eigenval[0:101]
-
+eigenval = eigenval[6:106]
 # Compute fluctuations for all residues and frequencies for modes 7-107
 msqf = eanm.mean_square_fluctuation()
-freq = eanm.frequencies()[0:101]
+freq = eanm.frequencies()[6:106]
 
 ## Plot
 fig = plt.figure(figsize=(8.0, 8.0), constrained_layout=True)
