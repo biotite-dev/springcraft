@@ -414,6 +414,6 @@ class ANM:
         """
         msqf = self.mean_square_fluctuation(T=T, mass_weighting=mass_weighting)
 
-        b_factors = ((8*np.pi**2)*msqf**2)/3
+        b_factors = ((8*np.pi**2)*msqf)/3
 
         return b_factors
