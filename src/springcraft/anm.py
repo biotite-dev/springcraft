@@ -236,8 +236,11 @@ class ANM:
             :meth:`eigen()`:
             Increasing indices refer to oscillations with increasing
             frequency.
-            The first 6 oscillations represent oscillations and
-            translations.
+            Note, that index 0 refers to mode 7 in the standard case, 
+            as the first 6 oscillations conferring to rotations and translations
+            are omitted unless specified otherwise.
+            Trivial modes can be included by adjusting the parameter
+            'start_mode'.
         amplitude : int
             The oscillation amplitude is scaled so that the maximum
             value for an atom is the given value.
@@ -253,7 +256,7 @@ class ANM:
             mode vectors by index.
             Eigenvectors are enumerated starting with 0 in ascending order
             of their associated eigenvalues. 
-            Usually, the first 6 trivial modes resulting from
+            In the standard case, the first 6 trivial modes resulting from
             rigid body movements are omitted.
         mass_weighting : bool, optional
             If True, a mass-weighted Hessian of the ANM is used to compute
