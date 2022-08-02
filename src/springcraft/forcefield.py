@@ -158,9 +158,9 @@ class PatchedForceField(ForceField):
         )
 
         # Input argument checks
-        _check_indices(self._contact_shutdown, force_field.natoms)
-        _check_indices(self._contact_pair_off, force_field.natoms)
-        _check_indices(self._contact_pair_on, force_field.natoms)
+        _check_indices(force_field.natoms, self._contact_shutdown)
+        _check_indices(force_field.natoms, self._contact_pair_off)
+        _check_indices(force_field.natoms, self._contact_pair_on)
         if self._contact_pair_on is not None:
             if self._force_constants is None:
                 raise TypeError(
@@ -175,9 +175,20 @@ class PatchedForceField(ForceField):
                 )
 
     def force_constant(self, atom_i, atom_j, sq_distance):
-        force_constants = self._force_field.force_constant(
-            atom_i, atom_j, sq_distance
-        )
+        if self._force_field.cutoff_distance is None:
+            force_constants = self._force_field.force_constant(
+                atom_i, atom_j, sq_distance
+            )
+        else:
+            # Avoid that force_constant() is called in the internal
+            # ForceField for distances above cutoff distance
+            force_constants = np.zeros(len(sq_distance))
+            cutoff_mask = sq_distance <= self._force_field.cutoff_distance**2
+            force_constants[cutoff_mask] = self._force_field.force_constant(
+                atom_i[cutoff_mask], atom_j[cutoff_mask],
+                sq_distance[cutoff_mask]
+            )
+        
         if self._contact_pair_on is not None:
             patch_atom_i, patch_atom_j = self._contact_pair_on.T
             # The minimum required size of the patch matrix is the
