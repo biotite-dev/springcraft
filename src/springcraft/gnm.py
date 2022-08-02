@@ -25,6 +25,13 @@ class GNM:
     force_field : ForceField, natoms=n
         The :class:`ForceField` that defines the force constants between
         the given `atoms`.
+    masses : bool or ndarray, shape=(n,), dtype=float, optional
+        If an array is given, the Kirchhoff matrix is weighted with the
+        inverse square root of the given masses.
+        If set to true, these masses are automatically inferred from the
+        ``res_name`` annotation of `atoms`, instead.
+        This requires `atoms` to be an :class:`AtomArray`.
+        By default no mass-weighting is applied.
     use_cell_list : bool, optional
         If true, a *cell list* is used to find atoms within cutoff
         distance instead of checking all pairwise atom distances.
@@ -44,12 +51,42 @@ class GNM:
         This is not a copy: Create a copy before modifying this matrix.
     """
 
-    def __init__(self, atoms, force_field, use_cell_list=True):
+    def __init__(self, atoms, force_field, masses=None, use_cell_list=True):
         self._coord = struc.coord(atoms)
         self._ff = force_field
         self._use_cell_list = use_cell_list
+
+        if masses is None or masses is False:
+            self._masses = None
+        elif masses is True:
+            if not isinstance(atoms, struc.AtomArray):
+                raise TypeError(
+                    "An AtomArray is required to automatically infer masses"
+                )
+            self._masses = np.array([
+                struc.info.mass(res_name, is_residue=True)
+                for res_name in atoms.res_name
+            ])
+        else:
+            if len(masses) != atoms.array_length():
+                raise IndexError(
+                    f"{len(masses)} masses for "
+                    f"{atoms.array_length()} atoms given"
+                )
+            self._masses = np.array(masses, dtype=float)
+        
+        if self._masses is not None:
+            mass_weights = 1 / np.sqrt(self._masses)
+            self._mass_weight_matrix = np.outer(mass_weights)
+        else:
+            self._mass_weight_matrix = None
+
         self._kirchhoff = None
         self._covariance = None
+    
+    @property
+    def masses(self):
+        return self._masses
 
     @property
     def kirchhoff(self):
@@ -58,6 +95,8 @@ class GNM:
                 self._kirchhoff, _ = compute_kirchhoff(
                     self._coord, self._ff, self._use_cell_list
                 )
+                if self._mass_weight_matrix is not None:
+                    self._kirchhoff *= self._mass_weight_matrix
             else:
                 self._kirchhoff = np.linalg.pinv(
                     self._covariance, hermitian=True, rcond=1e-6
