@@ -91,9 +91,7 @@ class ANM:
             self._mass_weight_matrix = None
 
         self._hessian = None
-        self._hessian_mw = None
         self._covariance = None
-        self._covariance_mw = None
 
     @property
     def masses(self):
