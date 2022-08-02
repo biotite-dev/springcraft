@@ -73,11 +73,13 @@ class GNM:
                     f"{len(masses)} masses for "
                     f"{atoms.array_length()} atoms given"
                 )
+            if np.any(masses == 0):
+                raise ValueError("Masses must not be 0")
             self._masses = np.array(masses, dtype=float)
         
         if self._masses is not None:
             mass_weights = 1 / np.sqrt(self._masses)
-            self._mass_weight_matrix = np.outer(mass_weights)
+            self._mass_weight_matrix = np.outer(mass_weights, mass_weights)
         else:
             self._mass_weight_matrix = None
 

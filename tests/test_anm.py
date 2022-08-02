@@ -11,7 +11,6 @@ from .util import data_dir
 
 
 def prepare_anms(file_path, cutoff):
-    print(file_path)
     mmtf_file = mmtf.MMTFFile.read(file_path)
 
     atoms = mmtf.get_structure(mmtf_file, model=1)
@@ -33,8 +32,14 @@ def test_covariance(file_path):
     test_hessian = test_anm.hessian
     test_covariance = test_anm.covariance
 
-    assert np.allclose(test_hessian, np.dot(test_hessian, np.dot(test_covariance, test_hessian)))
-    assert np.allclose(test_covariance, np.dot(test_covariance, np.dot(test_hessian, test_covariance)))
+    assert np.allclose(
+        test_hessian,
+        np.dot(test_hessian, np.dot(test_covariance, test_hessian))
+    )
+    assert np.allclose(
+        test_covariance,
+        np.dot(test_covariance, np.dot(test_hessian, test_covariance))
+    )
 
 ## Will be merged with prepare_anms
 # Compare msqf with BioPhysConnectoR "B-factors"
@@ -59,3 +64,25 @@ def test_mean_square_fluctuation(file_path):
     )
 
     assert np.allclose(test_msqf, ref_msqf)
+
+
+def test_mass_weights_simple():
+    """
+    Expect that mass weighting with unit masses does not have any
+    influence on an ANM, but different weights do.
+    """
+    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
+    atoms = mmtf.get_structure(mmtf_file, model=1)
+    ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
+    ff = springcraft.InvariantForceField(7.9)
+
+    ref_anm = springcraft.ANM(atoms, ff)
+    identical_anm = springcraft.ANM(
+        atoms, ff, masses=np.ones(atoms.array_length())
+    )
+    different_anm = springcraft.ANM(
+        atoms, ff, masses=np.arange(1, atoms.array_length() + 1, dtype=float)
+    )
+
+    assert np.allclose(identical_anm.hessian, ref_anm.hessian)
+    assert not np.allclose(different_anm.hessian, ref_anm.hessian)

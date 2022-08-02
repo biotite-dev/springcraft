@@ -64,3 +64,25 @@ def test_eigen(file_path, cutoff):
     assert test_eig_values.tolist() == pytest.approx(ref_eig_values.tolist())
     assert test_eig_vectors.flatten().tolist() \
         == pytest.approx(ref_eig_vectors.flatten().tolist())
+
+
+def test_mass_weights_simple():
+    """
+    Expect that mass weighting with unit masses does not have any
+    influence on an GNM, but different weights do.
+    """
+    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
+    atoms = mmtf.get_structure(mmtf_file, model=1)
+    ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
+    ff = springcraft.InvariantForceField(7.9)
+
+    ref_gnm = springcraft.GNM(atoms, ff)
+    identical_gnm = springcraft.GNM(
+        atoms, ff, masses=np.ones(atoms.array_length())
+    )
+    different_gnm = springcraft.GNM(
+        atoms, ff, masses=np.arange(1, atoms.array_length() + 1, dtype=float)
+    )
+
+    assert np.allclose(identical_gnm.kirchhoff, ref_gnm.kirchhoff)
+    assert not np.allclose(different_gnm.kirchhoff, ref_gnm.kirchhoff)
