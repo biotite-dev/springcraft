@@ -104,6 +104,8 @@ class ANM:
                 self._hessian, _ = compute_hessian(
                     self._coord, self._ff, self._use_cell_list
                 )
+                if self._mass_weight_matrix is not None:
+                    self._hessian *= self._mass_weight_matrix
             else:
                 self._hessian = np.linalg.pinv(
                     self._covariance, hermitian=True, rcond=1e-6
