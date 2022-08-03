@@ -86,3 +86,39 @@ def test_mass_weights_simple():
 
     assert np.allclose(identical_anm.hessian, ref_anm.hessian)
     assert not np.allclose(different_anm.hessian, ref_anm.hessian)
+
+@pytest.mark.parametrize("ff_name", ["Hinsen", "sdENM"])
+def test_mass_weights_eigenvals(ff_name):
+    """
+    Compare mass-weighted eigenvalues with reference values obtained
+    with bio3d.
+    To this end, bio3d-assigned masses are used.
+    """
+    reference_masses = np.genfromtxt(
+        join(data_dir(), "1l2y_bio3d_masses.csv"),
+        skip_header=1, delimiter=","
+    )
+    
+    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
+    atoms = mmtf.get_structure(mmtf_file, model=1)
+    ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
+    ff = springcraft.HinsenForceField()
+
+    if ff_name == "Hinsen":
+        ff = springcraft.HinsenForceField()
+        ref_file = "mw_eigenvalues_calpha_bio3d.csv"
+    if ff_name == "sdENM":
+        ff = springcraft.TabulatedForceField.sd_enm(ca)
+        ref_file = "mw_eigenvalues_sdenm_bio3d.csv"
+        
+
+    
+    test = springcraft.ANM(ca, ff, masses=reference_masses)
+    test_eigenval, _ = test.eigen()
+
+    reference_eigenval = np.genfromtxt(
+        join(data_dir(), ref_file),
+        skip_header=1, delimiter=","
+    )
+
+    assert np.allclose(test_eigenval[6:], reference_eigenval[6:], atol=1e-06)
