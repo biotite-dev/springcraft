@@ -1,8 +1,8 @@
 """
 Basic NMA of a Protein-ENM
 ==========================
-In this example script, a basic normal mode analysis (NMA) of a coarse-grained
-elastic network model (ENM) of a protein is conducted.
+In this example script, a basic normal mode analysis (NMA) of a protein 
+coarse-grained elastic network model (ENM) is conducted.
 """
 
 
@@ -11,7 +11,6 @@ elastic network model (ENM) of a protein is conducted.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 import biotite
 import biotite.structure as struc
 import biotite.structure.io.mmtf as mmtf
@@ -31,14 +30,14 @@ ff = springcraft.TabulatedForceField.e_anm(ca)
 eanm = springcraft.ANM(ca, ff)
 
 ## NMA
-# Compute eigenvalues and eigenvectors; remove the first six eigenvals./eigenvecs
-# corresponding to trivial modes (translation/rotation).
+# Compute eigenvalues and eigenvectors. 
+# The first 6 eigenvals./eigenvecs corresponding to trivial modes are omitted.
+# -> analyse modes 7-107
 eigenval, eigenvec = eanm.eigen()
-eigenval = eigenval[6:]
-
-# Compute fluctuations and frequencies for modes
+eigenval = eigenval[6:106]
+# Compute fluctuations for all residues and frequencies for modes 7-107
 msqf = eanm.mean_square_fluctuation()
-freq = eanm.frequencies()[6:]
+freq = eanm.frequencies()[6:106]
 
 ## Plot
 fig = plt.figure(figsize=(8.0, 8.0), constrained_layout=True)
@@ -50,8 +49,8 @@ ax1 = fig.add_subplot(grid[1, :])
 
 biotite_c = biotite.colors["orange"]
 
-ax00.bar(x=np.arange(1, len(eigenval)+1), height=eigenval, color=biotite_c)
-ax01.bar(x=np.arange(1, len(freq)+1), height=freq, color=biotite_c)
+ax00.bar(x=np.arange(7, len(eigenval)+7), height=eigenval, color=biotite_c)
+ax01.bar(x=np.arange(7, len(freq)+7), height=freq, color=biotite_c)
 ax1.bar(x=np.arange(1, len(msqf)+1), height=msqf, color=biotite_c) 
 
 ax00.set_xlabel("Mode", size=16)
