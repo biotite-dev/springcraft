@@ -1,5 +1,5 @@
-Springcraft - Investigate molecular dynamics with elastic network models 
-========================================================================
+Springcraft - Investigate molecular dynamics by elastic network models
+======================================================================
 
 .. currentmodule:: springcraft
 
