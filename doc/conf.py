@@ -68,7 +68,7 @@ html_css_files = [
 html_favicon = "static/assets/springcraft_logo_32p.png"
 htmlhelp_basename = "SpringcraftDoc"
 html_theme_options = {
-    "description"   : "Investigate molecular dynamics with elastic network models",
+    "description"   : "Investigate molecular dynamics by elastic network models",
     "logo"          : "assets/springcraft_logo.svg",
     "logo_name"     : "true",
     "github_user"   : "biotite-dev",
