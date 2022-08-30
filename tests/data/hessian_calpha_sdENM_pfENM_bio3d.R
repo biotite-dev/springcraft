@@ -20,11 +20,16 @@ write.csv(hess.sdenm,"./hessian_sdenm_bio3d.csv", row.names = FALSE)
 write.csv(hess.pfenm,"./hessian_pfenm_bio3d.csv", row.names = FALSE)
 
 # Conduct NMA for 1l2y; bio3d masses and mass-weighted Eigenvalues as reference for tests;
-# compare frequencies
+# frequencies/fluctuations for comparisons
 nma.calpha <- nma(pdb=pdb, ff="calpha", mass=TRUE)
 write.csv(nma.calpha$mass, "./1l2y_bio3d_masses.csv", row.names = FALSE)
 write.csv(nma.calpha$L, "./mw_eigenvalues_calpha_bio3d.csv", row.names = FALSE)
+write.csv(nma.calpha$frequencies, "./mw_frequencies_calpha_bio3d.csv", row.names = FALSE)
+write.csv(nma.calpha$fluctuations, "./mw_fluctuations_calpha_bio3d.csv", row.names = FALSE)
 
-# Conduct NMA for 1l2y; bio3d masses and mass-weighted Eigenvalues as reference for tests
+# Conduct NMA for 1l2y; bio3d masses and mass-weighted Eigenvalues as reference for tests;
+# frequencies/fluctuations for comparisons
 nma.sdenm <- nma(pdb=pdb, ff="sdenm", mass=TRUE)
 write.csv(nma.sdenm$L, "./mw_eigenvalues_sdenm_bio3d.csv", row.names = FALSE)
+write.csv(nma.sdenm$frequencies, "./mw_frequencies_sdenm_bio3d.csv", row.names = FALSE)
+write.csv(nma.sdenm$fluctuations, "./mw_fluctuations_sdenm_bio3d.csv", row.names = FALSE)

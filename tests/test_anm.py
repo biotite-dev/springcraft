@@ -110,8 +110,6 @@ def test_mass_weights_eigenvals(ff_name):
     if ff_name == "sdENM":
         ff = springcraft.TabulatedForceField.sd_enm(ca)
         ref_file = "mw_eigenvalues_sdenm_bio3d.csv"
-        
-
     
     test = springcraft.ANM(ca, ff, masses=reference_masses)
     test_eigenval, _ = test.eigen()
@@ -122,3 +120,46 @@ def test_mass_weights_eigenvals(ff_name):
     )
 
     assert np.allclose(test_eigenval[6:], reference_eigenval[6:], atol=1e-06)
+
+@pytest.mark.parametrize("ff_name", ["Hinsen", "sdENM"])
+def test_analysis(ff_name):
+    """
+    Compare quantities commonly computed as part of NMA with bio3d.
+    """
+    reference_masses = np.genfromtxt(
+        join(data_dir(), "1l2y_bio3d_masses.csv"),
+        skip_header=1, delimiter=","
+    )
+
+    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
+    atoms = mmtf.get_structure(mmtf_file, model=1)
+    ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
+    ff = springcraft.HinsenForceField()
+
+    if ff_name == "Hinsen":
+        ff = springcraft.HinsenForceField()
+        ref_freq = "mw_frequencies_calpha_bio3d.csv"
+        ref_fluc = "mw_fluctuations_calpha_bio3d.csv"
+    if ff_name == "sdENM":
+        ff = springcraft.TabulatedForceField.sd_enm(ca)
+        ref_freq = "mw_frequencies_sdenm_bio3d.csv"
+        ref_fluc = "mw_fluctuations_sdenm_bio3d.csv"
+
+    test_nomw = springcraft.ANM(ca, ff)
+    test = springcraft.ANM(ca, ff, masses=reference_masses)
+    test_freq = test.frequencies()
+    # Scale for consistency with bio3d; T=300 K; no mass weighting
+    test_fluc = test_nomw.mean_square_fluctuation(tem=300)/1000
+    
+    reference_freq = np.genfromtxt(
+        join(data_dir(), ref_freq),
+        skip_header=1, delimiter=","
+    )
+
+    reference_fluc = np.genfromtxt(
+        join(data_dir(), ref_fluc),
+        skip_header=1, delimiter=","
+    )
+
+    assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-06)
+    #assert np.allclose(test_fluc[6:], reference_fluc[6:], atol=1e-06)

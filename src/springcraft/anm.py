@@ -298,7 +298,7 @@ class ANM:
         
         # Temperature scaling factor
         if tem is not None:
-            temp_scaling = 3*K_B*tem*N_A
+            temp_scaling = K_B*N_A*tem
         else:
             temp_scaling = 1
         
