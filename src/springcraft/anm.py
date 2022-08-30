@@ -275,7 +275,7 @@ class ANM:
 
         return np.dot(self.covariance, force).reshape(len(self._coord), 3)
     
-    def mean_square_fluctuation(self, T=None):
+    def mean_square_fluctuation(self, tem=None):
         """
         Compute the *mean square fluctuation* for the atoms according
         to the ANM.
@@ -284,9 +284,9 @@ class ANM:
 
         Parameters
         ----------
-        T : int, float, None, optional
+        tem : int, float, None, optional
             Temperature in Kelvin to compute the temperature scaling factor.
-            If T is None, the temperature scaling factor is set to 1. 
+            If tem is None, the temperature scaling factor is set to 1. 
 
         Returns
         -------
@@ -297,8 +297,8 @@ class ANM:
         reshape_diag = np.reshape(diag, (len(self._coord),-1))
         
         # Temperature scaling factor
-        if T is not None:
-            temp_scaling = 3*K_B*T
+        if tem is not None:
+            temp_scaling = 3*K_B*tem*N_A
         else:
             temp_scaling = 1
         
@@ -327,23 +327,23 @@ class ANM:
         freq = 1/(2*np.pi)*np.sqrt(eigenval)
         return freq
     
-    def bfactor(self, T=None):
+    def bfactor(self, tem=None):
         """
         Computes the isotropic B-factors/temperature factors/Deby-Waller factors using 
         the mean-square fluctuation.
 
         Parameters
         ----------
-        T : int, float, None, optional
+        tem : int, float, None, optional
             Temperature in Kelvin to compute the temperature scaling factor.
-            If T is None, the temperature scaling factor is set to 1.
+            If tem is None, the temperature scaling factor is set to 1.
 
         Returns
         -------
         bfac_values : ndarray, shape=(n,), dtype=float
             B-factors of C-alpha atoms.
         """
-        msqf = self.mean_square_fluctuation(T)
+        msqf = self.mean_square_fluctuation(tem)
 
         b_factors = ((8*np.pi**2)*msqf)/3
 
