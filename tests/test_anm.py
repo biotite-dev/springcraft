@@ -41,31 +41,6 @@ def test_covariance(file_path):
         np.dot(test_covariance, np.dot(test_hessian, test_covariance))
     )
 
-## Will be merged with prepare_anms
-# Compare msqf with BioPhysConnectoR "B-factors"
-@pytest.mark.parametrize("file_path",
-        glob.glob(join(data_dir(), "*.mmtf"))
-)
-def test_mean_square_fluctuation(file_path):
-    mmtf_file = mmtf.MMTFFile.read(file_path)
-
-    atoms = mmtf.get_structure(mmtf_file, model=1)
-    ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
-
-    ff_eanm = springcraft.TabulatedForceField.e_anm(ca)
-    test_eanm = springcraft.ANM(ca, ff_eanm)
-    test_msqf = test_eanm.mean_square_fluctuation()
-
-    # Load .csv file data from BiophysConnectoR
-    ref_file = "bfacs_eANM_mj_BioPhysConnectoR.csv"
-    ref_msqf = np.genfromtxt(
-        join(data_dir(), ref_file),
-        skip_header=1, delimiter=","
-    )
-
-    assert np.allclose(test_msqf, ref_msqf)
-
-
 def test_mass_weights_simple():
     """
     Expect that mass weighting with unit masses does not have any
@@ -102,7 +77,7 @@ def test_mass_weights_eigenvals(ff_name):
     mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
     atoms = mmtf.get_structure(mmtf_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
-    ff = springcraft.HinsenForceField()
+    #ff = springcraft.HinsenForceField()
 
     if ff_name == "Hinsen":
         ff = springcraft.HinsenForceField()
@@ -121,7 +96,7 @@ def test_mass_weights_eigenvals(ff_name):
 
     assert np.allclose(test_eigenval[6:], reference_eigenval[6:], atol=1e-06)
 
-@pytest.mark.parametrize("ff_name", ["Hinsen", "sdENM"])
+@pytest.mark.parametrize("ff_name", ["Hinsen", "eANM", "sdENM", "pfENM"])
 def test_analysis(ff_name):
     """
     Compare quantities commonly computed as part of NMA with bio3d.
@@ -134,32 +109,51 @@ def test_analysis(ff_name):
     mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
     atoms = mmtf.get_structure(mmtf_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
-    ff = springcraft.HinsenForceField()
 
-    if ff_name == "Hinsen":
-        ff = springcraft.HinsenForceField()
-        ref_freq = "mw_frequencies_calpha_bio3d.csv"
-        ref_fluc = "mw_fluctuations_calpha_bio3d.csv"
-    if ff_name == "sdENM":
-        ff = springcraft.TabulatedForceField.sd_enm(ca)
-        ref_freq = "mw_frequencies_sdenm_bio3d.csv"
-        ref_fluc = "mw_fluctuations_sdenm_bio3d.csv"
+    if ff_name =="eANM":
+        ff = springcraft.TabulatedForceField.e_anm(ca)
+        test_nomw = springcraft.ANM(ca, ff)
+        test_fluc_nomw = test_nomw.mean_square_fluctuation()
+        ref_fluc = "bfacs_eANM_mj_BioPhysConnectoR.csv"
+    else:
+        if ff_name == "Hinsen":
+            ff = springcraft.HinsenForceField()
+            ref_freq = "mw_frequencies_calpha_bio3d.csv"
+            ref_fluc = "mw_fluctuations_calpha_bio3d.csv"
+        if ff_name == "sdENM":
+            ff = springcraft.TabulatedForceField.sd_enm(ca)
+            ref_freq = "mw_frequencies_sdenm_bio3d.csv"
+            ref_fluc = "mw_fluctuations_sdenm_bio3d.csv"
+        if ff_name == "pfENM":
+            ff = springcraft.ParameterFreeForceField()
+            ref_freq = "mw_frequencies_pfenm_bio3d.csv"
+            ref_fluc = "mw_fluctuations_pfenm_bio3d.csv"
 
-    test_nomw = springcraft.ANM(ca, ff)
-    test = springcraft.ANM(ca, ff, masses=reference_masses)
-    test_freq = test.frequencies()
-    # Scale for consistency with bio3d; T=300 K; no mass weighting
-    test_fluc = test_nomw.mean_square_fluctuation(tem=300)/1000
-    
-    reference_freq = np.genfromtxt(
-        join(data_dir(), ref_freq),
-        skip_header=1, delimiter=","
-    )
+        test_nomw = springcraft.ANM(ca, ff)
+        test = springcraft.ANM(ca, ff, masses=reference_masses)
+        test_freq = test.frequencies()
+
+        ## Scale for consistency with bio3d; T=300 K; no mass weighting
+        # -> deviates from bio3d implementation (less intermediary steps)
+        test_fluc_nomw = test_nomw.mean_square_fluctuation(tem=300)/1000
+        # start from mass_weighted eigenvals
+        test_fluc = test.mean_square_fluctuation(tem=300)/(1000*reference_masses)
+        
+        reference_freq = np.genfromtxt(
+            join(data_dir(), ref_freq),
+            skip_header=1, delimiter=","
+            )
 
     reference_fluc = np.genfromtxt(
         join(data_dir(), ref_fluc),
         skip_header=1, delimiter=","
-    )
+        )
 
-    assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-06)
-    #assert np.allclose(test_fluc[6:], reference_fluc[6:], atol=1e-06)
+    if ff_name == "eANM":
+        assert np.allclose(test_fluc_nomw, reference_fluc)
+    elif ff_name == "pfENM":
+        assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-05) 
+        #assert np.allclose(np.round(test_fluc_nomw), np.round(reference_fluc))
+    else:
+        assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-03) 
+        assert np.allclose(test_fluc, reference_fluc, atol=1e-03)

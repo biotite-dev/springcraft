@@ -33,3 +33,9 @@ nma.sdenm <- nma(pdb=pdb, ff="sdenm", mass=TRUE)
 write.csv(nma.sdenm$L, "./mw_eigenvalues_sdenm_bio3d.csv", row.names = FALSE)
 write.csv(nma.sdenm$frequencies, "./mw_frequencies_sdenm_bio3d.csv", row.names = FALSE)
 write.csv(nma.sdenm$fluctuations, "./mw_fluctuations_sdenm_bio3d.csv", row.names = FALSE)
+
+# Frequencies and fluctuations for pfENM
+nma.pfenm <- nma(pdb=pdb, ff="pfanm", mass=TRUE)
+write.csv(nma.pfenm$L, "./mw_eigenvalues_pfenm_bio3d.csv", row.names = FALSE)
+write.csv(nma.pfenm$frequencies, "./mw_frequencies_pfenm_bio3d.csv", row.names = FALSE)
+write.csv(nma.pfenm$fluctuations, "./mw_fluctuations_pfenm_bio3d.csv", row.names = FALSE)

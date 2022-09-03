@@ -274,9 +274,88 @@ class ANM:
             ) 
 
         return np.dot(self.covariance, force).reshape(len(self._coord), 3)
-    
-    def mean_square_fluctuation(self, tem=None):
+
+    def frequencies(self):
         """
+        Computes the frequency associated with each mode.
+
+        The first six modes correspond to rigid-body translations/
+        rotations and are usually omitted in normal mode analysis.
+
+        Returns
+        -------
+        freq : ndarray, shape=(n,), dtype=float
+            The frequency in ascending order of the associated modes'
+            eigenvalues.
+        """
+        eigenval, _ = self.eigen()
+        
+        # The first six eigenvalues are usually close to 0; but can have a negative
+        # sign. -> Take absolute value of first six modes
+        eigenval[0:6] = np.abs(eigenval[0:6])
+
+        freq = 1/(2*np.pi)*np.sqrt(eigenval)
+        return freq
+    
+    def mean_square_fluctuation(self, tem=None, mode_start=None, mode_stop=None):
+        """
+        Compute the *mean square fluctuation* for the atoms according
+        to the ANM.
+        This is equal to the sum of the diagonal of each 3x3 superelement of
+        the covariance matrix, if all k-6 non-trivial modes are considered.
+        Parameters
+        ----------
+        tem : int, float, None, optional
+            Temperature in Kelvin to compute the temperature scaling factor
+            by multiplying with K_B*N_A.
+            If tem is None, no temperature scaling is conducted. 
+        mode_start, mode_stop : int, None, optional
+            Specify the starting/stop mode, which are considered in the MSF computation. 
+            If mod_start is None, the first non-trivial mode (mode 7) is included, whereas 
+            the penultimate
+            mode is included for mode_stop == None. 
+        Returns
+        -------
+        msqf : ndarray, shape=(n,), dtype=float
+            The mean square fluctuations for each atom in the model.
+        """
+        eigenval, eigenvec_3n = self.eigen()
+        # 3N eigenvectors -> N
+        cols_n = np.arange(0, len(eigenvec_3n[0]), 3)
+        eigenvec_n = np.add.reduceat(np.square(eigenvec_3n), cols_n, axis=1)
+        # Choose modes included in computation; raise error, if trivial modes are included
+        if mode_start is None:
+            mode_start = 6
+        if mode_stop is None:
+            mode_stop = len(eigenval)
+        if any([i <= 5 for i in [mode_start, mode_stop]]):
+            raise ValueError("Inclusion of trivial modes leads to erroneous results.")
+        eigenval = eigenval[mode_start:mode_stop+1]
+        eigenvec_n = eigenvec_n[mode_start:mode_stop+1]
+
+        # Adjust shape of eigenval (N,) -> (N, 1)
+        eigenval = eigenval.reshape(eigenval.shape[0], 1)
+        # Eigenvecs in distinct rows; divide by associated squared eigenvector
+        sq_div_eigenvec = np.sum(eigenvec_n/eigenval, axis=0)
+
+        # Temperature weighting
+        if tem is None:
+            temp_factors = 1
+        else:
+            temp_factors = tem*K_B*N_A
+        if self._masses is None:
+            m = 1
+        else:
+            m = self._masses
+
+        msqf = sq_div_eigenvec * temp_factors
+
+        return msqf
+        
+    def mean_square_fluctuation_legacy(self, tem=None):
+        """
+        Deprecated: No selection of single modes, results equal those of
+        mean_squared_fluctuations, if all k-6 non-trivial modes are considered.
         Compute the *mean square fluctuation* for the atoms according
         to the ANM.
         This is equal to the sum of the diagonal of each 3x3 superelement of
@@ -305,28 +384,6 @@ class ANM:
         msqf = np.sum(reshape_diag, axis=1)*temp_scaling
         return msqf
 
-    def frequencies(self):
-        """
-        Computes the frequency associated with each mode.
-
-        The first six modes correspond to rigid-body translations/
-        rotations and are usually omitted in normal mode analysis.
-
-        Returns
-        -------
-        freq : ndarray, shape=(n,), dtype=float
-            The frequency in ascending order of the associated modes'
-            eigenvalues.
-        """
-        eigenval, _ = self.eigen()
-        
-        # The first six eigenvalues are usually close to 0; but can have a negative
-        # sign. -> Take absolute value of first six modes
-        eigenval[0:6] = np.abs(eigenval[0:6])
-
-        freq = 1/(2*np.pi)*np.sqrt(eigenval)
-        return freq
-    
     def bfactor(self, tem=None):
         """
         Computes the isotropic B-factors/temperature factors/Deby-Waller factors using 
