@@ -291,29 +291,33 @@ class ANM:
         eigenval, _ = self.eigen()
         
         # The first six eigenvalues are usually close to 0; but can have a negative
-        # sign. -> Take absolute value of first six modes
+        # sign. -> Absolute value; warn in case first six modes differ from 0.
         eigenval[0:6] = np.abs(eigenval[0:6])
-
+        
         freq = 1/(2*np.pi)*np.sqrt(eigenval)
         return freq
     
-    def mean_square_fluctuation(self, tem=None, mode_start=None, mode_stop=None):
+    def mean_square_fluctuation(self, mode_start=None, mode_stop=None, tem=None, tem_factors=K_B):
         """
         Compute the *mean square fluctuation* for the atoms according
         to the ANM.
         This is equal to the sum of the diagonal of each 3x3 superelement of
         the covariance matrix, if all k-6 non-trivial modes are considered.
+        
         Parameters
         ----------
-        tem : int, float, None, optional
-            Temperature in Kelvin to compute the temperature scaling factor
-            by multiplying with K_B*N_A.
-            If tem is None, no temperature scaling is conducted. 
         mode_start, mode_stop : int, None, optional
             Specify the starting/stop mode, which are considered in the MSF computation. 
             If mod_start is None, the first non-trivial mode (mode 7) is included, whereas 
             the penultimate
             mode is included for mode_stop == None. 
+        tem : int, float, None, optional
+            Temperature in Kelvin to compute the temperature scaling factor
+            by multiplying with the Boltzmann constant.
+            If tem is None, no temperature scaling is conducted. 
+        tem_factors : int, float, optional
+            Factors included in temperature weighting (with K_B as preset).
+
         Returns
         -------
         msqf : ndarray, shape=(n,), dtype=float
@@ -328,8 +332,7 @@ class ANM:
             mode_start = 6
         if mode_stop is None:
             mode_stop = len(eigenval)
-        if any([i <= 5 for i in [mode_start, mode_stop]]):
-            raise ValueError("Inclusion of trivial modes leads to erroneous results.")
+
         eigenval = eigenval[mode_start:mode_stop+1]
         eigenvec_n = eigenvec_n[mode_start:mode_stop+1]
 
@@ -340,48 +343,12 @@ class ANM:
 
         # Temperature weighting
         if tem is None:
-            temp_factors = 1
+            tem_scaling = 1
         else:
-            temp_factors = tem*K_B*N_A
-        if self._masses is None:
-            m = 1
-        else:
-            m = self._masses
+            tem_scaling = tem * tem_factors
 
-        msqf = sq_div_eigenvec * temp_factors
+        msqf = sq_div_eigenvec * tem_scaling
 
-        return msqf
-        
-    def mean_square_fluctuation_legacy(self, tem=None):
-        """
-        Deprecated: No selection of single modes, results equal those of
-        mean_squared_fluctuations, if all k-6 non-trivial modes are considered.
-        Compute the *mean square fluctuation* for the atoms according
-        to the ANM.
-        This is equal to the sum of the diagonal of each 3x3 superelement of
-        the covariance matrix.
-
-        Parameters
-        ----------
-        tem : int, float, None, optional
-            Temperature in Kelvin to compute the temperature scaling factor.
-            If tem is None, the temperature scaling factor is set to 1. 
-
-        Returns
-        -------
-        msqf : ndarray, shape=(n,), dtype=float
-            The mean square fluctuations for each atom in the model.
-        """
-        diag = self.covariance.diagonal()
-        reshape_diag = np.reshape(diag, (len(self._coord),-1))
-        
-        # Temperature scaling factor
-        if tem is not None:
-            temp_scaling = K_B*N_A*tem
-        else:
-            temp_scaling = 1
-        
-        msqf = np.sum(reshape_diag, axis=1)*temp_scaling
         return msqf
 
     def bfactor(self, tem=None):

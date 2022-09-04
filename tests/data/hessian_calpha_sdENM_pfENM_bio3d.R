@@ -11,6 +11,7 @@ calpha <- load.enmff(ff="calpha")
 sdenm <- load.enmff(ff="sdenm")
 pfanm <- load.enmff(ff="pfanm")
 
+# Non-mass-weighted Hessians
 hess.calpha <-build.hessian(coords, pfc.fun=calpha, pdb=pdb)
 hess.sdenm <- build.hessian(coords, pfc.fun=sdenm, pdb=pdb)
 hess.pfenm <- build.hessian(coords, pfc.fun=pfanm, pdb=pdb)
