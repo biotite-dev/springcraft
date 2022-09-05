@@ -309,8 +309,9 @@ class ANM:
         mode_start, mode_stop : int, None, optional
             Specify the starting/stop mode, which are considered in the MSF computation. 
             If mod_start is None, the first non-trivial mode (mode 7) is included, whereas 
-            the penultimate
-            mode is included for mode_stop == None. 
+            the penultimate mode is included for mode_stop == None.
+            mode_start/mode_stop are used as half-open intervals for standard Python slicing
+            (including the lower bound, excluding the upper bound) and counting (starting with 0). 
         tem : int, float, None, optional
             Temperature in Kelvin to compute the temperature scaling factor
             by multiplying with the Boltzmann constant.
@@ -327,14 +328,15 @@ class ANM:
         # 3N eigenvectors -> N
         cols_n = np.arange(0, len(eigenvec_3n[0]), 3)
         eigenvec_n = np.add.reduceat(np.square(eigenvec_3n), cols_n, axis=1)
+        
         # Choose modes included in computation; raise error, if trivial modes are included
         if mode_start is None:
             mode_start = 6
         if mode_stop is None:
             mode_stop = len(eigenval)
 
-        eigenval = eigenval[mode_start:mode_stop+1]
-        eigenvec_n = eigenvec_n[mode_start:mode_stop+1]
+        eigenval = eigenval[mode_start:mode_stop]
+        eigenvec_n = eigenvec_n[mode_start:mode_stop]
 
         # Adjust shape of eigenval (N,) -> (N, 1)
         eigenval = eigenval.reshape(eigenval.shape[0], 1)
@@ -351,23 +353,32 @@ class ANM:
 
         return msqf
 
-    def bfactor(self, tem=None):
+    def bfactor(self, mode_start=None, mode_stop=None, tem=None, tem_factors=K_B):
         """
-        Computes the isotropic B-factors/temperature factors/Deby-Waller factors using 
-        the mean-square fluctuation.
+        Computes the isotropic B-factors/temperature factors/Deby-Waller factors for
+        atoms/coarse-grained beads using the mean-square fluctuation.
 
         Parameters
         ----------
+        mode_start, mode_stop : int, None, optional
+            Specify the starting/stop mode, which are considered in the MSF computation. 
+            If mod_start is None, the first non-trivial mode (mode 7) is included, whereas 
+            the penultimate mode is included for mode_stop == None.
+            mode_start/mode_stop are used as half-open intervals for standard Python slicing
+            (including the lower bound, excluding the upper bound). 
         tem : int, float, None, optional
-            Temperature in Kelvin to compute the temperature scaling factor.
-            If tem is None, the temperature scaling factor is set to 1.
+            Temperature in Kelvin to compute the temperature scaling factor
+            by multiplying with the Boltzmann constant.
+            If tem is None, no temperature scaling is conducted. 
+        tem_factors : int, float, optional
+            Factors included in temperature weighting (with K_B as preset).
 
         Returns
         -------
         bfac_values : ndarray, shape=(n,), dtype=float
             B-factors of C-alpha atoms.
         """
-        msqf = self.mean_square_fluctuation(tem)
+        msqf = self.mean_square_fluctuation(mode_start, mode_stop, tem, tem_factors)
 
         b_factors = ((8*np.pi**2)*msqf)/3
 
