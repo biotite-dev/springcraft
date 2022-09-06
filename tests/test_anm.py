@@ -188,7 +188,7 @@ def test_frequency_fluctuation(ff_name):
         test_fluc = test.mean_square_fluctuation(tem=tem, tem_factors=tem_scaling)/(1000*reference_masses)
         
         # Select a subset of modes: 12-33
-        test_fluc_subset = test.mean_square_fluctuation(tem=tem, tem_factors=tem_scaling, mode_start=12, mode_stop=34)/(1000*reference_masses)
+        test_fluc_subset = test.mean_square_fluctuation(tem=tem, tem_factors=tem_scaling, mode_start=11, mode_stop=33)/(1000*reference_masses)
         
         reference_fluc_subset = np.genfromtxt(
             join(data_dir(), ref_fluc_subset),
@@ -213,11 +213,11 @@ def test_frequency_fluctuation(ff_name):
         assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-05)
         # TODO: Deviations quite high. 
         assert np.allclose(test_fluc, reference_fluc, atol=1e0)
-        #assert np.allclose(test_fluc_subset, reference_fluc_subset, atol=1e0)
+        assert np.allclose(test_fluc_subset, reference_fluc_subset, atol=1e0)
     else:
         assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-06) 
         assert np.allclose(test_fluc, reference_fluc, atol=1e-03)
-        #assert np.allclose(test_fluc_subset, reference_fluc_subset, atol=1e-03)       
+        assert np.allclose(test_fluc_subset, reference_fluc_subset, atol=1e-03)       
     
     # Compare with alternative method of MSF computation
     assert np.allclose(test_fluc_nomw, msqf_alternative)
