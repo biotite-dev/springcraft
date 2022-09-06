@@ -368,10 +368,11 @@ def test_parameterfree_forcefield():
 
 
 @pytest.mark.parametrize("ff_name", ["e_anm", "e_anm_mj", "e_anm_ke"])
-def test_compare_with_biophysconnector_heterogenous(atoms_singlechain, ff_name):
+def test_compare_with_biophysconnector_heterogenous(atoms_singlechain, 
+                                                    ff_name):
     """
-    Comparisons between Hessians computed for eANM variants using springcraft
-    and BioPhysConnectoR.
+    Comparisons between Hessians computed for eANM variants using 
+    springcraft and BioPhysConnectoR.
     Cut-off: 1.3 nm.
     """
 

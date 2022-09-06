@@ -12,7 +12,6 @@ dependencies:
   - prody >=2.1
   - pytest >=5.2
   - matplotlib >=3.3
-  - ammolite >=0.7.0
   - poetry >=1.0
   - jinja2 <3.1
   - sphinx >=3.0

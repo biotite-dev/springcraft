@@ -84,7 +84,7 @@ def test_compare_eigenvals_BiophysConnectoR():
         skip_header=1, delimiter=","
     )
 
-    # Omit modes belonging to trivial modes in reference -> Numerical deviations
+    # Omit trivial modes
     assert np.allclose(test_eigenval[6:], ref_eigenval[6:])
 
 @pytest.mark.parametrize("ff_name", ["Hinsen", "sdENM", "pfENM"])
@@ -150,7 +150,8 @@ def test_frequency_fluctuation(ff_name):
         ref_fluc = "bfacs_eANM_mj_BioPhysConnectoR.csv"
         test_nomw = springcraft.ANM(ca, ff)
         test_fluc_nomw = test_nomw.mean_square_fluctuation()
-        # -> For alternative MSF computation method; no temperature weighting
+        # -> For alternative MSF computation method; 
+        # no temperature weighting
         tem_scaling = 1
         tem = 1
     # Bio3d
@@ -173,7 +174,8 @@ def test_frequency_fluctuation(ff_name):
         
         tem_scaling = K_B*N_A
         test_nomw = springcraft.ANM(ca, ff)
-        test_fluc_nomw = test_nomw.mean_square_fluctuation(tem=tem, tem_factors=tem_scaling)
+        test_fluc_nomw = test_nomw.mean_square_fluctuation(tem=tem, 
+                                                    tem_factors=tem_scaling)
 
         test = springcraft.ANM(ca, ff, masses=reference_masses)
         test_freq = test.frequencies()
@@ -185,10 +187,15 @@ def test_frequency_fluctuation(ff_name):
         
         ## Scale for consistency with bio3d; T=300 K; no mass weighting
         # Start with mass_weighted eigenvals
-        test_fluc = test.mean_square_fluctuation(tem=tem, tem_factors=tem_scaling)/(1000*reference_masses)
+        test_fluc = test.mean_square_fluctuation(tem=tem, 
+                            tem_factors=tem_scaling)/(1000*reference_masses
+                            )
         
         # Select a subset of modes: 12-33
-        test_fluc_subset = test.mean_square_fluctuation(tem=tem, tem_factors=tem_scaling, mode_start=11, mode_stop=33)/(1000*reference_masses)
+        test_fluc_subset = test.mean_square_fluctuation(tem=tem, 
+                                        tem_factors=tem_scaling, mode_start=11, 
+                                        mode_stop=33)/(1000*reference_masses
+                                        )
         
         reference_fluc_subset = np.genfromtxt(
             join(data_dir(), ref_fluc_subset),

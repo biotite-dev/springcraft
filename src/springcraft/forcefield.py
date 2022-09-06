@@ -498,7 +498,8 @@ class TabulatedForceField(ForceField):
         )
 
         ## Handle bonded interactions
-        # Convert pos-specific indices to type-specific indices -> general case
+        # Convert pos-specific indices to type-specific indices 
+        # -> general case
         indices = (
             matrix_indices[peptide_bond_i],
             matrix_indices[peptide_bond_i+1]
@@ -551,12 +552,14 @@ class TabulatedForceField(ForceField):
     def s_enm_10(atoms):
         """
         The sENM10 forcefield by Dehouck and Mikhailov was parametrized
-        by statisctical analysis of a NMR conformational ensemble dataset.
-        Non-bonded interactions between amino acid species are parametrized in
-        an amino acid type-specific manner, with a cutoff distance of 1 nm  
+        by statisctical analysis of a NMR conformational 
+        ensemble dataset.
+        Non-bonded interactions between amino acid species are 
+        parametrized in an amino acid type-specific manner, with a 
+        cutoff distance of 1 nm.  
         Bonded interactions are evaluated with  10 R*T/(Ang**2), 
-        corresponding to the tenfold mean of all amino acid species interactions
-        at a distance 0f 3.5 nm.
+        corresponding to the tenfold mean of all amino acid 
+        species interactions at a distance 0f 3.5 nm.
 
         Parameters
         ----------
@@ -564,7 +567,7 @@ class TabulatedForceField(ForceField):
             The atoms in the model.
             Must contain only ``CA`` atoms and only canonic amino acids.
             ``CA`` atoms with the same chain ID and adjacent residue IDs
-            are treated as bonded
+            are treated as bonded.
 
         Returns
         -------
@@ -586,11 +589,12 @@ class TabulatedForceField(ForceField):
         """
         The sENM13 forcefield by Dehouck and Mikhailov was parametrized
         by statisctical analysis of a NMR conformational ensemble dataset.
-        Non-bonded interactions between amino acid species are parametrized in
-        an amino acid type-specific manner, with a cutoff distance of 1.3 nm.  
+        Non-bonded interactions between amino acid species are 
+        parametrized in an amino acid type-specific manner, with a 
+        cutoff distance of 1.3 nm.  
         Bonded interactions are evaluated with  10 R*T/(Ang**2), 
-        corresponding to the tenfold mean of all amino acid species interactions
-        at a distance 0f 3.5 nm.
+        corresponding to the tenfold mean of all amino acid species 
+        interactions at a distance 0f 3.5 nm.
 
         Parameters
         ----------
@@ -619,13 +623,15 @@ class TabulatedForceField(ForceField):
     def d_enm(atoms):
         """
         The dENM forcefield by Dehouck and Mikhailov was parametrized
-        by statisctical analysis of a NMR conformational ensemble dataset.
-        Non-bonded amino acid interactions are solely assigned depending on the
-        spatial pair distance, ignorant towards interacting amino acid species. 
+        by statisctical analysis of a NMR conformational 
+        ensemble dataset.
+        Non-bonded amino acid interactions are solely assigned depending 
+        on the spatial pair distance, ignorant towards interacting 
+        amino acid species. 
         Spatial distances are divided into 27 bins.
         Bonded interactions are evaluated with  46.83 R*T/(Ang**2), 
-        corresponding to the tenfold mean of all amino acid species interactions
-        at a distance 0f 3.5 nm.
+        corresponding to the tenfold mean of all amino acid species 
+        interactions at a distance 0f 3.5 nm.
 
         Parameters
         ----------
@@ -738,14 +744,16 @@ class TabulatedForceField(ForceField):
            J Chem. Theory Comput.  2, 3, 873–878 (2006).
 
         .. [2] S Miyazawa, R L Jernigan,
-           "Residue – Residue Potentials with a Favorable Contact Pair Term and 
-           an Unfavorable High Packing Density Term, for Simulation 
-           and Threading."  
+           "Residue – Residue Potentials with a Favorable Contact Pair 
+           Term and an Unfavorable High Packing Density Term, 
+           for Simulation and Threading."  
            J Mol Biol., 256(3) 623-44 (1996).
         
-        .. [3] O Keskin, I Bahar, R L Jernigan, A Y Badretdinov, O B Ptitsyn, 
-           "Empirical solvent-mediated potentials hold for both intra-molecular 
-           and inter-molecular inter-residue interactions."
+        .. [3] O Keskin, I Bahar, R L Jernigan, A Y Badretdinov, 
+               O B Ptitsyn, 
+           "Empirical solvent-mediated potentials hold for both 
+           intra-molecular and inter-molecular inter-residue 
+           interactions."
            Protein Science, 7 2578-2586 (1998)
         """
 
@@ -760,16 +768,18 @@ class TabulatedForceField(ForceField):
 
     def e_anm_mj(atoms, nonbonded_mean=False):
         """
-        In this variant of the "extended ANM" (eANM) method, non-bonded interactions
-        between amino acids are parametrized in a residue-specific manner using
-        solely Miyazawa-Jernigan (MJ) parameters. 
-        MJ parameters were derived from contact numbers between amino acids
-        in a X-ray structure dataset of globular proteins using the Bethe approximation.
+        In this variant of the "extended ANM" (eANM) method, 
+        non-bonded interactions between amino acids are parametrized in 
+        a residue-specific manner using solely Miyazawa-Jernigan (MJ) 
+        parameters. 
+        MJ parameters were derived from contact numbers between 
+        amino acids in a X-ray structure dataset of globular proteins 
+        using the Bethe approximation.
         Bonded interactions are evaluated with  82 R*T/(Ang**2).
         For noncovalent interactions, the cut-off is set to 13 Ang.
 
-        Averaging over all non-bonded residue-specific parameters yields a homogenous
-        description of non-bonded interactions. 
+        Averaging over all non-bonded residue-specific parameters yields 
+        a homogenous description of non-bonded interactions. 
 
         Parameters
         ----------
@@ -787,12 +797,13 @@ class TabulatedForceField(ForceField):
         Returns
         -------
         force_field : TabulatedForceField
-            Force field tailored to the eANM method in the MJ parameterset variant.
+            Force field tailored to the eANM method in the MJ 
+            parameterset variant.
 
         .. [1] S Miyazawa, R L Jernigan,
-           "Residue – Residue Potentials with a Favorable Contact Pair Term and 
-           an Unfavorable High Packing Density Term, for Simulation 
-           and Threading."  
+           "Residue – Residue Potentials with a Favorable Contact Pair 
+           Term and an Unfavorable High Packing Density Term, 
+           for Simulation and Threading."  
            J Mol Biol., 256(3) 623-44 (1996).
         @TODO Additional citations
         """
@@ -808,15 +819,17 @@ class TabulatedForceField(ForceField):
         
     def e_anm_ke(atoms, nonbonded_mean=False):
         """
-        For this variant of the "extended ANM" (eANM), non-bonded interactions between
-        amino-acid pairs are parametrized in a residue-specific manner using
-        Keskin parameters. This parameterset was derived from contact frequencies between
-        different protein monomers using the methodology established by Miyazawa-Jernigan.
+        For this variant of the "extended ANM" (eANM), non-bonded 
+        interactions between amino-acid pairs are parametrized in a 
+        residue-specific manner using Keskin parameters. 
+        This parameterset was derived from contact frequencies between
+        different protein monomers using the methodology established by 
+        Miyazawa-Jernigan.
         Bonded interactions are evaluated with  82 R*T/(Ang**2).
         For noncovalent interactions, the cut-off is set to 13 Ang. 
 
-        Averaging over all non-bonded residue-specific parameters yields a homogenous
-        description of non-bonded interactions.
+        Averaging over all non-bonded residue-specific parameters yields 
+        a homogenous description of non-bonded interactions.
 
         Parameters
         ----------
@@ -834,13 +847,15 @@ class TabulatedForceField(ForceField):
         Returns
         -------
         force_field : TabulatedForceField
-            Force field tailored to the eANM method in the Keskin parameterset variant.
+            Force field tailored to the eANM method in the Keskin 
+            parameterset variant.
 
-        .. [1] O Keskin, I Bahar, R L Jernigan, A Y Badretdinov, O B Ptitsyn, 
-           "Empirical solvent-mediated potentials hold for both intra-molecular 
-           and inter-molecular inter-residue interactions."
+        .. [1] O Keskin, I Bahar, R L Jernigan, A Y Badretdinov, 
+               O B Ptitsyn, 
+           "Empirical solvent-mediated potentials hold for both 
+           intra-molecular and inter-molecular inter-residue 
+           interactions."
            Protein Science, 7 2578-2586 (1998)
-           @TODO Additional citations
         """
 
         intra = _load_matrix("keskin.csv") 
