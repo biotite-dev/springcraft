@@ -274,36 +274,6 @@ class ANM:
             ) 
 
         return np.dot(self.covariance, force).reshape(len(self._coord), 3)
-    
-    def mean_square_fluctuation(self, T=None):
-        """
-        Compute the *mean square fluctuation* for the atoms according
-        to the ANM.
-        This is equal to the sum of the diagonal of each 3x3 superelement of
-        the covariance matrix.
-
-        Parameters
-        ----------
-        T : int, float, None, optional
-            Temperature in Kelvin to compute the temperature scaling factor.
-            If T is None, the temperature scaling factor is set to 1. 
-
-        Returns
-        -------
-        msqf : ndarray, shape=(n,), dtype=float
-            The mean square fluctuations for each atom in the model.
-        """
-        diag = self.covariance.diagonal()
-        reshape_diag = np.reshape(diag, (len(self._coord),-1))
-        
-        # Temperature scaling factor
-        if T is not None:
-            temp_scaling = 3*K_B*T
-        else:
-            temp_scaling = 1
-        
-        msqf = np.sum(reshape_diag, axis=1)*temp_scaling
-        return msqf
 
     def frequencies(self):
         """
@@ -321,29 +291,83 @@ class ANM:
         eigenval, _ = self.eigen()
         
         # The first six eigenvalues are usually close to 0; but can have a negative
-        # sign. -> Take absolute value of first six modes
+        # sign. -> Absolute value; warn in case first six modes differ from 0.
         eigenval[0:6] = np.abs(eigenval[0:6])
-
+        
         freq = 1/(2*np.pi)*np.sqrt(eigenval)
         return freq
     
-    def bfactor(self, T=None):
+    def mean_square_fluctuation(self, mode_start=None, mode_stop=None, tem=None, tem_factors=K_B):
+        """
+        Compute the *mean square fluctuation* for the atoms according
+        to the ANM.
+        This is equal to the sum of the diagonal of each 3x3 superelement of
+        the covariance matrix, if all k-6 non-trivial modes are considered.
+        
+        Parameters
+        ----------
+        mode_start, mode_stop : int, None, optional
+            Specify the starting/stop mode, which are considered in the MSF computation. 
+            If mod_start is None, the first non-trivial mode (mode 7) is included, whereas 
+            the penultimate
+            mode is included for mode_stop == None. 
+        tem : int, float, None, optional
+            Temperature in Kelvin to compute the temperature scaling factor
+            by multiplying with the Boltzmann constant.
+            If tem is None, no temperature scaling is conducted. 
+        tem_factors : int, float, optional
+            Factors included in temperature weighting (with K_B as preset).
+
+        Returns
+        -------
+        msqf : ndarray, shape=(n,), dtype=float
+            The mean square fluctuations for each atom in the model.
+        """
+        eigenval, eigenvec_3n = self.eigen()
+        # 3N eigenvectors -> N
+        cols_n = np.arange(0, len(eigenvec_3n[0]), 3)
+        eigenvec_n = np.add.reduceat(np.square(eigenvec_3n), cols_n, axis=1)
+        # Choose modes included in computation; raise error, if trivial modes are included
+        if mode_start is None:
+            mode_start = 6
+        if mode_stop is None:
+            mode_stop = len(eigenval)
+
+        eigenval = eigenval[mode_start:mode_stop+1]
+        eigenvec_n = eigenvec_n[mode_start:mode_stop+1]
+
+        # Adjust shape of eigenval (N,) -> (N, 1)
+        eigenval = eigenval.reshape(eigenval.shape[0], 1)
+        # Eigenvecs in distinct rows; divide by associated squared eigenvector
+        sq_div_eigenvec = np.sum(eigenvec_n/eigenval, axis=0)
+
+        # Temperature weighting
+        if tem is None:
+            tem_scaling = 1
+        else:
+            tem_scaling = tem * tem_factors
+
+        msqf = sq_div_eigenvec * tem_scaling
+
+        return msqf
+
+    def bfactor(self, tem=None):
         """
         Computes the isotropic B-factors/temperature factors/Deby-Waller factors using 
         the mean-square fluctuation.
 
         Parameters
         ----------
-        T : int, float, None, optional
+        tem : int, float, None, optional
             Temperature in Kelvin to compute the temperature scaling factor.
-            If T is None, the temperature scaling factor is set to 1.
+            If tem is None, the temperature scaling factor is set to 1.
 
         Returns
         -------
         bfac_values : ndarray, shape=(n,), dtype=float
             B-factors of C-alpha atoms.
         """
-        msqf = self.mean_square_fluctuation(T)
+        msqf = self.mean_square_fluctuation(tem)
 
         b_factors = ((8*np.pi**2)*msqf)/3
 

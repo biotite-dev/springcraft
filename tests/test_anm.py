@@ -41,31 +41,6 @@ def test_covariance(file_path):
         np.dot(test_covariance, np.dot(test_hessian, test_covariance))
     )
 
-## Will be merged with prepare_anms
-# Compare msqf with BioPhysConnectoR "B-factors"
-@pytest.mark.parametrize("file_path",
-        glob.glob(join(data_dir(), "*.mmtf"))
-)
-def test_mean_square_fluctuation(file_path):
-    mmtf_file = mmtf.MMTFFile.read(file_path)
-
-    atoms = mmtf.get_structure(mmtf_file, model=1)
-    ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
-
-    ff_eanm = springcraft.TabulatedForceField.e_anm(ca)
-    test_eanm = springcraft.ANM(ca, ff_eanm)
-    test_msqf = test_eanm.mean_square_fluctuation()
-
-    # Load .csv file data from BiophysConnectoR
-    ref_file = "bfacs_eANM_mj_BioPhysConnectoR.csv"
-    ref_msqf = np.genfromtxt(
-        join(data_dir(), ref_file),
-        skip_header=1, delimiter=","
-    )
-
-    assert np.allclose(test_msqf, ref_msqf)
-
-
 def test_mass_weights_simple():
     """
     Expect that mass weighting with unit masses does not have any
@@ -87,11 +62,37 @@ def test_mass_weights_simple():
     assert np.allclose(identical_anm.hessian, ref_anm.hessian)
     assert not np.allclose(different_anm.hessian, ref_anm.hessian)
 
-@pytest.mark.parametrize("ff_name", ["Hinsen", "sdENM"])
+def test_compare_eigenvals_BiophysConnectoR():
+    """
+    Compare non-mass-weighted eigenvalues with those computed with 
+    BiophysConnectoR for eANMs.
+    """
+    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
+    atoms = mmtf.get_structure(mmtf_file, model=1)
+    ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
+
+    ff = springcraft.TabulatedForceField.e_anm(ca)
+    eanm = springcraft.ANM(ca, ff)
+
+    ref_file = "eigenval_eANM_BioPhysConnectoR.csv"
+
+    test_eigenval, _ = eanm.eigen()
+
+    # Load .csv file data from BiophysConnectoR
+    ref_eigenval = np.genfromtxt(
+        join(data_dir(), ref_file),
+        skip_header=1, delimiter=","
+    )
+
+    # Omit modes belonging to trivial modes in reference -> Numerical deviations
+    assert np.allclose(test_eigenval[6:], ref_eigenval[6:])
+
+@pytest.mark.parametrize("ff_name", ["Hinsen", "sdENM", "pfENM"])
 def test_mass_weights_eigenvals(ff_name):
     """
     Compare mass-weighted eigenvalues with reference values obtained
-    with bio3d.
+    with bio3d to test the correctness of the mass-weighting procedure
+    and the validity of results obtained with SVD.
     To this end, bio3d-assigned masses are used.
     """
     reference_masses = np.genfromtxt(
@@ -102,7 +103,6 @@ def test_mass_weights_eigenvals(ff_name):
     mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
     atoms = mmtf.get_structure(mmtf_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
-    ff = springcraft.HinsenForceField()
 
     if ff_name == "Hinsen":
         ff = springcraft.HinsenForceField()
@@ -110,8 +110,9 @@ def test_mass_weights_eigenvals(ff_name):
     if ff_name == "sdENM":
         ff = springcraft.TabulatedForceField.sd_enm(ca)
         ref_file = "mw_eigenvalues_sdenm_bio3d.csv"
-        
-
+    if ff_name == "pfENM":
+        ff = springcraft.ParameterFreeForceField()
+        ref_file = "mw_eigenvalues_pfenm_bio3d.csv"
     
     test = springcraft.ANM(ca, ff, masses=reference_masses)
     test_eigenval, _ = test.eigen()
@@ -122,3 +123,86 @@ def test_mass_weights_eigenvals(ff_name):
     )
 
     assert np.allclose(test_eigenval[6:], reference_eigenval[6:], atol=1e-06)
+
+@pytest.mark.parametrize("ff_name", ["Hinsen", "eANM", "sdENM", "pfENM"])
+def test_frequency_fluctuation(ff_name):
+    """
+    Compare quantities commonly computed as part of NMA.
+    Bio3d is used as reference.
+    """
+    reference_masses = np.genfromtxt(
+        join(data_dir(), "1l2y_bio3d_masses.csv"),
+        skip_header=1, delimiter=","
+    )
+
+    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
+    atoms = mmtf.get_structure(mmtf_file, model=1)
+    ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
+
+    K_B = 1.380649e-23
+    N_A = 6.02214076e23
+    tem = 300
+    
+    if ff_name =="eANM":
+        ff = springcraft.TabulatedForceField.e_anm(ca)
+        test_nomw = springcraft.ANM(ca, ff)
+        ref_fluc = "bfacs_eANM_mj_BioPhysConnectoR.csv"
+        test_nomw = springcraft.ANM(ca, ff)
+        test_fluc_nomw = test_nomw.mean_square_fluctuation()
+        # -> For alternative MSF computation method; no temperature weighting
+        tem_scaling = 1; tem = 1
+    else:
+        if ff_name == "Hinsen":
+            ff = springcraft.HinsenForceField()
+            ref_freq = "mw_frequencies_calpha_bio3d.csv"
+            ref_fluc = "mw_fluctuations_calpha_bio3d.csv"
+        elif ff_name == "sdENM":
+            ff = springcraft.TabulatedForceField.sd_enm(ca)
+            ref_freq = "mw_frequencies_sdenm_bio3d.csv"
+            ref_fluc = "mw_fluctuations_sdenm_bio3d.csv"
+        elif ff_name == "pfENM":
+            ff = springcraft.ParameterFreeForceField()
+            ref_freq = "mw_frequencies_pfenm_bio3d.csv"
+            ref_fluc = "mw_fluctuations_pfenm_bio3d.csv"
+        
+        tem_scaling = K_B*N_A
+        test_nomw = springcraft.ANM(ca, ff)
+        test_fluc_nomw = test_nomw.mean_square_fluctuation(tem=tem, tem_factors=tem_scaling)
+
+        test = springcraft.ANM(ca, ff, masses=reference_masses)
+        test_freq = test.frequencies()
+        
+        ## Scale for consistency with bio3d; T=300 K; no mass weighting
+        # start with mass_weighted eigenvals
+        
+        test_fluc = test.mean_square_fluctuation(tem=tem, tem_factors=tem_scaling)/(1000*reference_masses)
+        
+        reference_freq = np.genfromtxt(
+            join(data_dir(), ref_freq),
+            skip_header=1, delimiter=","
+            )
+
+    reference_fluc = np.genfromtxt(
+        join(data_dir(), ref_fluc),
+        skip_header=1, delimiter=","
+        )
+    
+    ## No mass-weighting
+    # Alternative Method for MSF computation considering all modes
+    diag = test_nomw.covariance.diagonal()
+    reshape_diag = np.reshape(diag, (len(test_nomw._coord),-1))
+
+    msqf_alternative = np.sum(reshape_diag, axis=1)*tem_scaling*tem
+
+    if ff_name == "eANM":
+        assert np.allclose(test_fluc_nomw, reference_fluc)
+    elif ff_name == "pfENM":
+        assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-05)
+        # TODO: Deviations high. 
+        assert np.allclose(test_fluc, reference_fluc, atol=1e0)
+    else:
+        assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-06) 
+        assert np.allclose(test_fluc, reference_fluc, atol=1e-03)
+    
+    # Compare with alternative method of MSF computation
+    assert np.allclose(test_fluc_nomw, msqf_alternative, atol=1e-02)
