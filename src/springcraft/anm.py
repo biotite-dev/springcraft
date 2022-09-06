@@ -296,7 +296,7 @@ class ANM:
         freq = 1/(2*np.pi)*np.sqrt(eigenval)
         return freq
 
-    def mean_square_fluctuation(self, mode_start=None, mode_stop=None, 
+    def mean_square_fluctuation(self, mode_subset=None, 
                                 tem=None, tem_factors=K_B):
         """
         Compute the *mean square fluctuation* for the atoms according
@@ -307,15 +307,14 @@ class ANM:
         
         Parameters
         ----------
-        mode_start, mode_stop : int, None, optional
-            Specify the starting/stop mode, which are considered in the 
-            MSF computation. 
-            If mod_start is None, the first non-trivial mode (mode 7) is 
-            included, whereas the penultimate mode is included for 
-            mode_stop == None.
-            mode_start/mode_stop are used as half-open intervals for 
-            standard Python slicing (including the lower bound, 
-            excluding the upper bound) and counting (starting with 0). 
+        mode_subset : ndarray, shape=(n,), dtype=int, optional
+            Specifies the subset of modes considered in the MSF
+            computation.
+            Only non-trivial modes can be selected.
+            The first mode is counted as 0 in accordance with
+            Python conventions.
+            If mode_subset is None, all modes except the first six
+            trivial modes (0-5) are included.
         tem : int, float, None, optional
             Temperature in Kelvin to compute the temperature scaling 
             factor by multiplying with the Boltzmann constant.
@@ -336,13 +335,16 @@ class ANM:
         
         # Choose modes included in computation; raise error, if trivial 
         # modes are included
-        if mode_start is None:
-            mode_start = 6
-        if mode_stop is None:
-            mode_stop = len(eigenval)
-
-        eigenval = eigenval[mode_start:mode_stop]
-        eigenvec_n = eigenvec_n[mode_start:mode_stop]
+        if mode_subset is None:
+            mode_subset = np.arange(6, len(eigenval))
+        elif any(mode_subset <= 5):
+            raise ValueError(
+                "Trivial modes are included in the current selection."
+                " Please check your input."
+                )
+        
+        eigenval = eigenval[mode_subset]
+        eigenvec_n = eigenvec_n[mode_subset]
 
         # Adjust shape of eigenval (N,) -> (N, 1)
         eigenval = eigenval.reshape(eigenval.shape[0], 1)
@@ -360,7 +362,7 @@ class ANM:
 
         return msqf
 
-    def bfactor(self, mode_start=None, mode_stop=None, tem=None, 
+    def bfactor(self, mode_subset=None, tem=None, 
                 tem_factors=K_B):
         """
         Computes the isotropic B-factors/temperature factors/
@@ -369,15 +371,14 @@ class ANM:
 
         Parameters
         ----------
-        mode_start, mode_stop : int, None, optional
-            Specify the starting/stop mode, which are considered in 
-            the MSF computation. 
-            If mod_start is None, the first non-trivial mode (mode 7) is 
-            included, whereas the penultimate mode is included for 
-            mode_stop == None.
-            mode_start/mode_stop are used as half-open intervals for 
-            standard Python slicing (including the lower bound, 
-            excluding the upper bound). 
+        mode_subset : ndarray, shape=(n,), dtype=int, optional
+            Specifies the subset of modes considered in the MSF
+            computation.
+            Only non-trivial modes can be selected.
+            The first mode is counted as 0 in accordance with
+            Python conventions.
+            If mode_subset is None, all modes except the first six
+            trivial modes (0-5) are included.
         tem : int, float, None, optional
             Temperature in Kelvin to compute the temperature scaling 
             factor by multiplying with the Boltzmann constant.
@@ -391,7 +392,7 @@ class ANM:
         bfac_values : ndarray, shape=(n,), dtype=float
             B-factors of C-alpha atoms.
         """
-        msqf = self.mean_square_fluctuation(mode_start, mode_stop, tem, 
+        msqf = self.mean_square_fluctuation(mode_subset, tem, 
                                             tem_factors)
 
         b_factors = ((8*np.pi**2)*msqf)/3

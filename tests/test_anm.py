@@ -193,9 +193,10 @@ def test_frequency_fluctuation(ff_name):
         
         # Select a subset of modes: 12-33
         test_fluc_subset = test.mean_square_fluctuation(tem=tem, 
-                                        tem_factors=tem_scaling, mode_start=11, 
-                                        mode_stop=33)/(1000*reference_masses
+                                        tem_factors=tem_scaling, 
+                                        mode_subset=np.arange(11, 33)
                                         )
+        test_fluc_subset /= (1000*reference_masses)
         
         reference_fluc_subset = np.genfromtxt(
             join(data_dir(), ref_fluc_subset),
