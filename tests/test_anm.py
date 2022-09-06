@@ -143,6 +143,7 @@ def test_frequency_fluctuation(ff_name):
     N_A = 6.02214076e23
     tem = 300
     
+    # BioPhysConnectoR
     if ff_name =="eANM":
         ff = springcraft.TabulatedForceField.e_anm(ca)
         test_nomw = springcraft.ANM(ca, ff)
@@ -150,20 +151,25 @@ def test_frequency_fluctuation(ff_name):
         test_nomw = springcraft.ANM(ca, ff)
         test_fluc_nomw = test_nomw.mean_square_fluctuation()
         # -> For alternative MSF computation method; no temperature weighting
-        tem_scaling = 1; tem = 1
+        tem_scaling = 1
+        tem = 1
+    # Bio3d
     else:
         if ff_name == "Hinsen":
             ff = springcraft.HinsenForceField()
             ref_freq = "mw_frequencies_calpha_bio3d.csv"
             ref_fluc = "mw_fluctuations_calpha_bio3d.csv"
+            ref_fluc_subset = "mw_fluctuations_calpha_subset_bio3d.csv"
         elif ff_name == "sdENM":
             ff = springcraft.TabulatedForceField.sd_enm(ca)
             ref_freq = "mw_frequencies_sdenm_bio3d.csv"
             ref_fluc = "mw_fluctuations_sdenm_bio3d.csv"
+            ref_fluc_subset = "mw_fluctuations_sdenm_subset_bio3d.csv"
         elif ff_name == "pfENM":
             ff = springcraft.ParameterFreeForceField()
             ref_freq = "mw_frequencies_pfenm_bio3d.csv"
             ref_fluc = "mw_fluctuations_pfenm_bio3d.csv"
+            ref_fluc_subset = "mw_fluctuations_pfenm_subset_bio3d.csv"
         
         tem_scaling = K_B*N_A
         test_nomw = springcraft.ANM(ca, ff)
@@ -172,15 +178,22 @@ def test_frequency_fluctuation(ff_name):
         test = springcraft.ANM(ca, ff, masses=reference_masses)
         test_freq = test.frequencies()
         
-        ## Scale for consistency with bio3d; T=300 K; no mass weighting
-        # start with mass_weighted eigenvals
-        
-        test_fluc = test.mean_square_fluctuation(tem=tem, tem_factors=tem_scaling)/(1000*reference_masses)
-        
         reference_freq = np.genfromtxt(
             join(data_dir(), ref_freq),
             skip_header=1, delimiter=","
             )
+        
+        ## Scale for consistency with bio3d; T=300 K; no mass weighting
+        # Start with mass_weighted eigenvals
+        test_fluc = test.mean_square_fluctuation(tem=tem, tem_factors=tem_scaling)/(1000*reference_masses)
+        
+        # Select a subset of modes: 12-33
+        test_fluc_subset = test.mean_square_fluctuation(tem=tem, tem_factors=tem_scaling, mode_start=12, mode_stop=34)/(1000*reference_masses)
+        
+        reference_fluc_subset = np.genfromtxt(
+            join(data_dir(), ref_fluc_subset),
+            skip_header=1, delimiter=","
+            )        
 
     reference_fluc = np.genfromtxt(
         join(data_dir(), ref_fluc),
@@ -198,11 +211,13 @@ def test_frequency_fluctuation(ff_name):
         assert np.allclose(test_fluc_nomw, reference_fluc)
     elif ff_name == "pfENM":
         assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-05)
-        # TODO: Deviations high. 
+        # TODO: Deviations quite high. 
         assert np.allclose(test_fluc, reference_fluc, atol=1e0)
+        #assert np.allclose(test_fluc_subset, reference_fluc_subset, atol=1e0)
     else:
         assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-06) 
         assert np.allclose(test_fluc, reference_fluc, atol=1e-03)
+        #assert np.allclose(test_fluc_subset, reference_fluc_subset, atol=1e-03)       
     
     # Compare with alternative method of MSF computation
-    assert np.allclose(test_fluc_nomw, msqf_alternative, atol=1e-02)
+    assert np.allclose(test_fluc_nomw, msqf_alternative)
