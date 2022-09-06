@@ -197,5 +197,72 @@ class GNM:
             or rotations.
         """
         eig_values, _ = self.eigen()
-        eig_values[np.isclose(eig_values, 0)] = np.nan
-        return np.sqrt(eig_values)
+
+        # The first  eigenvalue is usually approx. 0; 
+        # but can have a negative sign. 
+        eig_values[1:] = np.abs(eig_values[1:])
+        freq = 1/(2*np.pi)*np.sqrt(eig_values)
+        return freq
+
+    def mean_square_fluctuation(self, mode_subset=None, 
+                                tem=None, tem_factors=K_B):
+        """
+        Compute the *mean square fluctuation* for the atoms according to
+        the GNM.
+
+        The first mode corresponds to rigid-body movements and are usually
+        omitted in normal mode analysis.
+        
+        Parameters
+        ----------
+        mode_subset : ndarray, shape=(n,), dtype=int, optional
+            Specifies the subset of modes considered in the MSF
+            computation.
+            Only non-trivial modes can be selected.
+            The first mode is counted as 0 in accordance with
+            Python conventions.
+            If mode_subset is None, all modes except the first six
+            trivial modes (0-5) are included.
+        tem : int, float, None, optional
+            Temperature in Kelvin to compute the temperature scaling 
+            factor by multiplying with the Boltzmann constant.
+            If tem is None, no temperature scaling is conducted. 
+        tem_factors : int, float, optional
+            Factors included in temperature weighting 
+            (with K_B as preset).
+
+        Returns
+        -------
+        msqf : ndarray, shape=(n,), dtype=float
+            The mean square fluctuations for each atom in the model.
+        """
+        eig_values, eig_vectors = self.eigen()
+        
+        # Choose modes included in computation; raise error, if trivial 
+        # modes are included
+        if mode_subset is None:
+            mode_subset = np.arange(1, len(eig_values))
+        elif any(mode_subset == 0):
+            raise ValueError(
+                "Trivial mode is included in the current selection."
+                " Please check your input."
+                )
+        
+        eig_values = eig_values[mode_subset]
+        eig_vectors_n = eig_vectors_n[mode_subset]
+
+        # Adjust shape of eig_values (N,) -> (N, 1)
+        eig_values = eig_values.reshape(eig_values.shape[0], 1)
+        # Eigenvecs in distinct rows; divide by associated 
+        # squared eig_vectorstor
+        sq_div_eig_vectors = np.sum(eig_vectors_n/eig_values, axis=0)
+
+        # Temperature weighting
+        if tem is None:
+            tem_scaling = 1
+        else:
+            tem_scaling = tem * tem_factors
+
+        msqf = sq_div_eig_vectors * tem_scaling
+
+        return msqf

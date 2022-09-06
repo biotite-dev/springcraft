@@ -148,20 +148,20 @@ class ANM:
         
     def eigen(self,):
         """
-        Compute the eigenvalues and eigenvectors of the
+        Compute the eig_valuesues and eig_vectors of the
         *Hessian* matrix.
 
-        The first six eigenvalues/eigenvectors correspond to trivial modes 
+        The first six eig_valuesues/eig_vectors correspond to trivial modes 
         (translations/rotations) and are usually omitted 
         in normal mode analysis. 
         
         Returns
         -------
         eig_values : ndarray, shape=(k,), dtype=float
-            Eigenvalues of the *Hessian* matrix in ascending order.
+            eig_valuesues of the *Hessian* matrix in ascending order.
         eig_vectors : ndarray, shape=(k,n), dtype=float
-            Eigenvectors of the *Hessian* matrix.
-            ``eig_values[i]`` corresponds to ``eigenvectors[i]``.
+            eig_vectors of the *Hessian* matrix.
+            ``eig_values[i]`` corresponds to ``eig_vectors[i]``.
         """
         # 'np.eigh' can be used since the Kirchhoff matrix is symmetric 
         eig_values, eig_vectors = np.linalg.eigh(self.hessian)
@@ -182,7 +182,7 @@ class ANM:
         ----------
         index : int
             The index of the oscillation.
-            The index refers to the eigenvalues obtained from
+            The index refers to the eig_valuesues obtained from
             :meth:`eigen()`:
             Increasing indices refer to oscillations with increasing
             frequency.
@@ -205,9 +205,9 @@ class ANM:
             Atom displacements that depict a single oscillation.
             *m* is the number of frames.
         """
-        _, eigenvectors = self.eigen()
+        _, eig_vectors = self.eigen()
         # Extract vectors for given mode and reshape to (n,3) array
-        mode_vectors = eigenvectors[index].reshape((-1, 3))
+        mode_vectors = eig_vectors[index].reshape((-1, 3))
         # Rescale, so that the largest vector has the length 'amplitude'
         vector_lenghts = np.sqrt(np.sum(mode_vectors**2, axis=-1))
         scale = amplitude / np.max(vector_lenghts)
@@ -285,15 +285,15 @@ class ANM:
         -------
         freq : ndarray, shape=(n,), dtype=float
             The frequency in ascending order of the associated modes'
-            eigenvalues.
+            eig_valuesues.
         """
-        eigenval, _ = self.eigen()
+        eig_values, _ = self.eigen()
         
-        # The first six eigenvalues are usually close to 0; 
+        # The first six eig_valuesues are usually close to 0; 
         # but can have a negative sign. 
-        eigenval[0:6] = np.abs(eigenval[0:6])
+        eig_values[0:6] = np.abs(eig_values[0:6])
         
-        freq = 1/(2*np.pi)*np.sqrt(eigenval)
+        freq = 1/(2*np.pi)*np.sqrt(eig_values)
         return freq
 
     def mean_square_fluctuation(self, mode_subset=None, 
@@ -307,7 +307,7 @@ class ANM:
         
         Parameters
         ----------
-        mode_subset : ndarray, shape=(n,), dtype=int, optional
+        mode_subset : ndarray, shape=(3n,), dtype=int, optional
             Specifies the subset of modes considered in the MSF
             computation.
             Only non-trivial modes can be selected.
@@ -328,29 +328,29 @@ class ANM:
         msqf : ndarray, shape=(n,), dtype=float
             The mean square fluctuations for each atom in the model.
         """
-        eigenval, eigenvec_3n = self.eigen()
-        # 3N eigenvectors -> N
-        cols_n = np.arange(0, len(eigenvec_3n[0]), 3)
-        eigenvec_n = np.add.reduceat(np.square(eigenvec_3n), cols_n, axis=1)
+        eig_values, eig_vectors_3n = self.eigen()
+        # 3N eig_vectors -> N
+        cols_n = np.arange(0, len(eig_vectors_3n[0]), 3)
+        eig_vectors_n = np.add.reduceat(np.square(eig_vectors_3n), cols_n, axis=1)
         
         # Choose modes included in computation; raise error, if trivial 
         # modes are included
         if mode_subset is None:
-            mode_subset = np.arange(6, len(eigenval))
+            mode_subset = np.arange(6, len(eig_values))
         elif any(mode_subset <= 5):
             raise ValueError(
                 "Trivial modes are included in the current selection."
                 " Please check your input."
                 )
         
-        eigenval = eigenval[mode_subset]
-        eigenvec_n = eigenvec_n[mode_subset]
+        eig_values = eig_values[mode_subset]
+        eig_vectors_n = eig_vectors_n[mode_subset]
 
-        # Adjust shape of eigenval (N,) -> (N, 1)
-        eigenval = eigenval.reshape(eigenval.shape[0], 1)
+        # Adjust shape of eig_values (N,) -> (N, 1)
+        eig_values = eig_values.reshape(eig_values.shape[0], 1)
         # Eigenvecs in distinct rows; divide by associated 
-        # squared eigenvector
-        sq_div_eigenvec = np.sum(eigenvec_n/eigenval, axis=0)
+        # squared eig_vectorstor
+        sq_div_eig_vectors = np.sum(eig_vectors_n/eig_values, axis=0)
 
         # Temperature weighting
         if tem is None:
@@ -358,7 +358,7 @@ class ANM:
         else:
             tem_scaling = tem * tem_factors
 
-        msqf = sq_div_eigenvec * tem_scaling
+        msqf = sq_div_eig_vectors * tem_scaling
 
         return msqf
 
