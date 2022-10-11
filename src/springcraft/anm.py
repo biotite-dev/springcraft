@@ -148,17 +148,17 @@ class ANM:
         
     def eigen(self,):
         """
-        Compute the eig_valuesues and eig_vectors of the
+        Compute the eig_values and eig_vectors of the
         *Hessian* matrix.
 
-        The first six eig_valuesues/eig_vectors correspond to trivial modes 
+        The first six eig_values/eig_vectors correspond to trivial modes 
         (translations/rotations) and are usually omitted 
         in normal mode analysis. 
         
         Returns
         -------
         eig_values : ndarray, shape=(k,), dtype=float
-            eig_valuesues of the *Hessian* matrix in ascending order.
+            eig_values of the *Hessian* matrix in ascending order.
         eig_vectors : ndarray, shape=(k,n), dtype=float
             eig_vectors of the *Hessian* matrix.
             ``eig_values[i]`` corresponds to ``eig_vectors[i]``.
@@ -182,7 +182,7 @@ class ANM:
         ----------
         index : int
             The index of the oscillation.
-            The index refers to the eig_valuesues obtained from
+            The index refers to the eig_values obtained from
             :meth:`eigen()`:
             Increasing indices refer to oscillations with increasing
             frequency.
@@ -285,11 +285,11 @@ class ANM:
         -------
         freq : ndarray, shape=(n,), dtype=float
             The frequency in ascending order of the associated modes'
-            eig_valuesues.
+            eig_values.
         """
         eig_values, _ = self.eigen()
         
-        # The first six eig_valuesues are usually close to 0; 
+        # The first six eig_values are usually close to 0; 
         # but can have a negative sign. 
         eig_values[0:6] = np.abs(eig_values[0:6])
         
