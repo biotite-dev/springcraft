@@ -398,3 +398,33 @@ class ANM:
         b_factors = ((8*np.pi**2)*msqf)/3
 
         return b_factors
+
+    def dcc(self, mode_subset=None):
+        """
+        Computes the normalized dynamic cross-correlation between nodes 
+        of the ANM.
+        The DCC is a measure for the correlation in fluctuations
+        exhibited by a given pair of nodes. Due to the normalization
+        to MSFs exhibited by compared nodes, pairs with 
+        correlated fluctuations (same phase and period), 
+        anticorrelated fluctuations (opposite phase, same period)
+        and non-correlated fluctuations are assigned DCC values
+        of 1, -1 and 0 respectively.
+
+        Parameters
+        ----------
+        mode_subset : ndarray, shape=(n,), dtype=int, optional
+            Specifies the subset of modes considered in the MSF
+            computation.
+            Only non-trivial modes can be selected.
+            The first mode is counted as 0 in accordance with
+            Python conventions.
+            If mode_subset is None, all modes except the first six
+            trivial modes (0-5) are included.
+        
+        Returns
+        -------
+        dcc : ndarray, shape=(n, n), dtype=float
+            DCC values for ANM nodes.
+        """
+
