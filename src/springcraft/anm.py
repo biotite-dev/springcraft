@@ -329,9 +329,10 @@ class ANM:
             The mean square fluctuations for each atom in the model.
         """
         eig_values, eig_vectors_3n = self.eigen()
-        # 3N eig_vectors -> N
+        # Eigenvectors: 3N -> N
         cols_n = np.arange(0, len(eig_vectors_3n[0]), 3)
-        eig_vectors_n = np.add.reduceat(np.square(eig_vectors_3n), cols_n, axis=1)
+        eig_vectors_n = np.add.reduceat(np.square(eig_vectors_3n), cols_n, 
+                                        axis=1)
         
         # Choose modes included in computation; raise error, if trivial 
         # modes are included
@@ -349,7 +350,7 @@ class ANM:
         # Adjust shape of eig_values (N,) -> (N, 1)
         eig_values = eig_values.reshape(eig_values.shape[0], 1)
         # Eigenvecs in distinct rows; divide by associated 
-        # squared eig_vectorstor
+        # squared Eigenvalues
         sq_div_eig_vectors = np.sum(eig_vectors_n/eig_values, axis=0)
 
         # Temperature weighting
@@ -399,32 +400,33 @@ class ANM:
 
         return b_factors
 
-    def dcc(self, mode_subset=None):
+    def dcc(self, norm=True):
         """
-        Computes the normalized dynamic cross-correlation between nodes 
-        of the ANM.
+        Computes the normalized *dynamic cross-correlation* between 
+        nodes of the ANM.
         The DCC is a measure for the correlation in fluctuations
-        exhibited by a given pair of nodes. Due to the normalization
+        exhibited by a given pair of nodes. If normalized to
         to MSFs exhibited by compared nodes, pairs with 
         correlated fluctuations (same phase and period), 
         anticorrelated fluctuations (opposite phase, same period)
-        and non-correlated fluctuations are assigned DCC values
-        of 1, -1 and 0 respectively.
+        and non-correlated fluctuations are assigned (normalized) 
+        DCC values of 1, -1 and 0 respectively.
 
         Parameters
         ----------
-        mode_subset : ndarray, shape=(n,), dtype=int, optional
-            Specifies the subset of modes considered in the MSF
-            computation.
-            Only non-trivial modes can be selected.
-            The first mode is counted as 0 in accordance with
-            Python conventions.
-            If mode_subset is None, all modes except the first six
-            trivial modes (0-5) are included.
-        
+        norm : bool, optional
+            Normalize the DCC using the MSFs of interacting nodes
         Returns
         -------
         dcc : ndarray, shape=(n, n), dtype=float
             DCC values for ANM nodes.
         """
-
+        # TODO Mode independent method
+        cov = self.covariance
+        # Create index matrix (NxN)
+        ind_mat = np.array([np.arange(0, len(cov[0], 3)), 
+                            np.arange(1, len(cov[0], 3)), 
+                            np.arange(2, len(cov[0], 3))]*len(cov[:,0])
+                            )
+        
+        return dcc
