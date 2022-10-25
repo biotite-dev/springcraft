@@ -421,12 +421,40 @@ class ANM:
         dcc : ndarray, shape=(n, n), dtype=float
             DCC values for ANM nodes.
         """
-        # TODO Mode independent method
-        cov = self.covariance
-        # Create index matrix (NxN)
-        ind_mat = np.array([np.arange(0, len(cov[0], 3)), 
-                            np.arange(1, len(cov[0], 3)), 
-                            np.arange(2, len(cov[0], 3))]*len(cov[:,0])
-                            )
+
+        eig_values, eig_vectors = self.eigen()
+        # Choose modes included in computation; raise error, if trivial 
+        # modes are included
+        if mode_subset is None:
+            mode_subset = np.arange(6, len(eig_values))
+        elif any(mode_subset <= 5):
+            raise ValueError(
+                "Trivial modes are included in the current selection."
+                " Please check your input."
+                )
+
+        eig_values = eig_values[mode_subset]
+        eig_vectors = eig_vectors[mode_subset]
         
+        # Reshape array of eigenvectors (k,3n) -> (k,n,3)
+        modes_reshaped = np.reshape(eig_vectors, 
+                                    (eig_vectors.shape[0],\
+                                    int(eig_vectors.shape[1]/3), 3)
+                                    )
+        # 3N -> N: Crate residue modes matrix
+        modes_mat_3n = modes_reshaped[:,:,np.newaxis,:] *\
+                        modes_reshaped[:,np.newaxis,:,:]
+
+        modes_mat_n = np.sum(modes_mat_3n, axis=-1)
+        modes_mat_n = modes_mat_n/eig_values[:,np.newaxis,np.newaxis]
+        dcc = np.sum(modes_mat_n, axis=0)
+        dcc_ii = np.diagonal(dcc)
+
+        if norm:
+            dcc_ii = np.diagonal(dcc)
+            dcc_ii = np.reshape(dcc_ii, (1,len(dcc_ii)))
+            dcc_ii = np.repeat(dcc_ii, repeats=len(dcc_ii), axis=0)
+            # Normalized DCC
+            dcc = dcc/np.sqrt(dcc_ii*dcc_ii.T)
+
         return dcc
