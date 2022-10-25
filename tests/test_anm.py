@@ -229,3 +229,14 @@ def test_frequency_fluctuation(ff_name):
     
     # Compare with alternative method of MSF computation
     assert np.allclose(test_fluc_nomw, msqf_alternative)
+
+@pytest.mark.parametrize("file_path",
+        glob.glob(join(data_dir(), "*.mmtf"))
+)
+def test_dcc(file_path):
+    test_anm, ref_anm = prepare_anms(file_path, cutoff=13)
+    ref_anm.calcModes(n_modes=None)
+    ref_dcc = prody.calcCrossCorr(ref_anm[:], norm=True)
+    dcc = test_anm.dcc()
+
+    assert np.allclose(dcc, ref_dcc)
