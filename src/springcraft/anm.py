@@ -400,7 +400,7 @@ class ANM:
 
         return b_factors
 
-    def dcc(self, norm=True):
+    def dcc(self, mode_subset=None, norm=True):
         """
         Computes the normalized *dynamic cross-correlation* between 
         nodes of the ANM.
@@ -450,11 +450,11 @@ class ANM:
         dcc = np.sum(modes_mat_n, axis=0)
         dcc_ii = np.diagonal(dcc)
 
+        # Compute the normalized DCC
         if norm:
             dcc_ii = np.diagonal(dcc)
             dcc_ii = np.reshape(dcc_ii, (1,len(dcc_ii)))
             dcc_ii = np.repeat(dcc_ii, repeats=len(dcc_ii), axis=0)
-            # Normalized DCC
             dcc = dcc/np.sqrt(dcc_ii*dcc_ii.T)
 
         return dcc
