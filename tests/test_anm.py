@@ -124,12 +124,15 @@ def test_mass_weights_eigenvals(ff_name):
 
     assert np.allclose(test_eigenval[6:], reference_eigenval[6:], atol=1e-06)
 
-@pytest.mark.parametrize("ff_name", ["Hinsen", "eANM", "sdENM", "pfENM"])
-def test_frequency_fluctuation(ff_name):
+@pytest.mark.parametrize("ff_name", ["ANM_standard", "Hinsen", "eANM",
+                                        "sdENM", "pfENM"]
+                                        )
+def test_frequency_fluctuation_dcc(ff_name):
     """
     Compare quantities commonly computed as part of NMA.
-    Bio3d is used as reference.
+    Prody/BioPhysConnectoR/Bio3d are used as references.
     """
+    # Load bio3d reference
     reference_masses = np.genfromtxt(
         join(data_dir(), "1l2y_bio3d_masses.csv"),
         skip_header=1, delimiter=","
@@ -143,100 +146,155 @@ def test_frequency_fluctuation(ff_name):
     N_A = 6.02214076e23
     tem = 300
     
-    # BioPhysConnectoR
-    if ff_name =="eANM":
-        ff = springcraft.TabulatedForceField.e_anm(ca)
-        test_nomw = springcraft.ANM(ca, ff)
-        ref_fluc = "bfacs_eANM_mj_BioPhysConnectoR.csv"
-        test_nomw = springcraft.ANM(ca, ff)
-        test_fluc_nomw = test_nomw.mean_square_fluctuation()
-        # -> For alternative MSF computation method; 
-        # no temperature weighting
-        tem_scaling = 1
-        tem = 1
-    # Bio3d
-    else:
-        if ff_name == "Hinsen":
-            ff = springcraft.HinsenForceField()
-            ref_freq = "mw_frequencies_calpha_bio3d.csv"
-            ref_fluc = "mw_fluctuations_calpha_bio3d.csv"
-            ref_fluc_subset = "mw_fluctuations_calpha_subset_bio3d.csv"
-        elif ff_name == "sdENM":
-            ff = springcraft.TabulatedForceField.sd_enm(ca)
-            ref_freq = "mw_frequencies_sdenm_bio3d.csv"
-            ref_fluc = "mw_fluctuations_sdenm_bio3d.csv"
-            ref_fluc_subset = "mw_fluctuations_sdenm_subset_bio3d.csv"
-        elif ff_name == "pfENM":
-            ff = springcraft.ParameterFreeForceField()
-            ref_freq = "mw_frequencies_pfenm_bio3d.csv"
-            ref_fluc = "mw_fluctuations_pfenm_bio3d.csv"
-            ref_fluc_subset = "mw_fluctuations_pfenm_subset_bio3d.csv"
-        
-        tem_scaling = K_B*N_A
-        test_nomw = springcraft.ANM(ca, ff)
-        test_fluc_nomw = test_nomw.mean_square_fluctuation(tem=tem, 
-                                                    tem_factors=tem_scaling)
+    # Prody
+    if ff_name == "ANM_standard":
+        # No mass or temperature weighting for comparison with Prody
+        ff = springcraft.InvariantForceField(13)
+        test_anm = springcraft.ANM(ca, ff)
+        test_freq_no_mw = test_anm.frequencies()
+        test_fluc_nomw = test_anm.mean_square_fluctuation(tem=None)
 
-        test = springcraft.ANM(ca, ff, masses=reference_masses)
-        test_freq = test.frequencies()
+        test_dcc = test_anm.dcc()
+        test_dcc_absolute = test_anm.dcc(norm=False)
+        test_dcc_subset = test_anm.dcc(mode_subset=np.arange(6, 36))
+
+        ref_anm = prody.ANM()
+        ref_anm.buildHessian(ca.coord, gamma=1.0, cutoff=13)
+        ref_anm.calcModes(n_modes="all")
+
+        reference_freq = 1/(2*np.pi)*np.sqrt(ref_anm.getEigvals())
+        reference_fluc = prody.calcSqFlucts(ref_anm[0:])
+        ref_dcc = prody.calcCrossCorr(ref_anm[0:], norm=True)
+        # Subset: First 30 non-triv. modes
+        ref_dcc_norm_subset = prody.calcCrossCorr(ref_anm[0:30], norm=True)
+        ref_dcc_absolute = prody.calcCrossCorr(ref_anm[0:], norm=False)
         
-        reference_freq = np.genfromtxt(
-            join(data_dir(), ref_freq),
+        assert np.allclose(test_freq_no_mw[6:], reference_freq) 
+        assert np.allclose(test_fluc_nomw, reference_fluc)
+        assert np.allclose(test_dcc, ref_dcc)
+        assert np.allclose(test_dcc_absolute, ref_dcc_absolute)
+        assert np.allclose(test_dcc_subset, ref_dcc_norm_subset)
+    
+    # References computed with R packages -> read .csv files in "data"
+    else:    
+        # BioPhysConnectoR -> no internal computation of DCCs, available;
+        #                     no mass-/temperature weighting
+        if ff_name =="eANM":
+            ff = springcraft.TabulatedForceField.e_anm(ca)
+            test_nomw = springcraft.ANM(ca, ff)
+            ref_fluc = "bfacs_eANM_mj_BioPhysConnectoR.csv"
+            test_nomw = springcraft.ANM(ca, ff)
+            test_fluc_nomw = test_nomw.mean_square_fluctuation()
+            # -> For alternative MSF computation method; 
+            # no temperature weighting
+            tem_scaling = 1
+            tem = 1
+        # Bio3d -> Mass- and temperature weighting
+        else:
+            if ff_name == "Hinsen":
+                ff = springcraft.HinsenForceField()
+                ref_freq = "mw_frequencies_calpha_bio3d.csv"
+                ref_fluc = "mw_fluctuations_calpha_bio3d.csv"
+                ref_fluc_subset = "mw_fluctuations_calpha_subset_bio3d.csv"
+                ref_dcc = "dccm_calpha_bio3d.csv"
+                ref_dcc_subset = "dccm_calpha_subset_bio3d.csv"
+            elif ff_name == "sdENM":
+                ff = springcraft.TabulatedForceField.sd_enm(ca)
+                ref_freq = "mw_frequencies_sdenm_bio3d.csv"
+                ref_fluc = "mw_fluctuations_sdenm_bio3d.csv"
+                ref_fluc_subset = "mw_fluctuations_sdenm_subset_bio3d.csv"
+                ref_dcc = "dccm_sdenm_bio3d.csv"
+                ref_dcc_subset = "dccm_sdenm_subset_bio3d.csv"
+            elif ff_name == "pfENM":
+                ff = springcraft.ParameterFreeForceField()
+                ref_freq = "mw_frequencies_pfenm_bio3d.csv"
+                ref_fluc = "mw_fluctuations_pfenm_bio3d.csv"
+                ref_fluc_subset = "mw_fluctuations_pfenm_subset_bio3d.csv"
+                ref_dcc = "dccm_pfenm_bio3d.csv"
+                ref_dcc_subset = "dccm_pfenm_subset_bio3d.csv"
+            
+            tem_scaling = K_B*N_A
+            test_nomw = springcraft.ANM(ca, ff)
+            test_fluc_nomw = test_nomw.mean_square_fluctuation(tem=tem, 
+                                                        tem_factors=tem_scaling)
+
+            test = springcraft.ANM(ca, ff, masses=reference_masses)
+            test_freq = test.frequencies()
+
+            reference_freq = np.genfromtxt(
+                join(data_dir(), ref_freq),
+                skip_header=1, delimiter=","
+                )
+
+            ## Scale for consistency with bio3d; T=300 K; no mass weighting
+            # Start with mass_weighted eigenvals
+            test_fluc = test.mean_square_fluctuation(tem=tem, 
+                                tem_factors=tem_scaling)/(1000*reference_masses
+                                )
+
+            # Select a subset of modes: 12-33
+            test_fluc_subset = test.mean_square_fluctuation(tem=tem, 
+                                            tem_factors=tem_scaling, 
+                                            mode_subset=np.arange(11, 33)
+                                            )
+            test_fluc_subset /= (1000*reference_masses)
+
+            reference_fluc_subset = np.genfromtxt(
+                join(data_dir(), ref_fluc_subset),
+                skip_header=1, delimiter=","
+                )
+            
+            # DCCs
+            test_dcc = test.dcc()
+            # Only consider the first 30 non-triv. modes
+            # Mode 6-36 (conventional enumeration)
+            test_dcc_subset = test.dcc(mode_subset=np.arange(6, 36))
+
+            reference_dcc = np.genfromtxt(
+                join(data_dir(), ref_dcc),
+                skip_header=1, delimiter=","
+                )
+            reference_dcc_subset = np.genfromtxt(
+                join(data_dir(), ref_dcc_subset),
+                skip_header=1, delimiter=","
+                )       
+
+            
+        reference_fluc = np.genfromtxt(
+            join(data_dir(), ref_fluc),
             skip_header=1, delimiter=","
             )
-        
-        ## Scale for consistency with bio3d; T=300 K; no mass weighting
-        # Start with mass_weighted eigenvals
-        test_fluc = test.mean_square_fluctuation(tem=tem, 
-                            tem_factors=tem_scaling)/(1000*reference_masses
-                            )
-        
-        # Select a subset of modes: 12-33
-        test_fluc_subset = test.mean_square_fluctuation(tem=tem, 
-                                        tem_factors=tem_scaling, 
-                                        mode_subset=np.arange(11, 33)
-                                        )
-        test_fluc_subset /= (1000*reference_masses)
-        
-        reference_fluc_subset = np.genfromtxt(
-            join(data_dir(), ref_fluc_subset),
-            skip_header=1, delimiter=","
-            )        
 
-    reference_fluc = np.genfromtxt(
-        join(data_dir(), ref_fluc),
-        skip_header=1, delimiter=","
-        )
-    
-    ## No mass-weighting
-    # Alternative Method for MSF computation considering all modes
-    diag = test_nomw.covariance.diagonal()
-    reshape_diag = np.reshape(diag, (len(test_nomw._coord),-1))
+        ## No mass-weighting
+        # Alternative Method for MSF computation considering all modes
+        diag = test_nomw.covariance.diagonal()
+        reshape_diag = np.reshape(diag, (len(test_nomw._coord),-1))
 
-    msqf_alternative = np.sum(reshape_diag, axis=1)*tem_scaling*tem
+        # Compute MSF directly from covariance matrix
+        msqf_alternative = np.sum(reshape_diag, axis=1)*tem_scaling*tem
 
-    if ff_name == "eANM":
-        assert np.allclose(test_fluc_nomw, reference_fluc)
-    elif ff_name == "pfENM":
-        assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-05)
-        # TODO: Deviations quite high. 
-        assert np.allclose(test_fluc, reference_fluc, atol=1e0)
-        assert np.allclose(test_fluc_subset, reference_fluc_subset, atol=1e0)
-    else:
-        assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-06) 
-        assert np.allclose(test_fluc, reference_fluc, atol=1e-03)
-        assert np.allclose(test_fluc_subset, reference_fluc_subset, atol=1e-03)       
-    
-    # Compare with alternative method of MSF computation
-    assert np.allclose(test_fluc_nomw, msqf_alternative)
+        if ff_name == "eANM":
+            assert np.allclose(test_fluc_nomw, reference_fluc)
+        elif ff_name == "pfENM":
+            assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-05)
+            # TODO: Deviations quite high. 
+            assert np.allclose(test_fluc, reference_fluc, atol=1e0)
+            assert np.allclose(test_fluc_subset, reference_fluc_subset, atol=1e0)
+            assert np.allclose(test_dcc, reference_dcc, atol=1e-02)
+            assert np.allclose(test_dcc_subset, reference_dcc_subset, atol=1e-02)
+        else:
+            assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-06) 
+            assert np.allclose(test_fluc, reference_fluc, atol=1e-03)
+            assert np.allclose(test_fluc_subset, reference_fluc_subset, 
+                                atol=1e-03)
+            if ff_name == "Hinsen":
+                at = 1e-04
+            else:
+                at = 1e-02   
+            assert np.allclose(test_dcc, reference_dcc, atol=at)
+            assert np.allclose(test_dcc_subset, reference_dcc_subset, atol=at) 
+   
 
-@pytest.mark.parametrize("file_path",
-        glob.glob(join(data_dir(), "*.mmtf"))
-)
-def test_dcc(file_path):
-    test_anm, ref_anm = prepare_anms(file_path, cutoff=13)
-    ref_anm.calcModes(n_modes=None)
-    ref_dcc = prody.calcCrossCorr(ref_anm[:], norm=True)
-    dcc = test_anm.dcc()
+        # Compare with alternative method of MSF computation
+        assert np.allclose(test_fluc_nomw, msqf_alternative)
 
-    assert np.allclose(dcc, ref_dcc)

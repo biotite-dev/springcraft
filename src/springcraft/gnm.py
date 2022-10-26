@@ -150,7 +150,7 @@ class GNM:
         """
         return K_B * temperature * self.covariance
     
-    def mean_square_fluctuation(self):
+    def mean_square_fluctuation_legacy(self):
         """
         Compute the *mean square fluctuation* for the atoms in the
         model.
@@ -186,6 +186,8 @@ class GNM:
         """
         Compute the oscillation frequencies of the model.
 
+        The first mode in GNMs is usually omitted.
+
         The returned units are arbitrary and should only be compared
         relative to each other.
 
@@ -202,6 +204,7 @@ class GNM:
         # but can have a negative sign. 
         eig_values[1:] = np.abs(eig_values[1:])
         freq = 1/(2*np.pi)*np.sqrt(eig_values)
+
         return freq
 
     def mean_square_fluctuation(self, mode_subset=None, 
@@ -209,9 +212,9 @@ class GNM:
         """
         Compute the *mean square fluctuation* for the atoms according to
         the GNM.
-
-        The first mode corresponds to rigid-body movements and are usually
-        omitted in normal mode analysis.
+        This is equal to the sum of the diagonal of of the 
+        GNM covariance matrix, if all k-1 non-trivial 
+        modes are considered.
         
         Parameters
         ----------
@@ -221,8 +224,8 @@ class GNM:
             Only non-trivial modes can be selected.
             The first mode is counted as 0 in accordance with
             Python conventions.
-            If mode_subset is None, all modes except the first six
-            trivial modes (0-5) are included.
+            If mode_subset is None, all modes except the first
+            trivial mode (0) are included.
         tem : int, float, None, optional
             Temperature in Kelvin to compute the temperature scaling 
             factor by multiplying with the Boltzmann constant.
@@ -249,7 +252,7 @@ class GNM:
                 )
         
         eig_values = eig_values[mode_subset]
-        eig_vectors_n = eig_vectors_n[mode_subset]
+        eig_vectors = eig_vectors[mode_subset]
 
         # Adjust shape of eig_values (N,) -> (N, 1)
         eig_values = eig_values.reshape(eig_values.shape[0], 1)
@@ -266,3 +269,123 @@ class GNM:
         msqf = sq_div_eig_vectors * tem_scaling
 
         return msqf
+
+    def bfactor(self, mode_subset=None, tem=None, 
+                tem_factors=K_B):
+        """
+        Computes the isotropic B-factors/temperature factors/
+        Deby-Waller factors for atoms/coarse-grained beads using 
+        the mean-square fluctuation.
+        
+        These can be used to relate results obtained from ENMs 
+        to experimental results.
+        
+        Parameters
+        ----------
+        mode_subset : ndarray, shape=(n,), dtype=int, optional
+            Specifies the subset of modes considered in the MSF
+            computation.
+            Only non-trivial modes can be selected.
+            The first mode is counted as 0 in accordance with
+            Python conventions.
+            If mode_subset is None, all modes except the first six
+            trivial modes (0-5) are included.
+        tem : int, float, None, optional
+            Temperature in Kelvin to compute the temperature scaling 
+            factor by multiplying with the Boltzmann constant.
+            If tem is None, no temperature scaling is conducted. 
+        tem_factors : int, float, optional
+            Factors included in temperature weighting 
+            (with K_B as preset).
+        Returns
+        -------
+        bfac_values : ndarray, shape=(n,), dtype=float
+            B-factors of C-alpha atoms.
+        """
+        msqf = self.mean_square_fluctuation(mode_subset, tem, 
+                                            tem_factors)
+
+        b_factors = ((8*np.pi**2)*msqf)/3
+
+        return b_factors
+    
+    def dcc(self, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
+        """
+        Computes the normalized *dynamic cross-correlation* between 
+        nodes of the GNM.
+        The DCC is a measure for the correlation in fluctuations
+        exhibited by a given pair of nodes. If normalized to
+        to MSFs exhibited by compared nodes, pairs with 
+        correlated fluctuations (same phase and period), 
+        anticorrelated fluctuations (opposite phase, same period)
+        and non-correlated fluctuations are assigned (normalized) 
+        DCC values of 1, -1 and 0 respectively.
+        For results consistent with MSFs, temperature-weighted
+        absolute values can be computed (only relevant if results
+        are not normalized).
+
+        Parameters
+        ----------
+        mode_subset : ndarray, shape=(n,), dtype=int, optional
+            Specifies the subset of modes considered in the MSF
+            computation.
+            Only non-trivial modes can be selected.
+            The first mode is counted as 0 in accordance with
+            Python conventions.
+            If mode_subset is None, all modes except the first
+            trivial mode (0) are included.
+        norm : bool, optional
+            Normalize the DCC using the MSFs of interacting nodes.
+        tem : int, float, None, optional
+            Temperature in Kelvin to compute the temperature scaling 
+            factor by multiplying with the Boltzmann constant.
+            If tem is None, no temperature scaling is conducted. 
+        tem_factors : int, float, optional
+            Factors included in temperature weighting 
+            (with K_B as preset).
+
+        Returns
+        -------
+        dcc : ndarray, shape=(n, n), dtype=float
+            DCC values for ENM nodes.
+        """
+
+        eig_values, eig_vectors = self.eigen()
+        # Choose modes included in computation; raise error, if trivial 
+        # modes are included
+        if mode_subset is None:
+            mode_subset = np.arange(1, len(eig_values))
+        elif any(mode_subset == 0):
+            raise ValueError(
+                "Trivial mode is included in the current selection."
+                " Please check your input."
+                )
+
+        eig_values = eig_values[mode_subset]
+        eig_vectors = eig_vectors[mode_subset]
+        
+        # Reshape array of eigenvectors (k,3n) -> (k,n,3)
+        modes_reshaped = np.reshape(eig_vectors, 
+                                    (eig_vectors.shape[0],\
+                                    int(eig_vectors.shape[1]), 1)
+                                    )
+        # Create residue modes matrix
+        modes_mat_n = modes_reshaped[:,:,np.newaxis, :] *\
+                        modes_reshaped[:,np.newaxis,:, :]
+
+        modes_mat_n = np.sum(modes_mat_n, axis=-1)
+        modes_mat_n = modes_mat_n/eig_values[:,np.newaxis,np.newaxis]
+        dcc = np.sum(modes_mat_n, axis=0)
+
+        # Compute the normalized DCC
+        if norm:
+            dcc_ii = np.diagonal(dcc)
+            dcc_ii = np.diagonal(dcc)
+            dcc_ii = np.reshape(dcc_ii, (1,len(dcc_ii)))
+            dcc_ii = np.repeat(dcc_ii, repeats=len(dcc_ii), axis=0)
+            dcc = dcc/np.sqrt(dcc_ii*dcc_ii.T)
+        # Temperature weighting
+        elif tem is not None:
+            dcc = dcc * tem * tem_factors
+
+        return dcc

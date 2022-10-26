@@ -281,6 +281,9 @@ class ANM:
         The first six modes correspond to rigid-body translations/
         rotations and are usually omitted in normal mode analysis.
 
+        The returned units are arbitrary and should only be compared
+        relative to each other.
+
         Returns
         -------
         freq : ndarray, shape=(n,), dtype=float
@@ -302,9 +305,9 @@ class ANM:
         Compute the *mean square fluctuation* for the atoms according
         to the ANM.
         This is equal to the sum of the diagonal of each 3x3 
-        superelement of the covariance matrix, if all k-6 non-trivial 
+        superelement of the ANM covariance matrix, if all k-6 non-trivial 
         modes are considered.
-        
+
         Parameters
         ----------
         mode_subset : ndarray, shape=(3n,), dtype=int, optional
@@ -369,6 +372,8 @@ class ANM:
         Computes the isotropic B-factors/temperature factors/
         Deby-Waller factors for atoms/coarse-grained beads using 
         the mean-square fluctuation.
+        These can be used to relate results obtained from ENMs 
+        to experimental results.
 
         Parameters
         ----------
@@ -387,7 +392,6 @@ class ANM:
         tem_factors : int, float, optional
             Factors included in temperature weighting 
             (with K_B as preset).
-
         Returns
         -------
         bfac_values : ndarray, shape=(n,), dtype=float
@@ -400,7 +404,7 @@ class ANM:
 
         return b_factors
 
-    def dcc(self, mode_subset=None, norm=True):
+    def dcc(self, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
         """
         Computes the normalized *dynamic cross-correlation* between 
         nodes of the ANM.
@@ -411,15 +415,34 @@ class ANM:
         anticorrelated fluctuations (opposite phase, same period)
         and non-correlated fluctuations are assigned (normalized) 
         DCC values of 1, -1 and 0 respectively.
+        For results consistent with MSFs, temperature-weighted
+        absolute values can be computed (only relevant if results
+        are not normalized).
 
         Parameters
         ----------
+        mode_subset : ndarray, shape=(n,), dtype=int, optional
+            Specifies the subset of modes considered in the MSF
+            computation.
+            Only non-trivial modes can be selected.
+            The first mode is counted as 0 in accordance with
+            Python conventions.
+            If mode_subset is None, all modes except the first six
+            trivial modes (0-5) are included.
         norm : bool, optional
-            Normalize the DCC using the MSFs of interacting nodes
+            Normalize the DCC using the MSFs of interacting nodes.
+        tem : int, float, None, optional
+            Temperature in Kelvin to compute the temperature scaling 
+            factor by multiplying with the Boltzmann constant.
+            If tem is None, no temperature scaling is conducted. 
+        tem_factors : int, float, optional
+            Factors included in temperature weighting 
+            (with K_B as preset).
+
         Returns
         -------
         dcc : ndarray, shape=(n, n), dtype=float
-            DCC values for ANM nodes.
+            DCC values for ENM nodes.
         """
 
         eig_values, eig_vectors = self.eigen()
@@ -448,13 +471,15 @@ class ANM:
         modes_mat_n = np.sum(modes_mat_3n, axis=-1)
         modes_mat_n = modes_mat_n/eig_values[:,np.newaxis,np.newaxis]
         dcc = np.sum(modes_mat_n, axis=0)
-        dcc_ii = np.diagonal(dcc)
 
         # Compute the normalized DCC
         if norm:
             dcc_ii = np.diagonal(dcc)
+            dcc_ii = np.diagonal(dcc)
             dcc_ii = np.reshape(dcc_ii, (1,len(dcc_ii)))
             dcc_ii = np.repeat(dcc_ii, repeats=len(dcc_ii), axis=0)
             dcc = dcc/np.sqrt(dcc_ii*dcc_ii.T)
-
+        # Temperature weighting
+        elif tem is not None:
+            dcc = dcc * tem * tem_factors
         return dcc
