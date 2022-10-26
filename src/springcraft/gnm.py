@@ -257,8 +257,8 @@ class GNM:
         # Adjust shape of eig_values (N,) -> (N, 1)
         eig_values = eig_values.reshape(eig_values.shape[0], 1)
         # Eigenvecs in distinct rows; divide by associated 
-        # squared eig_vectorstor
-        sq_div_eig_vectors = np.sum(eig_vectors_n/eig_values, axis=0)
+        # squared Eigenvalues
+        sq_div_eig_vectors = np.sum(np.square(eig_vectors)/eig_values, axis=0)
 
         # Temperature weighting
         if tem is None:
@@ -288,8 +288,8 @@ class GNM:
             Only non-trivial modes can be selected.
             The first mode is counted as 0 in accordance with
             Python conventions.
-            If mode_subset is None, all modes except the first six
-            trivial modes (0-5) are included.
+            If mode_subset is None, all modes except the first
+            trivial mode (0) are included.
         tem : int, float, None, optional
             Temperature in Kelvin to compute the temperature scaling 
             factor by multiplying with the Boltzmann constant.
