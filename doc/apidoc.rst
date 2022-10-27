@@ -47,6 +47,7 @@ Force Fields
 |
 
 .. autoclass:: TabulatedForceField
+   :members: s_enm_10, s_enm_13, d_enm, sd_enm, e_anm, e_anm_mj, e_anm_ke
 
 |
 
