@@ -124,8 +124,8 @@ def test_mass_weights_eigenvals(ff_name):
 
     assert np.allclose(test_eigenval[6:], reference_eigenval[6:], atol=1e-06)
 
-@pytest.mark.parametrize("ff_name", ["ANM_standard", "Hinsen", "eANM",
-                                        "sdENM", "pfENM"]
+@pytest.mark.parametrize("ff_name", ["ANM_standard", "Hinsen", "eANM", "sdENM",
+                                        "pfENM"]
                                         )
 def test_frequency_fluctuation_dcc(ff_name):
     """
@@ -162,9 +162,10 @@ def test_frequency_fluctuation_dcc(ff_name):
         ref_anm.buildHessian(ca.coord, gamma=1.0, cutoff=13)
         ref_anm.calcModes(n_modes="all")
 
-        reference_freq = 1/(2*np.pi)*np.sqrt(ref_anm.getEigvals())
+        reference_freq = 1 / (2 * np.pi) * np.sqrt(ref_anm.getEigvals())
         reference_fluc = prody.calcSqFlucts(ref_anm[0:])
         ref_dcc = prody.calcCrossCorr(ref_anm[0:], norm=True)
+        
         # Subset: First 30 non-triv. modes
         ref_dcc_norm_subset = prody.calcCrossCorr(ref_anm[0:30], norm=True)
         ref_dcc_absolute = prody.calcCrossCorr(ref_anm[0:], norm=False)
@@ -215,8 +216,9 @@ def test_frequency_fluctuation_dcc(ff_name):
             
             tem_scaling = K_B*N_A
             test_nomw = springcraft.ANM(ca, ff)
-            test_fluc_nomw = test_nomw.mean_square_fluctuation(tem=tem, 
-                                                        tem_factors=tem_scaling)
+            test_fluc_nomw = test_nomw.mean_square_fluctuation(
+                                    tem=tem, tem_factors=tem_scaling
+                                )
 
             test = springcraft.ANM(ca, ff, masses=reference_masses)
             test_freq = test.frequencies()
@@ -228,16 +230,16 @@ def test_frequency_fluctuation_dcc(ff_name):
 
             ## Scale for consistency with bio3d; T=300 K; no mass weighting
             # Start with mass_weighted eigenvals
-            test_fluc = test.mean_square_fluctuation(tem=tem, 
-                                tem_factors=tem_scaling)/(1000*reference_masses
-                                )
+            test_fluc = test.mean_square_fluctuation(
+                            tem=tem, tem_factors=tem_scaling
+                            ) / (1000*reference_masses)
+                            
 
             # Select a subset of modes: 12-33
-            test_fluc_subset = test.mean_square_fluctuation(tem=tem, 
-                                            tem_factors=tem_scaling, 
-                                            mode_subset=np.arange(11, 33)
-                                            )
-            test_fluc_subset /= (1000*reference_masses)
+            test_fluc_subset = test.mean_square_fluctuation(
+                tem=tem, tem_factors=tem_scaling, mode_subset=np.arange(11, 33)
+                )
+            test_fluc_subset /= (1000 * reference_masses)
 
             reference_fluc_subset = np.genfromtxt(
                 join(data_dir(), ref_fluc_subset),
