@@ -141,7 +141,7 @@ class GNM:
     
     def eigen(self):
         """
-        Compute the eigenvalues and eigenvectors of the
+        Compute the Eigenvalues and Eigenvectors of the
         *Kirchhoff* matrix.
 
         Returns

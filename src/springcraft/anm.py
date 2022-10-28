@@ -151,16 +151,16 @@ class ANM:
         Compute the Eigenvalues and Eigenvectors of the
         *Hessian* matrix.
 
-        The first six eig_values/eig_vectors correspond to trivial modes 
-        (translations/rotations) and are usually omitted 
+        The first six Eigenvalues/Eigenvectors correspond to 
+        trivial modes (translations/rotations) and are usually omitted 
         in normal mode analysis. 
         
         Returns
         -------
         eig_values : ndarray, shape=(k,), dtype=float
-            eig_values of the *Hessian* matrix in ascending order.
+            Eigenvalues of the *Hessian* matrix in ascending order.
         eig_vectors : ndarray, shape=(k,n), dtype=float
-            eig_vectors of the *Hessian* matrix.
+            Eigenvectors of the *Hessian* matrix.
             ``eig_values[i]`` corresponds to ``eig_vectors[i]``.
         """
         return nma_eigen(self)
@@ -180,7 +180,7 @@ class ANM:
         ----------
         index : int
             The index of the oscillation.
-            The index refers to the eig_values obtained from
+            The index refers to the Eigenvalues obtained from
             :meth:`eigen()`:
             Increasing indices refer to oscillations with increasing
             frequency.
@@ -250,7 +250,7 @@ class ANM:
         -------
         freq : ndarray, shape=(n,), dtype=float
             The frequency in ascending order of the associated modes'
-            eig_values.
+            Eigenvalues.
         """
         return nma_frequencies(self)
 

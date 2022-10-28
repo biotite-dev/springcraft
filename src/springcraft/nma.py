@@ -18,7 +18,7 @@ N_A = 6.02214076e23
 ## NMA functions for GNMs/ANMs
 def nma_eigen(enm):
     """
-    Compute the eig_values and eig_vectors of the
+    Compute the Eigenvalues and Eigenvectors of the
     *Kirchhoff*/*Hessian* matrix for GNMs and ANMs respectively.
 
     Parameters
@@ -30,10 +30,10 @@ def nma_eigen(enm):
     Returns
     -------
     eig_values : ndarray, shape=(k,), dtype=float
-        eig_values of the *Kirchhoff*/*Hessian* matrix 
+        Eigenvalues of the *Kirchhoff*/*Hessian* matrix 
         in ascending order.
     eig_vectors : ndarray, shape=(k,n), dtype=float
-        eig_vectors of the *Kirchhoff*/*Hessian* matrix.
+        Eigenvectors of the *Kirchhoff*/*Hessian* matrix.
         ``eig_values[i]`` corresponds to ``eig_vectors[i]``.
     """
     from .gnm import GNM
@@ -73,7 +73,7 @@ def nma_frequencies(enm):
     -------
     freq : ndarray, shape=(n,), dtype=float
         The frequency in ascending order of the associated modes'
-        eig_values.
+        Eigenvalues.
     """
     from .gnm import GNM
     from .anm import ANM
@@ -348,7 +348,7 @@ def nma_normal_mode(anm, index, amplitude, frames, movement="sine"):
         Instance of ANM object.
     index : int
         The index of the oscillation.
-        The index refers to the eig_values obtained from
+        The index refers to the Eigenvalues obtained from
         :meth:`eigen()`:
         Increasing indices refer to oscillations with increasing
         frequency.
