@@ -4,7 +4,7 @@ functions.
 """
 
 __name__ = "springcraft"
-__author__ = "Patrick Kunzmann", "Jan Krumbach"
+__author__ = "Patrick Kunzmann, Jan Krumbach, Faisal Islam"
 __all__ = ["nma_eigen", "nma_frequencies", 
             "nma_mean_square_fluctuation", "nma_bfactor", "nma_dcc",
             "nma_normal_mode", "nma_linear_response"]
@@ -232,15 +232,15 @@ def nma_bfactor(enm, mode_subset=None, tem=None,
 def nma_dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     """
     Computes the normalized *dynamic cross-correlation* between 
-    nodes of the GNM/ANM. The DCC for a nodepair ij is computed as:
+    nodes of the GNM/ANM. The DCC for a nodepair :math:`ij` is computed as:
 
     .. math:: 
 
     DCC_{ij} = \frac{3 k_B T}{\gamme} \sum_k^L \left[ \frac{\vec{u}_k \cdot \vec{u}_k^T}{\lambda_k} \right]_{ij}
 
-    with :math: `\lambda`. and :math: `\vec{u}`. as 
-    Eigenvalues and Eigenvectors corresponding to mode :math: `k`. of 
-    the modeset :math: `L`.
+    with :math:`\lambda`. and :math:`\vec{u}`. as 
+    Eigenvalues and Eigenvectors corresponding to mode :math:`k`. of 
+    the modeset :math:`L`.
 
     DCCs can be normalized to MSFs exhibited by two compared nodes
     following:
@@ -371,7 +371,6 @@ def nma_normal_mode(anm, index, amplitude, frames, movement="sine"):
         Atom displacements that depict a single oscillation.
         *m* is the number of frames.
     """
-    from .gnm import GNM
     from .anm import ANM
     
     if not isinstance(anm, ANM):
@@ -430,7 +429,6 @@ def nma_linear_response(anm, force):
         Linear Response Theory."
         Phys Rev Lett. 94, 7, 078102 (2005).
     """
-    from .gnm import GNM
     from .anm import ANM
     
     if not isinstance(anm, ANM):

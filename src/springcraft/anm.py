@@ -328,14 +328,14 @@ class ANM:
     def dcc(self, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
         """
         Computes the normalized *dynamic cross-correlation* between 
-        nodes of the ANM. The DCC for a nodepair :math: `ij`. is computed as:
+        nodes of the ANM. The DCC for a nodepair :math:`ij` is computed as:
 
         .. math:: 
 
         DCC_{ij} = \frac{3 k_B T}{\gamme} \sum_k^L \left[ \frac{\vec{u}_k \cdot \vec{u}_k^T}{\lambda_k} \right]_{ij}
 
-        with :math:`\lambda`. and :math:`\vec{u}`. as 
-        Eigenvalues and Eigenvectors corresponding to mode :math:`k`. of 
+        with :math:`\lambda` and :math:`\vec{u}` as 
+        Eigenvalues and Eigenvectors corresponding to mode :math:`k` of 
         the modeset :math:`L`.
 
         DCCs can be normalized to MSFs exhibited by two compared nodes
