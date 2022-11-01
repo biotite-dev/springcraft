@@ -42,7 +42,7 @@ dccm.subset.calpha <- dccm(nma.calpha, nmodes=30)
 write.csv(dccm.calpha,"./dccm_calpha_bio3d.csv", row.names = FALSE)
 write.csv(dccm.subset.calpha,"./dccm_calpha_subset_bio3d.csv", row.names = FALSE)
 
-d## SDENM
+## SDENM
 nma.sdenm <- nma(pdb=pdb, ff="sdenm", mass=TRUE)
 # Write raw masses/eigenvalues
 write.csv(nma.sdenm$L, "./mw_eigenvalues_sdenm_bio3d.csv", row.names = FALSE)
