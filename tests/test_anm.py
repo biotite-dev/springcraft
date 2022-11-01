@@ -277,31 +277,18 @@ def test_frequency_fluctuation_dcc(ff_name):
 
         if ff_name == "eANM":
             assert np.allclose(test_fluc_nomw, reference_fluc)
-        elif ff_name == "pfENM":
-            # Lower values for pfENM compared to other FFs (10e-01)
-            # -> Multiply with 1/1000    
-            for i in [test_freq[6:], reference_freq[6:], test_fluc, 
-                        reference_fluc, test_fluc_subset, 
-                        reference_fluc_subset, test_dcc, reference_dcc,
-                        test_dcc_subset, reference_dcc_subset]:
-                i /= 1000
-            
-            assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-04)
-            assert np.allclose(test_fluc, reference_fluc, atol=1e-03)
-            assert np.allclose(test_fluc_subset, reference_fluc_subset, 
-                                atol=1e-04)
-            assert np.allclose(test_dcc, reference_dcc, atol=1e-04)
-            assert np.allclose(test_dcc_subset, reference_dcc_subset, 
-                                atol=1e-04)
+        # Bio3d-FFs
         else:
-            assert np.allclose(test_freq[6:], reference_freq[6:], atol=1e-06) 
-            assert np.allclose(test_fluc, reference_fluc, atol=1e-03)
+            assert np.allclose(test_freq[6:], reference_freq[6:], rtol=5e-03, 
+                                atol=2e-03) 
+            assert np.allclose(test_fluc, reference_fluc, rtol=5e-03, 
+                                atol=2e-03)
             assert np.allclose(test_fluc_subset, reference_fluc_subset, 
-                                atol=1e-03) 
-            assert np.allclose(test_dcc, reference_dcc, atol=1e-04)
+                                rtol=5e-03, atol=2e-03) 
+            assert np.allclose(test_dcc, reference_dcc, rtol=5e-03, 
+                                atol=2e-03)
             assert np.allclose(test_dcc_subset, reference_dcc_subset, 
-                                atol=1e-04) 
-   
+                                rtol=5e-03, atol=2e-03) 
 
         # Compare with alternative method of MSF computation
         assert np.allclose(test_fluc_nomw, msqf_alternative)
