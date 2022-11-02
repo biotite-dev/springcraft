@@ -40,7 +40,7 @@ def test_kirchhoff(file_path, cutoff):
 
 @pytest.mark.parametrize("file_path, cutoff", itertools.product(
         glob.glob(join(data_dir(), "*.mmtf")),
-        # Cutoff mut not be too large,
+        # Cutoff must not be too large,
         # otherwise degenerate eigenvalues appear
         [4, 7]
 ))
@@ -86,3 +86,30 @@ def test_mass_weights_simple():
 
     assert np.allclose(identical_gnm.kirchhoff, ref_gnm.kirchhoff)
     assert not np.allclose(different_gnm.kirchhoff, ref_gnm.kirchhoff)
+
+@pytest.mark.parametrize("file_path, cutoff", itertools.product(
+        glob.glob(join(data_dir(), "*.mmtf")),
+        [4, 7]
+))
+def test_fluctuation_dcc(file_path, cutoff):
+    """
+    Comparison of mean-square fluctuations and 
+    dynamic cross-correlations computed with Springcraft and Prody. 
+    """
+    test_gnm, ref_gnm = prepare_gnms(file_path, cutoff)
+    test_fluc = test_gnm.mean_square_fluctuation()
+    test_dcc = test_gnm.dcc()
+    test_dcc_absolute = test_gnm.dcc(norm=False)
+    test_dcc_subset = test_gnm.dcc(mode_subset=np.arange(1, 17))
+
+    ref_gnm.calcModes(n_modes="all")
+    reference_fluc = prody.calcSqFlucts(ref_gnm[0:])
+    reference_dcc = prody.calcCrossCorr(ref_gnm[0:])
+    ref_dcc_norm_subset = prody.calcCrossCorr(ref_gnm[0:16], norm=True)
+    reference_dcc_absolute = prody.calcCrossCorr(ref_gnm[0:], norm=False)
+
+
+    assert np.allclose(test_fluc, reference_fluc)
+    assert np.allclose(test_dcc, reference_dcc)
+    assert np.allclose(test_dcc_subset, ref_dcc_norm_subset)
+    assert np.allclose(test_dcc_absolute, reference_dcc_absolute)

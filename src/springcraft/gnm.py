@@ -10,7 +10,7 @@ __all__ = ["GNM"]
 import numpy as np
 import biotite.structure as struc
 from .interaction import compute_kirchhoff
-
+from . import nma
 
 K_B = 1.380649e-23
 N_A = 6.02214076e23
@@ -139,35 +139,9 @@ class GNM:
         # Invalidate dependent values
         self._kirchhoff = None
     
-    def correlation_matrix(self, temperature):
-        """
-        Compute the correlation matrix for the atoms in the model.
-
-        Returns
-        -------
-        correlation_matrix : ndarray, shape=(n,n), dtype=float
-            The correlation matrix.
-        """
-        return K_B * temperature * self.covariance
-    
-    def mean_square_fluctuation(self):
-        """
-        Compute the *mean square fluctuation* for the atoms in the
-        model.
-
-        This is equal to the main diagonal of
-        :meth:`correlation_matrix()`.
-
-        Returns
-        -------
-        correlation_matrix : ndarray, shape=(n,), dtype=float
-            The mean square fluctuations for each atom in the model.
-        """
-        return np.diag(self.correlation_matrix())
-    
     def eigen(self):
         """
-        Compute the eigenvalues and eigenvectors of the
+        Compute the Eigenvalues and Eigenvectors of the
         *Kirchhoff* matrix.
 
         Returns
@@ -178,14 +152,14 @@ class GNM:
             Eigenvectors of the *Kirchhoff* matrix.
             ``eig_values[i]`` corresponds to ``eigenvectors[i]``.
         """
-        # 'np.eigh' can be used since the Kirchhoff matrix is symmetric 
-        eig_values, eig_vectors = np.linalg.eigh(self.kirchhoff)
-        return eig_values, eig_vectors.T
+        return nma.eigen(self)
     
     def frequencies(self):
         """
         Compute the oscillation frequencies of the model.
 
+        The first mode corresponds to rigid-body translations/rotations
+        and is omitted in the return value.
         The returned units are arbitrary and should only be compared
         relative to each other.
 
@@ -196,6 +170,136 @@ class GNM:
             *NaN* values mark frequencies corresponding to translations
             or rotations.
         """
-        eig_values, _ = self.eigen()
-        eig_values[np.isclose(eig_values, 0)] = np.nan
-        return np.sqrt(eig_values)
+        return nma.frequencies(self)
+
+    def mean_square_fluctuation(self, mode_subset=None, 
+                                tem=None, tem_factors=K_B):
+        """
+        Compute the *mean square fluctuation* for the atoms according to
+        the GNM.
+        This is equal to the sum of the diagonal of of the 
+        GNM covariance matrix, if all k-1 non-trivial 
+        modes are considered.
+        
+        Parameters
+        ----------
+        mode_subset : ndarray, shape=(n,), dtype=int, optional
+            Specifies the subset of modes considered in the MSF
+            computation.
+            Only non-trivial modes can be selected.
+            The first mode is counted as 0 in accordance with
+            Python conventions.
+            If mode_subset is None, all modes except the first
+            trivial mode (0) are included.
+        tem : int, float, None, optional
+            Temperature in Kelvin to compute the temperature scaling 
+            factor by multiplying with the Boltzmann constant.
+            If tem is None, no temperature scaling is conducted. 
+        tem_factors : int, float, optional
+            Factors included in temperature weighting 
+            (with K_B as preset).
+
+        Returns
+        -------
+        msqf : ndarray, shape=(n,), dtype=float
+            The mean square fluctuations for each atom in the model.
+        """
+        return nma.mean_square_fluctuation(
+            self, mode_subset, tem, tem_factors
+        )
+
+    def bfactor(self, mode_subset=None, tem=None, 
+                tem_factors=K_B):
+        """
+        Computes the isotropic B-factors/temperature factors/
+        Deby-Waller factors for atoms/coarse-grained beads using 
+        the mean-square fluctuation.
+        
+        These can be used to relate results obtained from ENMs 
+        to experimental results.
+        
+        Parameters
+        ----------
+        mode_subset : ndarray, shape=(n,), dtype=int, optional
+            Specifies the subset of modes considered in the MSF
+            computation.
+            Only non-trivial modes can be selected.
+            The first mode is counted as 0 in accordance with
+            Python conventions.
+            If mode_subset is None, all modes except the first
+            trivial mode (0) are included.
+        tem : int, float, None, optional
+            Temperature in Kelvin to compute the temperature scaling 
+            factor by multiplying with the Boltzmann constant.
+            If tem is None, no temperature scaling is conducted. 
+        tem_factors : int, float, optional
+            Factors included in temperature weighting 
+            (with K_B as preset).
+        Returns
+        -------
+        bfac_values : ndarray, shape=(n,), dtype=float
+            B-factors of C-alpha atoms.
+        """
+        return nma.bfactor(
+            self, mode_subset, tem, tem_factors
+        )
+    
+    def dcc(self, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
+        """
+        Computes the normalized *dynamic cross-correlation* between 
+        nodes of the GNM. The DCC for a nodepair :math:`ij` is computed as:
+
+        .. math:: 
+
+        DCC_{ij} = \frac{3 k_B T}{\gamme} \sum_k^L \left[ \frac{\vec{u}_k \cdot \vec{u}_k^T}{\lambda_k} \right]_{ij}
+
+        with :math:`\lambda`. and :math:`\vec{u}`. as 
+        Eigenvalues and Eigenvectors corresponding to mode :math:`k`. of 
+        the modeset :math:`L`.
+
+        DCCs can be normalized to MSFs exhibited by two compared nodes
+        following:
+
+        .. math::
+
+        nDCC_{ij} = \frac{DCC_{ij}}{[\DCC_{ii} DCC_{jj}]^{1/2}}
+
+        The DCC is a measure for the correlation in fluctuations
+        exhibited by a given pair of nodes. If normalized, pairs with 
+        correlated fluctuations (same phase and period), 
+        anticorrelated fluctuations (opposite phase, same period)
+        and non-correlated fluctuations are assigned (normalized) 
+        DCC values of 1, -1 and 0 respectively.
+        
+        For results consistent with MSFs, temperature-weighted
+        absolute values can be computed (only relevant if results
+        are not normalized).
+
+        Parameters
+        ----------
+        mode_subset : ndarray, shape=(n,), dtype=int, optional
+            Specifies the subset of modes considered in the MSF
+            computation.
+            Only non-trivial modes can be selected.
+            The first mode is counted as 0 in accordance with
+            Python conventions.
+            If mode_subset is None, all modes except the first
+            trivial mode (0) are included.
+        norm : bool, optional
+            Normalize the DCC using the MSFs of interacting nodes.
+        tem : int, float, None, optional
+            Temperature in Kelvin to compute the temperature scaling 
+            factor by multiplying with the Boltzmann constant.
+            If tem is None, no temperature scaling is conducted. 
+        tem_factors : int, float, optional
+            Factors included in temperature weighting 
+            (with K_B as preset).
+
+        Returns
+        -------
+        dcc : ndarray, shape=(n, n), dtype=float
+            DCC values for ENM nodes.
+        """
+        return nma.dcc(
+            self, mode_subset, norm, tem, tem_factors
+        )
