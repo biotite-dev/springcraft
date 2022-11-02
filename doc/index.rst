@@ -13,12 +13,6 @@ functional movements of a protein in a fast coarse-grained manner.
 For a deeper dive into the theory of ENMs please refer to literature,
 such as a `method review from 2010 <https://doi.org/10.1021/cr900095e>`_.
 
-.. note::
-
-  *Springcraft* is still in alpha stage.
-  Although most implemented functionalities should already work as
-  expected, some features are not well tested, yet.
-
 
 Installation
 ------------
