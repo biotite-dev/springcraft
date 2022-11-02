@@ -58,8 +58,8 @@ def frequencies(enm):
     """
     Computes the frequency associated with each mode.
 
-    The first six modes correspond to rigid-body translations/
-    rotations and are usually omitted in normal mode analysis.
+    The modes corresponding to rigid-body translations/rotations are
+    omitted in the return value.
     The returned units are arbitrary and should only be compared
     relative to each other.
     
@@ -87,7 +87,7 @@ def frequencies(enm):
             "Instance of GNM/ANM class expected."
             )
 
-    eig_values, _ = enm.eigen()
+    eig_values, _ = eigen(enm)
     
     # The very first / first six Eigenvalue(s) is/are usually close to 0; 
     # but can have a negative sign. 
@@ -98,7 +98,7 @@ def frequencies(enm):
     return freq
 
 def mean_square_fluctuation(enm, mode_subset=None, 
-                                tem=None, tem_factors=K_B):
+                            tem=None, tem_factors=K_B):
     """
     Compute the *mean square fluctuation* for the atoms according
     to the ANM/GNM.
@@ -135,16 +135,16 @@ def mean_square_fluctuation(enm, mode_subset=None,
     if not isinstance(enm, (GNM, ANM)):
         raise ValueError(
             "Instance of GNM/ANM class expected."
-            )
+        )
     
-    eig_values, eig_vectors = enm.eigen()
+    eig_values, eig_vectors = eigen(enm)
 
     if isinstance(enm, ANM):
         # Eigenvectors: 3N -> N
-        eig_values, eig_vectors = enm.eigen()
         cols_n = np.arange(0, len(eig_vectors[0]), 3)
-        eig_vectors = np.add.reduceat(np.square(eig_vectors), cols_n, 
-                                    axis=1)
+        eig_vectors = np.add.reduceat(
+            np.square(eig_vectors), cols_n, axis=1
+        )
         ntriv_modes = 6
     # -> GNMs
     else:
@@ -223,8 +223,7 @@ def bfactor(enm, mode_subset=None, tem=None,
             "Instance of GNM/ANM class expected."
             )
 
-    msqf = enm.mean_square_fluctuation(mode_subset, tem, 
-                                        tem_factors)
+    msqf = mean_square_fluctuation(enm, mode_subset, tem, tem_factors)
     b_factors = ((8*np.pi**2)*msqf)/3
     
     return b_factors
@@ -232,22 +231,7 @@ def bfactor(enm, mode_subset=None, tem=None,
 def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     """
     Computes the normalized *dynamic cross-correlation* between 
-    nodes of the GNM/ANM. The DCC for a nodepair :math:`ij` is computed as:
-
-    .. math:: 
-
-    DCC_{ij} = \frac{3 k_B T}{\gamme} \sum_k^L \left[ \frac{\vec{u}_k \cdot \vec{u}_k^T}{\lambda_k} \right]_{ij}
-
-    with :math:`\lambda`. and :math:`\vec{u}`. as 
-    Eigenvalues and Eigenvectors corresponding to mode :math:`k`. of 
-    the modeset :math:`L`.
-
-    DCCs can be normalized to MSFs exhibited by two compared nodes
-    following:
-
-    .. math::
-
-    nDCC_{ij} = \frac{DCC_{ij}}{[\DCC_{ii} DCC_{jj}]^{1/2}}
+    nodes of the GNM/ANM.
 
     Parameters
     ----------
@@ -276,6 +260,26 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     -------
     dcc : ndarray, shape=(n, n), dtype=float
         DCC values for ENM nodes as NxN matrix.
+    
+    Notes
+    -----
+
+    The DCC for a nodepair :math:`ij` is computed as:
+
+    .. math:: 
+
+        DCC_{ij} = \frac{3 k_B T}{\gamme} \sum_k^L \left[ \frac{\vec{u}_k \cdot \vec{u}_k^T}{\lambda_k} \right]_{ij}
+
+    with :math:`\lambda` and :math:`\vec{u}` as 
+    Eigenvalues and Eigenvectors corresponding to mode :math:`k` of 
+    the modeset :math:`L`.
+
+    DCCs can be normalized to MSFs exhibited by two compared nodes
+    following:
+
+    .. math::
+
+        nDCC_{ij} = \frac{DCC_{ij}}{[\DCC_{ii} DCC_{jj}]^{1/2}}
     """
     from .gnm import GNM
     from .anm import ANM
@@ -287,9 +291,9 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     else:
         raise ValueError(
             "Instance of GNM/ANM class expected."
-            )
+        )
     
-    eig_values, eig_vectors = enm.eigen()
+    eig_values, eig_vectors = eigen(enm)
     
     # Choose modes included in computation; raise error, if trivial 
     # modes are included
@@ -306,18 +310,18 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     
     if isinstance(enm, GNM):
         # Reshape array of eigenvectors (k,n) -> (k,n,1)
-        modes_reshaped = np.reshape(eig_vectors, 
-                                    (eig_vectors.shape[0], -1, 1)
-                                    )
+        modes_reshaped = np.reshape(
+            eig_vectors, (eig_vectors.shape[0], -1, 1)
+        )
     # -> ANM
     else:
         # Reshape array of eigenvectors (k,3n) -> (k,n,3)
-        modes_reshaped = np.reshape(eig_vectors, 
-                                    (eig_vectors.shape[0], -1, 3)
-                                    )
+        modes_reshaped = np.reshape(
+            eig_vectors, (eig_vectors.shape[0], -1, 3)
+        )
     # Create residue modes matrix (3N -> N for ANMs)
     modes_mat_n = modes_reshaped[:, :, np.newaxis, :] *\
-                    modes_reshaped[:, np.newaxis, :, :]
+                  modes_reshaped[:, np.newaxis, :, :]
     modes_mat_n = np.sum(modes_mat_n, axis=-1)
 
     modes_mat_n = modes_mat_n / eig_values[:, np.newaxis, np.newaxis]
@@ -378,7 +382,7 @@ def normal_mode(anm, index, amplitude, frames, movement="sine"):
             "Instance of ANM class expected."
         )
     else:
-        _, eig_vectors = anm.eigen()
+        _, eig_vectors = eigen(anm)
         # Extract vectors for given mode and reshape to (n,3) array
         mode_vectors = eig_vectors[index].reshape((-1, 3))
         # Rescale, so that the largest vector has the length 'amplitude'

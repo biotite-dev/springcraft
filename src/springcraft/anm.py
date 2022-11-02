@@ -54,7 +54,7 @@ class ANM:
         *Hessian*.
         This is not a copy: Create a copy before modifying this matrix.
     masses : None or ndarray, shape=(n,), dtype=float
-        The mass for each atom, `None` if no mass weighting is applied
+        The mass for each atom, `None` if no mass weighting is applied.
     """
 
     def __init__(self, atoms, force_field, masses=None, use_cell_list=True):
@@ -241,7 +241,7 @@ class ANM:
         Computes the frequency associated with each mode.
 
         The first six modes correspond to rigid-body translations/
-        rotations and are usually omitted in normal mode analysis.
+        rotations and are omitted in the return value.
 
         The returned units are arbitrary and should only be compared
         relative to each other.

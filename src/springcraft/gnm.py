@@ -158,8 +158,8 @@ class GNM:
         """
         Compute the oscillation frequencies of the model.
 
-        The first mode in GNMs is usually omitted.
-
+        The first mode corresponds to rigid-body translations/rotations
+        and is omitted in the return value.
         The returned units are arbitrary and should only be compared
         relative to each other.
 
