@@ -10,7 +10,7 @@ __all__ = ["ANM"]
 import numpy as np
 import biotite.structure as struc
 from .interaction import compute_hessian
-from .nma import *
+from . import nma
 
 K_B = 1.380649e-23
 N_A = 6.02214076e23
@@ -163,7 +163,7 @@ class ANM:
             Eigenvectors of the *Hessian* matrix.
             ``eig_values[i]`` corresponds to ``eig_vectors[i]``.
         """
-        return nma_eigen(self)
+        return nma.eigen(self)
     
     def normal_mode(self, index, amplitude, frames, movement="sine"):
         """
@@ -203,7 +203,7 @@ class ANM:
             Atom displacements that depict a single oscillation.
             *m* is the number of frames.
         """
-        return nma_normal_mode(self, index, amplitude, frames, movement)
+        return nma.normal_mode(self, index, amplitude, frames, movement)
             
     def linear_response(self, force):
         """
@@ -234,7 +234,7 @@ class ANM:
             Phys Rev Lett. 94, 7, 078102 (2005).
 
         """
-        return nma_linear_response(self, force)
+        return nma.linear_response(self, force)
 
     def frequencies(self):
         """
@@ -252,7 +252,7 @@ class ANM:
             The frequency in ascending order of the associated modes'
             Eigenvalues.
         """
-        return nma_frequencies(self)
+        return nma.frequencies(self)
 
     def mean_square_fluctuation(self, mode_subset=None, 
                                 tem=None, tem_factors=K_B):
@@ -286,7 +286,7 @@ class ANM:
         msqf : ndarray, shape=(n,), dtype=float
             The mean square fluctuations for each atom in the model.
         """
-        return nma_mean_square_fluctuation(
+        return nma.mean_square_fluctuation(
             self, mode_subset, tem, tem_factors  
         )
 
@@ -321,7 +321,7 @@ class ANM:
         bfac_values : ndarray, shape=(n,), dtype=float
             B-factors of C-alpha atoms.
         """
-        return nma_bfactor(
+        return nma.bfactor(
             self, mode_subset, tem, tem_factors
         )
 
@@ -381,6 +381,6 @@ class ANM:
         dcc : ndarray, shape=(n, n), dtype=float
             DCC values for ENM nodes.
         """
-        return nma_dcc(
+        return nma.dcc(
             self, mode_subset, norm, tem, tem_factors
         )

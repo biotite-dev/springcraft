@@ -5,9 +5,9 @@ functions.
 
 __name__ = "springcraft"
 __author__ = "Patrick Kunzmann, Jan Krumbach, Faisal Islam"
-__all__ = ["nma_eigen", "nma_frequencies", 
-            "nma_mean_square_fluctuation", "nma_bfactor", "nma_dcc",
-            "nma_normal_mode", "nma_linear_response"]
+__all__ = ["eigen", "frequencies", 
+           "mean_square_fluctuation", "bfactor", "dcc",
+           "normal_mode", "linear_response"]
 
 import numpy as np
 # -> Import ANM/GNM in functions to prevent circular import error
@@ -16,7 +16,7 @@ K_B = 1.380649e-23
 N_A = 6.02214076e23
 
 ## NMA functions for GNMs/ANMs
-def nma_eigen(enm):
+def eigen(enm):
     """
     Compute the Eigenvalues and Eigenvectors of the
     *Kirchhoff*/*Hessian* matrix for GNMs and ANMs respectively.
@@ -54,7 +54,7 @@ def nma_eigen(enm):
     
     return eig_values, eig_vectors.T
 
-def nma_frequencies(enm):
+def frequencies(enm):
     """
     Computes the frequency associated with each mode.
 
@@ -97,7 +97,7 @@ def nma_frequencies(enm):
     
     return freq
 
-def nma_mean_square_fluctuation(enm, mode_subset=None, 
+def mean_square_fluctuation(enm, mode_subset=None, 
                                 tem=None, tem_factors=K_B):
     """
     Compute the *mean square fluctuation* for the atoms according
@@ -180,7 +180,7 @@ def nma_mean_square_fluctuation(enm, mode_subset=None,
     
     return msqf
 
-def nma_bfactor(enm, mode_subset=None, tem=None, 
+def bfactor(enm, mode_subset=None, tem=None, 
             tem_factors=K_B):
     """
     Computes the isotropic B-factors/temperature factors/
@@ -229,7 +229,7 @@ def nma_bfactor(enm, mode_subset=None, tem=None,
     
     return b_factors
 
-def nma_dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
+def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     """
     Computes the normalized *dynamic cross-correlation* between 
     nodes of the GNM/ANM. The DCC for a nodepair :math:`ij` is computed as:
@@ -337,7 +337,7 @@ def nma_dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     return dcc
 
 ## ANM specific functions
-def nma_normal_mode(anm, index, amplitude, frames, movement="sine"):
+def normal_mode(anm, index, amplitude, frames, movement="sine"):
     """
     Create displacements for a trajectory depicting the given normal
     mode for ANMs.
@@ -399,7 +399,7 @@ def nma_normal_mode(anm, index, amplitude, frames, movement="sine"):
         
         return disp
 
-def nma_linear_response(anm, force):
+def linear_response(anm, force):
     """
     Compute the atom displacement induced by the given force using
     *Linear Response Theory*. [1]_

@@ -10,7 +10,7 @@ __all__ = ["GNM"]
 import numpy as np
 import biotite.structure as struc
 from .interaction import compute_kirchhoff
-from .nma import *
+from . import nma
 
 K_B = 1.380649e-23
 N_A = 6.02214076e23
@@ -152,7 +152,7 @@ class GNM:
             Eigenvectors of the *Kirchhoff* matrix.
             ``eig_values[i]`` corresponds to ``eigenvectors[i]``.
         """
-        return nma_eigen(self)
+        return nma.eigen(self)
     
     def frequencies(self):
         """
@@ -170,7 +170,7 @@ class GNM:
             *NaN* values mark frequencies corresponding to translations
             or rotations.
         """
-        return nma_frequencies(self)
+        return nma.frequencies(self)
 
     def mean_square_fluctuation(self, mode_subset=None, 
                                 tem=None, tem_factors=K_B):
@@ -204,7 +204,7 @@ class GNM:
         msqf : ndarray, shape=(n,), dtype=float
             The mean square fluctuations for each atom in the model.
         """
-        return nma_mean_square_fluctuation(
+        return nma.mean_square_fluctuation(
             self, mode_subset, tem, tem_factors
         )
 
@@ -240,7 +240,7 @@ class GNM:
         bfac_values : ndarray, shape=(n,), dtype=float
             B-factors of C-alpha atoms.
         """
-        return nma_bfactor(
+        return nma.bfactor(
             self, mode_subset, tem, tem_factors
         )
     
@@ -300,6 +300,6 @@ class GNM:
         dcc : ndarray, shape=(n, n), dtype=float
             DCC values for ENM nodes.
         """
-        return nma_dcc(
+        return nma.dcc(
             self, mode_subset, norm, tem, tem_factors
         )
