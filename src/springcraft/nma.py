@@ -229,7 +229,7 @@ def bfactor(enm, mode_subset=None, tem=None,
     return b_factors
 
 def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
-    """
+    r"""
     Computes the normalized *dynamic cross-correlation* between 
     nodes of the GNM/ANM.
 
@@ -254,7 +254,7 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
         If tem is None, no temperature scaling is conducted. 
     tem_factors : int, float, optional
         Factors included in temperature weighting 
-        (with K_B as preset).
+        (with :math:`k_B` as preset).
 
     Returns
     -------
@@ -268,7 +268,7 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
 
     .. math:: 
 
-        DCC_{ij} = \frac{3 k_B T}{\gamme} \sum_k^L \left[ \frac{\vec{u}_k \cdot \vec{u}_k^T}{\lambda_k} \right]_{ij}
+        DCC_{ij} = \frac{3 k_B T}{\gamma} \sum_k^L \left[ \frac{\vec{u}_k \cdot \vec{u}_k^T}{\lambda_k} \right]_{ij}
 
     with :math:`\lambda` and :math:`\vec{u}` as 
     Eigenvalues and Eigenvectors corresponding to mode :math:`k` of 
@@ -279,7 +279,7 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
 
     .. math::
 
-        nDCC_{ij} = \frac{DCC_{ij}}{[\DCC_{ii} DCC_{jj}]^{1/2}}
+        nDCC_{ij} = \frac{DCC_{ij}}{[DCC_{ii} DCC_{jj}]^{1/2}}
     """
     from .gnm import GNM
     from .anm import ANM

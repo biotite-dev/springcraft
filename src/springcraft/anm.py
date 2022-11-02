@@ -326,24 +326,9 @@ class ANM:
         )
 
     def dcc(self, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
-        """
+        r"""
         Computes the normalized *dynamic cross-correlation* between 
-        nodes of the ANM. The DCC for a nodepair :math:`ij` is computed as:
-
-        .. math:: 
-
-        DCC_{ij} = \frac{3 k_B T}{\gamme} \sum_k^L \left[ \frac{\vec{u}_k \cdot \vec{u}_k^T}{\lambda_k} \right]_{ij}
-
-        with :math:`\lambda` and :math:`\vec{u}` as 
-        Eigenvalues and Eigenvectors corresponding to mode :math:`k` of 
-        the modeset :math:`L`.
-
-        DCCs can be normalized to MSFs exhibited by two compared nodes
-        following:
-
-        .. math::
-
-        nDCC_{ij} = \frac{DCC_{ij}}{[\DCC_{ii} DCC_{jj}]^{1/2}}
+        nodes of the ANM.
 
         The DCC is a measure for the correlation in fluctuations
         exhibited by a given pair of nodes. If normalized, pairs with 
@@ -351,7 +336,6 @@ class ANM:
         anticorrelated fluctuations (opposite phase, same period)
         and non-correlated fluctuations are assigned (normalized) 
         DCC values of 1, -1 and 0 respectively.
-        
         For results consistent with MSFs, temperature-weighted
         absolute values can be computed (only relevant if results
         are not normalized).
@@ -374,12 +358,31 @@ class ANM:
             If tem is None, no temperature scaling is conducted. 
         tem_factors : int, float, optional
             Factors included in temperature weighting 
-            (with K_B as preset).
+            (with :math:`k_B` as preset).
 
         Returns
         -------
         dcc : ndarray, shape=(n, n), dtype=float
             DCC values for ENM nodes.
+        
+        Notes
+        -----
+        The DCC for a nodepair :math:`ij` is computed as:
+
+        .. math:: 
+
+            DCC_{ij} = \frac{3 k_B T}{\gamma} \sum_k^L \left[ \frac{\vec{u}_k \cdot \vec{u}_k^T}{\lambda_k} \right]_{ij}
+
+        with :math:`\lambda` and :math:`\vec{u}` as 
+        Eigenvalues and Eigenvectors corresponding to mode :math:`k` of 
+        the modeset :math:`L`.
+
+        DCCs can be normalized to MSFs exhibited by two compared nodes
+        following:
+
+        .. math::
+
+            nDCC_{ij} = \frac{DCC_{ij}}{[DCC_{ii} DCC_{jj}]^{1/2}}
         """
         return nma.dcc(
             self, mode_subset, norm, tem, tem_factors
