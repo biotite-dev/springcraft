@@ -228,7 +228,8 @@ def bfactor(enm, mode_subset=None, tem=None,
     
     return b_factors
 
-def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
+def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B, 
+            mem_eff=True):
     r"""
     Computes the normalized *dynamic cross-correlation* between 
     nodes of the GNM/ANM.
@@ -255,7 +256,11 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     tem_factors : int, float, optional
         Factors included in temperature weighting 
         (with :math:`k_B` as preset).
-
+    mem_eff : bool, optional
+        Select between a memory-efficient (True; standard setting)
+        and inefficient, but potentially faster method implementation
+        (False).
+        
     Returns
     -------
     dcc : ndarray, shape=(n, n), dtype=float
@@ -280,24 +285,38 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     .. math::
 
         nDCC_{ij} = \frac{DCC_{ij}}{[DCC_{ii} DCC_{jj}]^{1/2}}
+
+    When all modes are considerered, the DCC is equal to the covariance matrix
+    of GNMs or to the trace of all supermatrices (3x3) of the 
+    covariance matrix (3Nx3N) in the case of ANMs.
+    Consequently, these are returned if standard parameters 
+    for 'mode_subset' and 'memory_efficient' are passed to the function.
     """
-    from .gnm import GNM
-    from .anm import ANM
     
+    from springcraft import GNM
+    from springcraft import ANM
+    
+    eig_values, eig_vectors = enm.eigen()
+    n_nodes = len(enm._coord)
+
     if isinstance(enm, ANM):
+        is_gnm = False
         ntriv_modes = 6
+        num_dim = 3
     elif isinstance(enm, GNM):
+        is_gnm = True
         ntriv_modes = 1
+        num_dim = 1
     else:
         raise ValueError(
             "Instance of GNM/ANM class expected."
         )
-    
-    eig_values, eig_vectors = eigen(enm)
-    
+
     # Choose modes included in computation; raise error, if trivial 
     # modes are included
+    all_modes = False
     if mode_subset is None:
+        all_modes = True
         mode_subset = np.arange(ntriv_modes, len(eig_values))
     elif any(mode_subset <= (ntriv_modes-1)):
         raise ValueError(
@@ -307,35 +326,51 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
 
     eig_values = eig_values[mode_subset]
     eig_vectors = eig_vectors[mode_subset]
+
+    # Reshape array of eigenvectors
+    # (k,3n) -> (k,n,3) for ANMs; (k,n) -> (k,n,1) for GNMs
+    modes_reshaped = np.reshape(
+                        eig_vectors, (len(mode_subset), -1, num_dim)
+                        )
     
-    if isinstance(enm, GNM):
-        # Reshape array of eigenvectors (k,n) -> (k,n,1)
-        modes_reshaped = np.reshape(
-            eig_vectors, (eig_vectors.shape[0], -1, 1)
-        )
-    # -> ANM
+    # Memory inefficient: Large NumPy-Arrays
+    if not mem_eff:
+        # Create residue modes matrix (3N -> N for ANMs)
+        modes_mat_n = modes_reshaped[:, :, np.newaxis, :] *\
+                      modes_reshaped[:, np.newaxis, :, :]
+        modes_mat_n = np.sum(modes_mat_n, axis=-1)
+        modes_mat_n = modes_mat_n / eig_values[:, np.newaxis, np.newaxis]
+        dcc = np.sum(modes_mat_n, axis=0)
+    
+    ## Shortcut if all modes are included in computations
+    # GNM -> DCC corresponds to inverted Kirchhoff 
+    elif is_gnm and all_modes:
+        dcc = enm.covariance
+    # ANM -> ...to the trace of the inverted Hessian's 3x3 superelements
+    elif all_modes:
+        # 3N x 3N -> N x 3 x N x 3 -> N x N x 3 x 3
+        cov = enm.covariance
+        reshaped = cov.reshape(
+                            cov.shape[0]//3, 3, -1, 3
+                        ).swapaxes(1,2)
+        # Accept array of any dimension 
+        # -> Sum over diagonals in last two dims
+        # -> Return any shape (in this case NxN)
+        dcc = np.einsum("...ii->...", reshaped)
+    # Slower method for custom mode range
     else:
-        # Reshape array of eigenvectors (k,3n) -> (k,n,3)
-        modes_reshaped = np.reshape(
-            eig_vectors, (eig_vectors.shape[0], -1, 3)
-        )
-    # Create residue modes matrix (3N -> N for ANMs)
-    modes_mat_n = modes_reshaped[:, :, np.newaxis, :] *\
-                  modes_reshaped[:, np.newaxis, :, :]
-    modes_mat_n = np.sum(modes_mat_n, axis=-1)
-
-    modes_mat_n = modes_mat_n / eig_values[:, np.newaxis, np.newaxis]
-    dcc = np.sum(modes_mat_n, axis=0)
-
+        dcc = np.zeros((n_nodes, n_nodes))
+        for ev, evec in zip(eig_values, modes_reshaped):
+            dcc += (evec @ evec.T) / ev
+    
     # Compute the normalized DCC
     if norm:
         dcc_ii = np.diagonal(dcc)
-        dcc_ii = np.reshape(dcc_ii, (1, len(dcc_ii)))
-        dcc_ii = np.repeat(dcc_ii, repeats=len(dcc_ii), axis=0)
-        
+        dcc_ii = np.reshape(dcc_ii, (1, len(dcc)))
         dcc = dcc / np.sqrt(dcc_ii * dcc_ii.T)
+        
     # Temperature weighting
-    elif tem is not None:
+    if tem is not None:
         dcc = dcc * tem * tem_factors
     
     return dcc

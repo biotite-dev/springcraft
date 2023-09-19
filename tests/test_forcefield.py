@@ -7,8 +7,52 @@ import biotite.structure.io.mmtf as mmtf
 import biotite.sequence as seq
 import springcraft
 from springcraft.forcefield import InvariantForceField
+import rpy2.robjects as robjects
+from rpy2.robjects.packages import importr
+from rpy2.robjects.vectors import DataFrame as DataFrame_r
+from rpy2.robjects import numpy2ri
 from .util import data_dir
 
+# Load bio3d in R
+bio3d = importr("bio3d")
+
+def coords_to_rnumvec(coords):
+    # Activate automatic Numpy <-> R interconversion
+    numpy2ri.activate()
+    # -> To R matrix
+    r_mat = robjects.r.matrix(robjects.FloatVector(coords.ravel()), 
+                                 nrow=coords.shape[0], 
+                                 ncol=coords.shape[1]
+                                )
+    # Concatenate Matrix to vector -> Flatten
+    r_as_vec = robjects.r["as.vector"]
+    r_vec = r_as_vec(r_mat)
+    numpy2ri.deactivate()
+    
+    return r_vec
+
+# Convert AtomArray into bio3d-PDB objects
+def aarray_to_bio3d(aarray):
+    coords = aarray.coord
+
+    # Activate automatic Numpy <-> R interconversion
+    numpy2ri.activate()    
+    xyz_r = robjects.r.matrix(robjects.FloatVector(aarray.coord.ravel()), 
+                             nrow=coords.shape[0], 
+                             ncol=coords.shape[1]
+                            )
+    res_names_r = robjects.StrVector(aarray.res_name)
+    chain_r = robjects.StrVector(aarray.chain_id)
+
+    # Create a R dataframe
+    # equivalent of res_name is resid in bio3d 
+    atoms_r = DataFrame_r({"resid": res_names_r, "chain": chain_r})
+    
+    # Create PDB as ListVector (bio3d)
+    pdb_bio3d = robjects.ListVector({"xyz": xyz_r, "atom": atoms_r})
+    numpy2ri.deactivate()
+
+    return pdb_bio3d
 
 @pytest.fixture
 def atoms():
@@ -32,7 +76,6 @@ def atoms():
 def atoms_singlechain(atoms):
     ca = atoms[0:20]
     return ca
-
 
 def test_patched_force_field_shutdown(atoms):
     N_CONTACTS = 5
@@ -408,23 +451,35 @@ def test_compare_with_bio3d(atoms_singlechain, ff_name):
     The following ENM forcefields are compared:
     Hinsen-Calpha, sdENM and pfENM.
     """
-
+    atoms_singlechain
     if ff_name == "Hinsen":
         ff = springcraft.HinsenForceField()
-        ref_file = "hessian_calpha_bio3d.csv"
+        ff_bio3d_str = "calpha"
+        #ref_file = "hessian_calpha_bio3d.csv"
     if ff_name == "sdENM":
         ff = springcraft.TabulatedForceField.sd_enm(atoms_singlechain)
-        ref_file = "hessian_sdenm_bio3d.csv"
+        ff_bio3d_str = "sdenm"
+        #ref_file = "hessian_sdenm_bio3d.csv"
     if ff_name == "pfENM":
-        ref_file = "hessian_pfenm_bio3d.csv"
+        #ref_file = "hessian_pfenm_bio3d.csv"
         ff = springcraft.ParameterFreeForceField()
+        ff_bio3d_str = "pfenm"
+
+    coord_vec_r = coords_to_rnumvec(atoms_singlechain.coord)
+    ff_bio3d = bio3d.load_enmff(ff=ff_bio3d_str)
+    pdb_bio3d = aarray_to_bio3d(atoms_singlechain)
+    print(type(pdb_bio3d))
+    ref_hessian = bio3d.build_hessian(coord_vec_r, 
+                                      pfc_fun=ff_bio3d, 
+                                      pdb=pdb_bio3d
+                                    )
 
     test_hessian, _ = springcraft.compute_hessian(atoms_singlechain.coord, ff)
 
-    ref_hessian = np.genfromtxt(
-        join(data_dir(), ref_file),
-        skip_header=1, delimiter=","
-    )
+    #ref_hessian = np.genfromtxt(
+    #    join(data_dir(), ref_file),
+    #    skip_header=1, delimiter=","
+    #)
 
     # Higher deviation for Hinsen-FF
     if ff_name == "Hinsen":
