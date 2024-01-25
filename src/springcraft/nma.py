@@ -228,8 +228,7 @@ def bfactor(enm, mode_subset=None, tem=None,
     
     return b_factors
 
-def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B, 
-            mem_eff=True):
+def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     r"""
     Computes the normalized *dynamic cross-correlation* between 
     nodes of the GNM/ANM.
@@ -256,10 +255,6 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B,
     tem_factors : int, float, optional
         Factors included in temperature weighting 
         (with :math:`k_B` as preset).
-    mem_eff : bool, optional
-        Select between a memory-efficient (True; standard setting)
-        and inefficient, but potentially faster method implementation
-        (False).
         
     Returns
     -------
@@ -323,28 +318,10 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B,
             "Trivial modes are included in the current selection."
             " Please check your input."
             )
-
-    eig_values = eig_values[mode_subset]
-    eig_vectors = eig_vectors[mode_subset]
-
-    # Reshape array of eigenvectors
-    # (k,3n) -> (k,n,3) for ANMs; (k,n) -> (k,n,1) for GNMs
-    modes_reshaped = np.reshape(
-                        eig_vectors, (len(mode_subset), -1, num_dim)
-                        )
-    
-    # Memory inefficient: Large NumPy-Arrays
-    if not mem_eff:
-        # Create residue modes matrix (3N -> N for ANMs)
-        modes_mat_n = modes_reshaped[:, :, np.newaxis, :] *\
-                      modes_reshaped[:, np.newaxis, :, :]
-        modes_mat_n = np.sum(modes_mat_n, axis=-1)
-        modes_mat_n = modes_mat_n / eig_values[:, np.newaxis, np.newaxis]
-        dcc = np.sum(modes_mat_n, axis=0)
     
     ## Shortcut if all modes are included in computations
     # GNM -> DCC corresponds to inverted Kirchhoff 
-    elif is_gnm and all_modes:
+    if is_gnm and all_modes:
         dcc = enm.covariance
     # ANM -> ...to the trace of the inverted Hessian's 3x3 superelements
     elif all_modes:
@@ -359,6 +336,14 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B,
         dcc = np.einsum("...ii->...", reshaped)
     # Slower method for custom mode range
     else:
+        eig_values = eig_values[mode_subset]
+        eig_vectors = eig_vectors[mode_subset]
+
+        # Reshape array of eigenvectors
+        # (k,3n) -> (k,n,3) for ANMs; (k,n) -> (k,n,1) for GNMs
+        modes_reshaped = np.reshape(
+                            eig_vectors, (len(mode_subset), -1, num_dim)
+                            )
         dcc = np.zeros((n_nodes, n_nodes))
         for ev, evec in zip(eig_values, modes_reshaped):
             dcc += (evec @ evec.T) / ev
