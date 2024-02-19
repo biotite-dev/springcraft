@@ -288,8 +288,8 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     for 'mode_subset' and 'memory_efficient' are passed to the function.
     """
     
-    from springcraft import GNM
-    from springcraft import ANM
+    from .gnm import GNM
+    from .anm import ANM
     
     eig_values, eig_vectors = enm.eigen()
     n_nodes = len(enm._coord)
@@ -327,9 +327,8 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     elif all_modes:
         # 3N x 3N -> N x 3 x N x 3 -> N x N x 3 x 3
         cov = enm.covariance
-        reshaped = cov.reshape(
-                            cov.shape[0]//3, 3, -1, 3
-                        ).swapaxes(1,2)
+        reshaped = cov.reshape(cov.shape[0]//3, 3, cov.shape[0]//3, 3
+                               ).swapaxes(1,2)
         # Accept array of any dimension 
         # -> Sum over diagonals in last two dims
         # -> Return any shape (in this case NxN)
@@ -341,9 +340,8 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
 
         # Reshape array of eigenvectors
         # (k,3n) -> (k,n,3) for ANMs; (k,n) -> (k,n,1) for GNMs
-        modes_reshaped = np.reshape(
-                            eig_vectors, (len(mode_subset), -1, num_dim)
-                            )
+        modes_reshaped = np.reshape(eig_vectors, (len(mode_subset), -1, num_dim)
+                                    )
         dcc = np.zeros((n_nodes, n_nodes))
         for ev, evec in zip(eig_values, modes_reshaped):
             dcc += (evec @ evec.T) / ev
