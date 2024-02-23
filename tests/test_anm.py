@@ -189,9 +189,10 @@ def test_frequency_fluctuation_dcc(ff_name):
             # no temperature weighting
             tem_scaling = 1
             tem = 1
-            reference_fluc = np.genfromtxt(join(data_dir(), ref_fluc),
-                                            skip_header=1, delimiter=","
-                                        )
+            reference_fluc = np.genfromtxt(
+                join(data_dir(), ref_fluc),
+                skip_header=1, delimiter=","
+            )
 
         # Bio3d -> Mass- and temperature weighting
         else:
@@ -206,15 +207,19 @@ def test_frequency_fluctuation_dcc(ff_name):
                 ff_bio3d_str = "pfanm"
             
             # ENM-NMA -> Reference
-            enm_nma_bio3d = bio3d.nma(pdb=pdb_bio3d, ff=ff_bio3d_str, mass=True)
+            enm_nma_bio3d = bio3d.nma(
+                pdb=pdb_bio3d, ff=ff_bio3d_str, mass=True
+            )
             reference_masses = np.array(enm_nma_bio3d.rx2["mass"])
             reference_freq = np.array(enm_nma_bio3d.rx2["frequencies"])
             reference_fluc = np.array(enm_nma_bio3d.rx2["fluctuations"])
-            reference_fluc_subset = np.array(bio3d.fluct_nma(
-                                            enm_nma_bio3d, mode_inds=r_seq(12,33)
-                                            ))
+            reference_fluc_subset = np.array(
+                bio3d.fluct_nma(enm_nma_bio3d, mode_inds=r_seq(12,33))
+            )
             reference_dcc = np.array(bio3d.dccm(enm_nma_bio3d))
-            reference_dcc_subset = np.array(bio3d.dccm(enm_nma_bio3d, nmodes=30))
+            reference_dcc_subset = np.array(
+                bio3d.dccm(enm_nma_bio3d, nmodes=30)
+            )
 
             tem_scaling = K_B*N_A
             test_nomw = springcraft.ANM(ca, ff)
