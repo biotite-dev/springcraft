@@ -7,8 +7,14 @@ import pytest
 import prody
 import biotite.structure.io.mmtf as mmtf
 import springcraft
+import rpy2.robjects as robjects
+from rpy2.robjects.packages import importr
 from .util import data_dir
 
+# Load bio3d in R
+bio3d = importr("bio3d")
+# Sequence funtion in R
+r_seq = robjects.r["seq"]
 
 def prepare_anms(file_path, cutoff):
     mmtf_file = mmtf.MMTFFile.read(file_path)
@@ -95,32 +101,29 @@ def test_mass_weights_eigenvals(ff_name):
     and the validity of results obtained with SVD.
     To this end, bio3d-assigned masses are used.
     """
-    reference_masses = np.genfromtxt(
-        join(data_dir(), "1l2y_bio3d_masses.csv"),
-        skip_header=1, delimiter=","
-    )
-    
     mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
     atoms = mmtf.get_structure(mmtf_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
+    
+    pdb_bio3d = bio3d.read_pdb(join(data_dir(), "1l2y.pdb"))
 
     if ff_name == "Hinsen":
         ff = springcraft.HinsenForceField()
-        ref_file = "mw_eigenvalues_calpha_bio3d.csv"
+        ff_bio3d_str = "calpha"
     if ff_name == "sdENM":
         ff = springcraft.TabulatedForceField.sd_enm(ca)
-        ref_file = "mw_eigenvalues_sdenm_bio3d.csv"
+        ff_bio3d_str = "sdenm"
     if ff_name == "pfENM":
         ff = springcraft.ParameterFreeForceField()
-        ref_file = "mw_eigenvalues_pfenm_bio3d.csv"
+        ff_bio3d_str = "pfanm"
     
+    # ENM-NMA -> Reference
+    enm_nma_bio3d = bio3d.nma(pdb=pdb_bio3d, ff=ff_bio3d_str, mass=True)
+    reference_masses = np.array(enm_nma_bio3d.rx2["mass"])
+    reference_eigenval = np.array(enm_nma_bio3d.rx2["L"])
+
     test = springcraft.ANM(ca, ff, masses=reference_masses)
     test_eigenval, _ = test.eigen()
-
-    reference_eigenval = np.genfromtxt(
-        join(data_dir(), ref_file),
-        skip_header=1, delimiter=","
-    )
 
     assert np.allclose(test_eigenval[6:], reference_eigenval[6:], atol=1e-06)
 
@@ -132,19 +135,15 @@ def test_frequency_fluctuation_dcc(ff_name):
     Compare quantities commonly computed as part of NMA.
     Prody/BioPhysConnectoR/Bio3d are used as references.
     """
-    # Load bio3d reference
-    reference_masses = np.genfromtxt(
-        join(data_dir(), "1l2y_bio3d_masses.csv"),
-        skip_header=1, delimiter=","
-    )
+    K_B = 1.380649e-23
+    N_A = 6.02214076e23
+    tem = 300
 
     mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
     atoms = mmtf.get_structure(mmtf_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
 
-    K_B = 1.380649e-23
-    N_A = 6.02214076e23
-    tem = 300
+    pdb_bio3d = bio3d.read_pdb(join(data_dir(), "1l2y.pdb"))
     
     # Prody
     if ff_name == "ANM_standard":
@@ -190,30 +189,38 @@ def test_frequency_fluctuation_dcc(ff_name):
             # no temperature weighting
             tem_scaling = 1
             tem = 1
+            reference_fluc = np.genfromtxt(
+                join(data_dir(), ref_fluc),
+                skip_header=1, delimiter=","
+            )
+
         # Bio3d -> Mass- and temperature weighting
         else:
             if ff_name == "Hinsen":
                 ff = springcraft.HinsenForceField()
-                ref_freq = "mw_frequencies_calpha_bio3d.csv"
-                ref_fluc = "mw_fluctuations_calpha_bio3d.csv"
-                ref_fluc_subset = "mw_fluctuations_calpha_subset_bio3d.csv"
-                ref_dcc = "dccm_calpha_bio3d.csv"
-                ref_dcc_subset = "dccm_calpha_subset_bio3d.csv"
+                ff_bio3d_str = "calpha"
             elif ff_name == "sdENM":
                 ff = springcraft.TabulatedForceField.sd_enm(ca)
-                ref_freq = "mw_frequencies_sdenm_bio3d.csv"
-                ref_fluc = "mw_fluctuations_sdenm_bio3d.csv"
-                ref_fluc_subset = "mw_fluctuations_sdenm_subset_bio3d.csv"
-                ref_dcc = "dccm_sdenm_bio3d.csv"
-                ref_dcc_subset = "dccm_sdenm_subset_bio3d.csv"
+                ff_bio3d_str = "sdenm"
             elif ff_name == "pfENM":
                 ff = springcraft.ParameterFreeForceField()
-                ref_freq = "mw_frequencies_pfenm_bio3d.csv"
-                ref_fluc = "mw_fluctuations_pfenm_bio3d.csv"
-                ref_fluc_subset = "mw_fluctuations_pfenm_subset_bio3d.csv"
-                ref_dcc = "dccm_pfenm_bio3d.csv"
-                ref_dcc_subset = "dccm_pfenm_subset_bio3d.csv"
+                ff_bio3d_str = "pfanm"
             
+            # ENM-NMA -> Reference
+            enm_nma_bio3d = bio3d.nma(
+                pdb=pdb_bio3d, ff=ff_bio3d_str, mass=True
+            )
+            reference_masses = np.array(enm_nma_bio3d.rx2["mass"])
+            reference_freq = np.array(enm_nma_bio3d.rx2["frequencies"])
+            reference_fluc = np.array(enm_nma_bio3d.rx2["fluctuations"])
+            reference_fluc_subset = np.array(
+                bio3d.fluct_nma(enm_nma_bio3d, mode_inds=r_seq(12,33))
+            )
+            reference_dcc = np.array(bio3d.dccm(enm_nma_bio3d))
+            reference_dcc_subset = np.array(
+                bio3d.dccm(enm_nma_bio3d, nmodes=30)
+            )
+
             tem_scaling = K_B*N_A
             test_nomw = springcraft.ANM(ca, ff)
             test_fluc_nomw = test_nomw.mean_square_fluctuation(
@@ -222,11 +229,6 @@ def test_frequency_fluctuation_dcc(ff_name):
 
             test = springcraft.ANM(ca, ff, masses=reference_masses)
             test_freq = test.frequencies()
-
-            reference_freq = np.genfromtxt(
-                join(data_dir(), ref_freq),
-                skip_header=1, delimiter=","
-                )
 
             ## Scale for consistency with bio3d; T=300 K; no mass weighting
             # Start with mass_weighted eigenvals
@@ -240,32 +242,12 @@ def test_frequency_fluctuation_dcc(ff_name):
                 tem=tem, tem_factors=tem_scaling, mode_subset=np.arange(11, 33)
                 )
             test_fluc_subset /= (1000 * reference_masses)
-
-            reference_fluc_subset = np.genfromtxt(
-                join(data_dir(), ref_fluc_subset),
-                skip_header=1, delimiter=","
-                )
             
             # DCCs
             test_dcc = test.dcc()
             # Only consider the first 30 non-triv. modes
             # Mode 6-36 (conventional enumeration)
             test_dcc_subset = test.dcc(mode_subset=np.arange(6, 36))
-
-            reference_dcc = np.genfromtxt(
-                join(data_dir(), ref_dcc),
-                skip_header=1, delimiter=","
-                )
-            reference_dcc_subset = np.genfromtxt(
-                join(data_dir(), ref_dcc_subset),
-                skip_header=1, delimiter=","
-                )       
-
-            
-        reference_fluc = np.genfromtxt(
-            join(data_dir(), ref_fluc),
-            skip_header=1, delimiter=","
-            )
 
         ## No mass-weighting
         # Alternative Method for MSF computation considering all modes

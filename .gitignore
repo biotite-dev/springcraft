@@ -137,6 +137,7 @@ dmypy.json
 # VS Code
 *.code-workspace
 .vscode/*
+profile.json
 
 # Temporarily disable freezing of dependency versions
 poetry.lock

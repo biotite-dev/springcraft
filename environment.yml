@@ -18,3 +18,5 @@ dependencies:
   - sphinx-gallery =0.9.0
   - numpydoc >=0.8
   - ammolite >=0.8
+  - rpy2
+  - r-bio3d

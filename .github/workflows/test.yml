@@ -19,7 +19,7 @@ jobs:
           auto-update-conda: true
           python-version: '3.10'
       - name: Installing dependencies
-        run: conda install -c conda-forge poetry prody pytest
+        run: conda install -c conda-forge poetry prody pytest r-bio3d rpy2
       - name: Building distribution
         run: poetry build -f wheel
       - name: Installing distribution
