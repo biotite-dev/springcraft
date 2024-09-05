@@ -7,8 +7,8 @@ channels:
   - conda-forge
 
 dependencies:
-  - numpy >=1.15,<2.0
-  - biotite >=0.32
+  - numpy >=1.15,<1.25
+  - biotite >=0.32<0.40
   - prody >=2.1
   - pytest >=5.2
   - matplotlib >=3.3
