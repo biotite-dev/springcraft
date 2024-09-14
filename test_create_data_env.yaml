@@ -1,0 +1,10 @@
+name: springcraft-test-data
+
+channels:
+    - conda-forge
+
+dependencies:
+    - numpy <1.25
+    - prody >=2.1
+    - rpy2
+    - r-bio3d

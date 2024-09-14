@@ -7,9 +7,8 @@ channels:
   - conda-forge
 
 dependencies:
-  - numpy >=1.15
-  - biotite >=0.32
-  - prody >=2.1
+  - numpy >=2.0
+  - biotite >=1.0.1
   - pytest >=5.2
   - matplotlib >=3.3
   - poetry >=1.0
@@ -18,5 +17,3 @@ dependencies:
   - sphinx-gallery =0.9.0
   - numpydoc >=0.8
   - ammolite >=0.8
-  - rpy2
-  - r-bio3d
