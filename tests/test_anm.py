@@ -4,37 +4,26 @@ from os.path import join
 import glob
 import numpy as np
 import pytest
-import prody
-import biotite.structure.io.mmtf as mmtf
+import biotite.structure.io.pdb as pdb
 import springcraft
-import rpy2.robjects as robjects
-from rpy2.robjects.packages import importr
 from .util import data_dir
 
-# Load bio3d in R
-bio3d = importr("bio3d")
-# Sequence funtion in R
-r_seq = robjects.r["seq"]
+def prepare_springcraft_anm(file_path, cutoff):
+    pdb_file = pdb.PDBFile.read(file_path)
 
-def prepare_anms(file_path, cutoff):
-    mmtf_file = mmtf.MMTFFile.read(file_path)
-
-    atoms = mmtf.get_structure(mmtf_file, model=1)
+    atoms = pdb.get_structure(pdb_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
 
     ff = springcraft.InvariantForceField(cutoff)
     test_anm = springcraft.ANM(ca, ff)
     
-    ref_anm = prody.ANM()
-    ref_anm.buildHessian(ca.coord, gamma=1.0, cutoff=13)
-
-    return test_anm, ref_anm
+    return test_anm
 
 @pytest.mark.parametrize("file_path",
-        glob.glob(join(data_dir(), "*.mmtf"))
+        glob.glob(join(data_dir(), "*.pdb"))
 )
 def test_covariance(file_path):
-    test_anm, _ = prepare_anms(file_path, cutoff=13)
+    test_anm = prepare_springcraft_anm(file_path, cutoff=13)
     test_hessian = test_anm.hessian
     test_covariance = test_anm.covariance
 
@@ -52,17 +41,17 @@ def test_mass_weights_simple():
     Expect that mass weighting with unit masses does not have any
     influence on an ANM, but different weights do.
     """
-    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
-    atoms = mmtf.get_structure(mmtf_file, model=1)
+    pdb_file = pdb.PDBFile.read(join(data_dir(), "1l2y.pdb"))
+    atoms = pdb.get_structure(pdb_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
     ff = springcraft.InvariantForceField(7.9)
 
-    ref_anm = springcraft.ANM(atoms, ff)
+    ref_anm = springcraft.ANM(ca, ff)
     identical_anm = springcraft.ANM(
-        atoms, ff, masses=np.ones(atoms.array_length())
+        ca, ff, masses=np.ones(ca.array_length())
     )
     different_anm = springcraft.ANM(
-        atoms, ff, masses=np.arange(1, atoms.array_length() + 1, dtype=float)
+        ca, ff, masses=np.arange(1, ca.array_length() + 1, dtype=float)
     )
 
     assert np.allclose(identical_anm.hessian, ref_anm.hessian)
@@ -73,8 +62,8 @@ def test_compare_eigenvals_BiophysConnectoR():
     Compare non-mass-weighted eigenvalues with those computed with 
     BiophysConnectoR for eANMs.
     """
-    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
-    atoms = mmtf.get_structure(mmtf_file, model=1)
+    pdb_file = pdb.PDBFile.read(join(data_dir(), "1l2y.pdb"))
+    atoms = pdb.get_structure(pdb_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
 
     ff = springcraft.TabulatedForceField.e_anm(ca)
@@ -84,7 +73,7 @@ def test_compare_eigenvals_BiophysConnectoR():
 
     test_eigenval, _ = eanm.eigen()
 
-    # Load .csv file data from BiophysConnectoR
+    # Load .csv.gz file data from BiophysConnectoR
     ref_eigenval = np.genfromtxt(
         join(data_dir(), ref_file),
         skip_header=1, delimiter=","
@@ -101,12 +90,10 @@ def test_mass_weights_eigenvals(ff_name):
     and the validity of results obtained with SVD.
     To this end, bio3d-assigned masses are used.
     """
-    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
-    atoms = mmtf.get_structure(mmtf_file, model=1)
+    pdb_file = pdb.PDBFile.read(join(data_dir(), "1l2y.pdb"))
+    atoms = pdb.get_structure(pdb_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
     
-    pdb_bio3d = bio3d.read_pdb(join(data_dir(), "1l2y.pdb"))
-
     if ff_name == "Hinsen":
         ff = springcraft.HinsenForceField()
         ff_bio3d_str = "calpha"
@@ -118,13 +105,20 @@ def test_mass_weights_eigenvals(ff_name):
         ff_bio3d_str = "pfanm"
     
     # ENM-NMA -> Reference
-    enm_nma_bio3d = bio3d.nma(pdb=pdb_bio3d, ff=ff_bio3d_str, mass=True)
-    reference_masses = np.array(enm_nma_bio3d.rx2["mass"])
-    reference_eigenval = np.array(enm_nma_bio3d.rx2["L"])
+    bio3d_masses_file = "bio3d_mass_1l2y.csv"
+    bio3d_eigvals_file = f"bio3d_anm_{ff_bio3d_str}_ff_evals_mw_1l2y.csv"
+    reference_masses = np.genfromtxt(
+        join(data_dir(), bio3d_masses_file), delimiter=","
+    )
+    reference_eigenval = np.genfromtxt(
+        join(data_dir(), bio3d_eigvals_file),
+        delimiter=","
+    )
 
     test = springcraft.ANM(ca, ff, masses=reference_masses)
     test_eigenval, _ = test.eigen()
-
+    print(test_eigenval)
+    print(reference_eigenval)
     assert np.allclose(test_eigenval[6:], reference_eigenval[6:], atol=1e-06)
 
 @pytest.mark.parametrize("ff_name", ["ANM_standard", "Hinsen", "eANM", "sdENM",
@@ -139,11 +133,9 @@ def test_frequency_fluctuation_dcc(ff_name):
     N_A = 6.02214076e23
     tem = 300
 
-    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
-    atoms = mmtf.get_structure(mmtf_file, model=1)
+    pdb_file = pdb.PDBFile.read(join(data_dir(), "1l2y.pdb"))
+    atoms = pdb.get_structure(pdb_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
-
-    pdb_bio3d = bio3d.read_pdb(join(data_dir(), "1l2y.pdb"))
     
     # Prody
     if ff_name == "ANM_standard":
@@ -157,27 +149,45 @@ def test_frequency_fluctuation_dcc(ff_name):
         test_dcc_absolute = test_anm.dcc(norm=False)
         test_dcc_subset = test_anm.dcc(mode_subset=np.arange(6, 36))
 
-        ref_anm = prody.ANM()
-        ref_anm.buildHessian(ca.coord, gamma=1.0, cutoff=13)
-        ref_anm.calcModes(n_modes="all")
-
-        reference_freq = 1 / (2 * np.pi) * np.sqrt(ref_anm.getEigvals())
-        reference_fluc = prody.calcSqFlucts(ref_anm[0:])
-        ref_dcc = prody.calcCrossCorr(ref_anm[0:], norm=True)
+        ## Read in Prody reference csv files
+        # Evals and fluctuations
+        prody_ff_cutoff_name = "anm_13_ang_cutoff"
+        prody_evals = np.genfromtxt(
+            join(data_dir(), f"prody_{prody_ff_cutoff_name}_evals_1l2y.csv.gz"),
+            delimiter=","
+        )
+        reference_freq = 1 / (2 * np.pi) * np.sqrt(prody_evals)
+        reference_fluc = np.genfromtxt(
+            join(data_dir(), f"prody_{prody_ff_cutoff_name}_fluctuations_1l2y.csv.gz"),
+            delimiter=","
+        )
+        
+        # DCC
+        ref_dcc = np.genfromtxt(
+            join(data_dir(), f"prody_{prody_ff_cutoff_name}_dcc_norm_1l2y.csv.gz"),
+            delimiter=","
+        )
         
         # Subset: First 30 non-triv. modes
-        ref_dcc_norm_subset = prody.calcCrossCorr(ref_anm[0:30], norm=True)
-        ref_dcc_absolute = prody.calcCrossCorr(ref_anm[0:], norm=False)
+        ref_dcc_norm_subset = np.genfromtxt(
+            join(data_dir(), f"prody_{prody_ff_cutoff_name}_dcc_norm_subset_1l2y.csv.gz"),
+            delimiter=","
+        )
+        # Absolute values
+        ref_dcc_absolute = np.genfromtxt(
+            join(data_dir(), f"prody_{prody_ff_cutoff_name}_dcc_absolute_1l2y.csv.gz"),
+            delimiter=","
+        )
         
-        assert np.allclose(test_freq_no_mw[6:], reference_freq) 
+        assert np.allclose(test_freq_no_mw[6:], reference_freq[6:]) 
         assert np.allclose(test_fluc_nomw, reference_fluc)
         assert np.allclose(test_dcc, ref_dcc)
         assert np.allclose(test_dcc_absolute, ref_dcc_absolute)
         assert np.allclose(test_dcc_subset, ref_dcc_norm_subset)
     
-    # References computed with R packages -> read .csv files in "data"
+    # References computed with R packages -> read .csv.gz files in "data"
     else:    
-        # BioPhysConnectoR -> no internal computation of DCCs, available;
+        # BioPhysConnectoR -> no internal computation of DCCs available;
         #                     no mass-/temperature weighting
         if ff_name =="eANM":
             ff = springcraft.TabulatedForceField.e_anm(ca)
@@ -189,6 +199,8 @@ def test_frequency_fluctuation_dcc(ff_name):
             # no temperature weighting
             tem_scaling = 1
             tem = 1
+
+            ## Read in reference file
             reference_fluc = np.genfromtxt(
                 join(data_dir(), ref_fluc),
                 skip_header=1, delimiter=","
@@ -206,19 +218,36 @@ def test_frequency_fluctuation_dcc(ff_name):
                 ff = springcraft.ParameterFreeForceField()
                 ff_bio3d_str = "pfanm"
             
-            # ENM-NMA -> Reference
-            enm_nma_bio3d = bio3d.nma(
-                pdb=pdb_bio3d, ff=ff_bio3d_str, mass=True
+            ## Read in reference files
+            # Frequencies and fluctuations
+            bio3d_masses_file = "bio3d_mass_1l2y.csv.gz"
+            reference_masses = np.genfromtxt(
+                join(data_dir(), bio3d_masses_file), delimiter=","
             )
-            reference_masses = np.array(enm_nma_bio3d.rx2["mass"])
-            reference_freq = np.array(enm_nma_bio3d.rx2["frequencies"])
-            reference_fluc = np.array(enm_nma_bio3d.rx2["fluctuations"])
-            reference_fluc_subset = np.array(
-                bio3d.fluct_nma(enm_nma_bio3d, mode_inds=r_seq(12,33))
+            reference_freq = np.genfromtxt(
+                join(data_dir(), f"bio3d_anm_{ff_bio3d_str}_ff_frequencies_mw_1l2y.csv"), 
+                delimiter=","
             )
-            reference_dcc = np.array(bio3d.dccm(enm_nma_bio3d))
-            reference_dcc_subset = np.array(
-                bio3d.dccm(enm_nma_bio3d, nmodes=30)
+            reference_fluc = np.genfromtxt(
+                join(data_dir(), f"bio3d_anm_{ff_bio3d_str}_ff_fluctuations_non_mw_1l2y.csv"), 
+                delimiter=","
+            )
+            reference_fluc_subset = np.genfromtxt(
+                join(
+                    data_dir(), 
+                    f"bio3d_anm_{ff_bio3d_str}_ff_fluctuations_subset_mw_1l2y.csv"
+                ), 
+                delimiter=","
+            )
+
+            # DCC and DCC subset (first 30 nontriv. modes)
+            reference_dcc = np.genfromtxt(
+                join(data_dir(), f"bio3d_anm_{ff_bio3d_str}_ff_dcc_mw_1l2y.csv"),
+                delimiter=","
+            )
+            reference_dcc_subset = np.genfromtxt(
+                join(data_dir(), f"bio3d_anm_{ff_bio3d_str}_ff_dcc_subset_mw_1l2y.csv"),
+                delimiter=","
             )
 
             tem_scaling = K_B*N_A
@@ -261,6 +290,8 @@ def test_frequency_fluctuation_dcc(ff_name):
             assert np.allclose(test_fluc_nomw, reference_fluc)
         # Bio3d-FFs
         else:
+            print(test_freq[6:])
+            print(reference_freq[6:])
             assert np.allclose(test_freq[6:], reference_freq[6:], rtol=5e-03, 
                                 atol=2e-03) 
             assert np.allclose(test_fluc, reference_fluc, rtol=5e-03, 

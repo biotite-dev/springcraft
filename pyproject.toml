@@ -34,9 +34,9 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = ">=3.10"
 biotite = ">= 0.32"
-numpy = ">= 1.15"
+numpy = ">= 1.25"
 
 [tool.poetry.dev-dependencies]
 biotite = ">= 2.0"
@@ -50,3 +50,6 @@ ammolite = ">=0.8"
 [build-system]
 requires = ["poetry_core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+addopts =  "--ignore=tests/data"

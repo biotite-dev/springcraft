@@ -1,3 +1,4 @@
+import abc
 import os
 from os import path
 
@@ -92,151 +93,215 @@ file_paths = rcsb.fetch(
     FETCH_PDB_IDS, format="pdb", target_path="./", overwrite=False
 )
 
-bio3d_forcefields = ("calpha", "sdenm", "pfanm")
-bio3d_ff_to_springcraft = dict(
-    zip(bio3d_forcefields, ["hinsen", "sdenm", "pfenm"])
-)
-
-for file_path in file_paths:
-    # Use biotite to read-in structures
-    atoms = bstio.load_structure(file_path, model=1)
-    ca = atoms[((atoms.atom_name == "CA") & (atoms.element == "C"))]
-
-    strucname = file_path.split(os.sep)[-1].split(".")[0]
-
-    ## ProDy - ANM
-    # Pass coordinates to ProDy
-    prody_anm = prody.ANM()
-    prody_anm.buildHessian(ca.coord, gamma=1.0, cutoff=13)
+## Test data-generating functions
+# -> Enforce consistent naming of output .csv
+def prody_enm_nma(enm_type, structure_path, cutoff_list, output_markers="all"):
+    # Check cutoff_list and outputs
+    all_types_in_list = all([isinstance(c, (int, float)) for c in cutoff_list])
+    if not isinstance(cutoff_list, list) and all_types_in_list:
+        raise ValueError(
+            "A list of integers/floats is expected as input for 'cutoff_list'."
+        )
     
-    # Eigenvalues
-    prody_anm.calcModes(n_modes="all")
-    
-    # Fluctuations
-    prody_fluc = prody.calcSqFlucts(prody_anm)
-    fluc_str = f"prody_anm_13_ang_cutoff_fluctuations_{strucname}.csv"
-    np.savetxt(fluc_str, prody_fluc, delimiter=",")
-    
-    # DCC/Cross-correlations
-    prody_dcc = prody.calcCrossCorr(prody_anm, norm=True)
-    dcc_str = f"prody_anm_13_ang_cutoff_dcc_norm_{strucname}.csv"
-    np.savetxt(dcc_str, prody_dcc, delimiter=",")
-    
-    # -> Subset: first 30 non-triv. modes
-    prody_dcc_norm_subset = prody.calcCrossCorr(prody_anm[0:30], norm=True)
-    dcc_str_subset = f"prody_anm_13_ang_cutoff_dcc_norm_subset_{strucname}.csv"
-    np.savetxt(dcc_str_subset, prody_dcc_norm_subset, delimiter=",")
+    accepted_outputs = [
+        "hess_kirchhoff", "evals", "evecs", "fluctuations", "dcc_norm", 
+        "dcc_norm_subset", "dcc_absolute"
+    ]
+    # Check output string/list of strings
+    outputs = accepted_outputs if output_markers == "all" else output_markers
+    if not all([o in accepted_outputs for o in outputs]):
+        raise ValueError(
+            "Only the following options are accepted for 'output_markers': \n",
+            f"{accepted_outputs}"
+        )
 
-    # -> Absolute values
-    prody_dcc_absolute = prody.calcCrossCorr(prody_anm[0:], norm=False)
-    dcc_str_absolute = (
-        f"prody_anm_13_ang_cutoff_dcc_norm_subset_{strucname}.csv"
+    # Structure I/O
+    in_struc = bstio.load_structure(structure_path, model=1)
+    ca = in_struc[(
+        (struc.filter_canonical_amino_acids(in_struc))
+        & (in_struc.atom_name=="CA")
+    )]
+    
+    for c in cutoff_list:
+        # Generalized ENM/Kirchhoff or Hessian w. pattern matching
+        match enm_type:
+            # Select either ANM or GNMs
+            case "anm":
+                prody_enm = prody.ANM()
+                prody_enm.buildHessian(ca.coord, gamma=1.0, cutoff=c)
+                structure_info_matrix = prody_enm.getHessian()
+                first_non_triv_mode = 6
+                last_subset_mode = 36
+            case "gnm":
+                prody_enm = prody.GNM()
+                prody_enm.buildKirchhoff(ca.coord, gamma=1.0, cutoff=c)
+                structure_info_matrix = prody_enm.getKirchhoff()
+                first_non_triv_mode = 1
+                last_subset_mode = 16 + 1
+            case _:
+                raise ValueError(
+                    "Only 'gnm' and 'anm' are valid inputs for 'enm_type'."
+                )
+        
+        # NOTE: Prody only computes non-trivial modes in the standard case 
+        # First trivial mode -> last mode
+        prody_enm.calcModes(n_modes="all", zeros=True)
+
+        strucname = structure_path.split(os.sep)[-1].split(".")[0]
+
+        for o in outputs:
+            match o:
+                case "hess_kirchhoff":
+                    prody_output = structure_info_matrix
+                    o = "hessian" if enm_type == "anm" else "kirchhoff"
+                case "evals":
+                    prody_output = prody_enm.getEigvals()
+                case "evecs":
+                    prody_output = prody_enm.getEigvecs().T
+                case "fluctuations":
+                    prody_output = prody.calcSqFlucts(prody_enm)
+                case "dcc_norm":
+                    prody_output = prody.calcCrossCorr(prody_enm)
+                case "dcc_norm_subset":
+                    prody_output = prody.calcCrossCorr(
+                        prody_enm[first_non_triv_mode:last_subset_mode],
+                        norm=True
+                    )
+                case "dcc_absolute":
+                    prody_output = prody.calcCrossCorr(
+                        prody_enm, norm=False
+                    )
+            out_str = f"prody_{enm_type}_{c}_ang_cutoff_{o}_{strucname}.csv.gz"
+            np.savetxt(out_str, prody_output, delimiter=",")
+
+def bio3d_anm_nma(structure_path, bio3d_ff, output_markers="all"):
+    # Check bio3d_ff and outputs
+    accepted_bio3d_ff = ["calpha", "sdenm", "pfanm"]
+    if not bio3d_ff in accepted_bio3d_ff:
+        raise ValueError(
+            "Onle the following bio3d FFs are accepted: \n",
+            f"{accepted_bio3d_ff}"
+        )
+
+    accepted_outputs = [
+        "masses", "hessian", "evals_mw", "frequencies_mw", "fluctuations_non_mw", 
+        "fluctuations_subset_mw", "dcc_mw", "dcc_subset_mw"
+    ]
+    # Check output string/list of strings
+    outputs = accepted_outputs if output_markers == "all" else output_markers
+    if not all([o in accepted_outputs for o in outputs]):
+        raise ValueError(
+            "Only the following options are accepted for 'output_markers': \n",
+            f"{accepted_outputs}"
+        )
+
+    # Get strucname; structure I/O w. bio3d
+    strucname = structure_path.split(os.sep)[-1].split(".")[0]
+    # Create bio3d NMA; read full PDB
+    pdb_bio3d = bio3d.read_pdb(structure_path)
+    enm_nma_bio3d = bio3d.nma(pdb=pdb_bio3d, ff=bio3d_ff, mass=True)
+
+    for o in outputs:
+        match o:
+            case "masses":
+                bio3d_output = np.array(enm_nma_bio3d.rx2["mass"])
+            case "hessian":
+                ## Have to be computed separately; AtomArrays -> bio3d-PDB objects
+                # Structure I/O w. biotite
+                in_struc = bstio.load_structure(structure_path, model=1)
+                ca = in_struc[(
+                    (struc.filter_canonical_amino_acids(in_struc))
+                    & (in_struc.atom_name=="CA")
+                )]
+                ff_bio3d = bio3d.load_enmff(ff=bio3d_ff)
+                pdb_bio3d = aarray_to_bio3d(ca)
+                bio3d_output = bio3d.build_hessian(
+                    pdb_bio3d.rx2("xyz"), 
+                    pfc_fun=ff_bio3d,
+                    pdb=pdb_bio3d
+                )
+            case "evals_mw":
+                bio3d_output = np.array(enm_nma_bio3d.rx2["L"])
+            case "frequencies_mw":
+                bio3d_output = np.array(enm_nma_bio3d.rx2["frequencies"])
+            case "fluctuations_non_mw":
+                bio3d_output = np.array(enm_nma_bio3d.rx2["fluctuations"])
+            case "fluctuations_subset_mw":
+                bio3d_output = np.array(
+                    bio3d.fluct_nma(enm_nma_bio3d, mode_inds=r_seq(12,33))
+                )
+            case "dcc_mw":
+                bio3d_output = np.array(bio3d.dccm(enm_nma_bio3d))
+            case "dcc_subset_mw":
+                bio3d_output = np.array(
+                    bio3d.dccm(enm_nma_bio3d, nmodes=30)
+                )
+        if not o == "masses":
+            out_str = f"bio3d_anm_{bio3d_ff}_ff_{o}_{strucname}.csv.gz"
+        else:
+            out_str = f"bio3d_mass_{strucname}.csv.gz"
+        np.savetxt(out_str, bio3d_output, delimiter=",")
+
+## Generate CSV files
+path_1l2y = "1l2y.pdb"
+anm_prody_cutoffs = [13]
+# ANM - Prody
+anm_prody_out = ["evals", "fluctuations", "dcc_norm", "dcc_norm_subset", "dcc_absolute"]
+prody_enm_nma("anm", path_1l2y, anm_prody_cutoffs, anm_prody_out)
+
+# GNM - Prody
+gnm_prody_cutoffs = [4, 7, 13]
+gnm_prody_out = [
+        "hess_kirchhoff", "evals", "evecs", "fluctuations", "dcc_norm", 
+        "dcc_norm_subset", "dcc_absolute"
+]
+prody_enm_nma("gnm", path_1l2y, gnm_prody_cutoffs, gnm_prody_out)
+
+# ANMs: sdENM, pfENM and Hinsen/Calpha - bio3d
+bio3d_forcefields = ("calpha", "sdenm", "pfanm")    
+
+for bff in bio3d_forcefields:
+    bio3d_anm_nma(path_1l2y, bff, "all")
+
+# Test Hessians with random coordinates
+SEED = [1, 323, 777, 999]
+N_ATOMS = 500
+BOX_SIZE = 40
+
+cutoffs_for_random_coords = [5, 10, 15]
+
+for s in SEED:
+    np.random.seed(SEED)
+    coord = np.random.rand(N_ATOMS, 3) * BOX_SIZE
+    np.savetxt(
+        f"random_coord_seed_{s}.csv.gz",
+        coord,
+        delimiter=","
     )
-    np.savetxt(dcc_str_absolute, prody_dcc_absolute, delimiter=",")
 
-    ## ProDy - GNM
-    cutoffs_gnm = [4, 7, 13]
-    for c in cutoffs_gnm:
-        prody_gnm = prody.GNM()
+    for c in cutoffs_for_random_coords:
+        # Random coord. GNM
+        random_gnm = prody.GNM()
+        random_gnm.buildKirchhoff(coord, gamma=1.0, cutoff=c)
+        random_kirchhoff = random_gnm.getKirchhoff()
 
-        # Kirchhoff/Eval/Evec
-        prody_gnm.buildKirchhoff(ca.coord, gamma=1.0, cutoff=c)
-        prody_gnm.calcModes("all", zeros=True)
-        kirchhoff = prody_anm.getKirchhoff()
-        ref_eig_values = prody_gnm.getEigvals()
-        ref_eig_vectors = prody_gnm.getEigvecs().T
-
-        np.savetxt(f"prody_gnm_{c}_ang_cutoff_kirchhoff_{strucname}.csv", kirchhoff, delimiter=",")
-        np.savetxt(f"prody_gnm_{c}_ang_cutoff_eval_{strucname}.csv", ref_eig_values, delimiter=",")
-        np.savetxt(f"prody_gnm_{c}_ang_cutoff_evevs_{strucname}.csv", ref_eig_vectors, delimiter=",")
-
-        # Fluctuations/DCC
-        ref_fluc = prody.calcSqFlucts(prody_anm[0:])
-        ref_dcc = prody.calcCrossCorr(prody_anm[0:])
-        ref_dcc_norm_subset = prody.calcCrossCorr(prody_anm[0:16], norm=True)
-        ref_dcc_absolute = prody.calcCrossCorr(prody_anm[0:], norm=False)
-
-        np.savetxt(f"prody_gnm_{c}_ang_cutoff_fluctuations_{strucname}.csv", ref_fluc, delimiter=",")
-        np.savetxt(f"prody_gnm_{c}_ang_cutoff_dcc_{strucname}.csv", ref_dcc, delimiter=",")
-        np.savetxt(f"prody_gnm_{c}_ang_cutoff_dcc_norm_subset_{strucname}.csv", ref_dcc_norm_subset, delimiter=",")
-        np.savetxt(f"prody_gnm_{c}_ang_cutoff_dcc_absolute_{strucname}.csv", ref_dcc_absolute, delimiter=",")
-
-    ## Bio3d
-    # Read in PDB file separately with Bio3d -> for mass-weighting
-    pdb_bio3d = bio3d.read_pdb(file_path)
-
-    # ANM-NMA for various bio3d forcefields
-    for en, bio3d_ff in enumerate(bio3d_forcefields): 
-        if en == 0:
-            # Save reference mass
-            enm_nma_bio3d = bio3d.nma(pdb=pdb_bio3d, ff=bio3d_ff, mass=True)
-            bio3d_masses = np.array(enm_nma_bio3d.rx2["mass"])
-            np.savetxt(
-                f"bio3d_mass_{strucname}.csv", bio3d_masses, delimiter=","
-            )
-
-        # Hessian -> Compute separately; AtomArray -> bio3d-PDB objects
-        ff_bio3d = bio3d.load_enmff(ff=bio3d_ff)
-        pdb_bio3d = aarray_to_bio3d(ca)
-        ref_hessian = bio3d.build_hessian(
-            pdb_bio3d.rx2("xyz"), 
-            pfc_fun=ff_bio3d,
-            pdb=pdb_bio3d
-        )
         np.savetxt(
-            f"bio3d_{bio3d_ff}_ff_hessian_{strucname}.csv", 
-            ref_hessian, 
+            f"prody_gnm_{c}_ang_cutoff_kirchhoff_random_coords_seed_{s}.csv.gz",
+            random_kirchhoff,
             delimiter=","
         )
 
-        # Eigenvalues (mass-weighted)
-        bio3d_eigval = np.array(enm_nma_bio3d.rx2["L"])
-        np.savetxt(
-            f"bio3d_{bio3d_ff}_ff_eigenvalues_{strucname}.csv", 
-            bio3d_eigval, 
-            delimiter=","
-        )
+        # Random coord. ANM
+        # -> broken Hessian; degenerate eigvals for low cutoffs
+        if c < 10:
+            continue
+        random_anm = prody.ANM()
+        random_anm.buildHessian(coord, gamma=1.0, cutoff=c)
+        random_hessian = random_anm.getHessian()
 
-        # Mass-weighted frequencies
-        bio3d_freq = np.array(enm_nma_bio3d.rx2["frequencies"])
         np.savetxt(
-            f"bio3d_{bio3d_ff}_ff_frequencies_mw_{strucname}.csv",
-            bio3d_freq,
+            f"prody_anm_{c}_ang_cutoff_hessian_random_coords_seed_{s}.csv.gz",
+            random_hessian,
             delimiter=","
         )
-
-        # Fluctuations
-        bio3d_fluc = np.array(enm_nma_bio3d.rx2["fluctuations"])
-        np.savetxt(
-            f"bio3d_{bio3d_ff}_ff_fluctuations_non_mw_{strucname}.csv",
-            bio3d_fluc,
-            delimiter=","
-        )
-
-        # Fluctuations; first 30 mode subset (apparently mass-weighted!)
-        bio3d_fluc_subset = np.array(
-            bio3d.fluct_nma(enm_nma_bio3d, mode_inds=r_seq(12,33))
-        )
-        np.savetxt(
-            f"bio3d_{bio3d_ff}_ff_fluctuations_subset_mw_{strucname}.csv",
-            bio3d_fluc_subset,
-            delimiter=","
-        )
-
-        # Mass-weighted DCC/Cross-correlations
-        bio3d_dcc = np.array(bio3d.dccm(enm_nma_bio3d))
-        np.savetxt(
-            f"bio3d_{bio3d_ff}_ff_dcc_mw_{strucname}.csv",
-            bio3d_dcc,
-            delimiter=","
-        )
-
-        # -> 30 mode subset
-        bio3d_dcc_subset = np.array(
-            bio3d.dccm(enm_nma_bio3d, nmodes=30)
-        )
-        np.savetxt(
-            f"bio3d_{bio3d_ff}_ff_dcc_subset_mw_{strucname}.csv",
-            bio3d_dcc_subset,
-            delimiter=","
-        )
+    
