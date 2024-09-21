@@ -1,7 +1,7 @@
 """
 Basic NMA of a Protein-ENM
 ==========================
-In this example script, a basic normal mode analysis (NMA) of a protein 
+In this example script, a basic normal mode analysis (NMA) of a protein
 coarse-grained elastic network model (ENM) is conducted.
 """
 
@@ -30,7 +30,7 @@ ff = springcraft.TabulatedForceField.e_anm(ca)
 eanm = springcraft.ANM(ca, ff)
 
 ## NMA
-# Compute eigenvalues and eigenvectors. 
+# Compute eigenvalues and eigenvectors.
 # The first 6 eigenvals./eigenvecs corresponding to trivial modes are omitted.
 # -> analyse modes 7-107
 eigenval, eigenvec = eanm.eigen()
@@ -49,9 +49,9 @@ ax1 = fig.add_subplot(grid[1, :])
 
 biotite_c = biotite.colors["orange"]
 
-ax00.bar(x=np.arange(7, len(eigenval)+7), height=eigenval, color=biotite_c)
-ax01.bar(x=np.arange(7, len(freq)+7), height=freq, color=biotite_c)
-ax1.bar(x=np.arange(1, len(msqf)+1), height=msqf, color=biotite_c) 
+ax00.bar(x=np.arange(7, len(eigenval) + 7), height=eigenval, color=biotite_c)
+ax01.bar(x=np.arange(7, len(freq) + 7), height=freq, color=biotite_c)
+ax1.bar(x=np.arange(1, len(msqf) + 1), height=msqf, color=biotite_c)
 
 ax00.set_xlabel("Mode", size=16)
 ax00.set_ylabel(r"Eigenvalue $\lambda$", size=16)

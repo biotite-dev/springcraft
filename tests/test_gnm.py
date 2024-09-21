@@ -19,10 +19,10 @@ def prepare_gnm(file_path, cutoff):
     return test_gnm
 
 
-@pytest.mark.parametrize("file_path, cutoff", itertools.product(
-        glob.glob(join(data_dir(), "*.pdb")),
-        [4, 7, 13]
-))
+@pytest.mark.parametrize(
+    "file_path, cutoff",
+    itertools.product(glob.glob(join(data_dir(), "*.pdb")), [4, 7, 13]),
+)
 def test_kirchhoff(file_path, cutoff):
     """
     Compare computed Kirchhoff matrix with output from *ProDy* with
@@ -32,52 +32,55 @@ def test_kirchhoff(file_path, cutoff):
     pdb_name = basename(file_path).split(".")[0]
     ref_kirchhoff = np.genfromtxt(
         join(data_dir(), f"prody_gnm_{cutoff}_ang_cutoff_kirchhoff_{pdb_name}.csv.gz"),
-        delimiter=","
+        delimiter=",",
     )
 
     print(test_gnm.kirchhoff)
     print(ref_kirchhoff)
-    assert test_gnm.kirchhoff.flatten().tolist() \
-        == pytest.approx(ref_kirchhoff.flatten().tolist())
+    assert test_gnm.kirchhoff.flatten().tolist() == pytest.approx(
+        ref_kirchhoff.flatten().tolist()
+    )
 
 
-@pytest.mark.parametrize("file_path, cutoff", itertools.product(
+@pytest.mark.parametrize(
+    "file_path, cutoff",
+    itertools.product(
         glob.glob(join(data_dir(), "*.pdb")),
         # Cutoff must not be too large,
         # otherwise degenerate eigenvalues appear
-        [4, 7]
-))
+        [4, 7],
+    ),
+)
 def test_eigen(file_path, cutoff):
     """
     Compare computed eigenvalues and -vectors with output from *ProDy*
     with test files.
     """
     test_gnm = prepare_gnm(file_path, cutoff)
-    
+
     test_eig_values, test_eig_vectors = test_gnm.eigen()
 
     pdb_name = basename(file_path).split(".")[0]
 
     ref_eig_values = np.genfromtxt(
         join(data_dir(), f"prody_gnm_{cutoff}_ang_cutoff_evals_{pdb_name}.csv.gz"),
-        delimiter=","
+        delimiter=",",
     )
     ref_eig_vectors = np.genfromtxt(
         join(data_dir(), f"prody_gnm_{cutoff}_ang_cutoff_evecs_{pdb_name}.csv.gz"),
-        delimiter=","
+        delimiter=",",
     )
 
     # Adapt sign of eigenvectors # TODO Is this correct?
-    test_eig_vectors *= np.sign(test_eig_vectors[:,0])[:,np.newaxis]
-    ref_eig_vectors *= np.sign(ref_eig_vectors[:,0])[:,np.newaxis]
+    test_eig_vectors *= np.sign(test_eig_vectors[:, 0])[:, np.newaxis]
+    ref_eig_vectors *= np.sign(ref_eig_vectors[:, 0])[:, np.newaxis]
 
-    print(test_eig_vectors)
-    print("-------------------------------------------------------------------")
-    print(ref_eig_vectors)
     assert np.allclose(test_eig_values[1:], ref_eig_values[1:])
     assert test_eig_values[1:].tolist() == pytest.approx(ref_eig_values[1:].tolist())
-    assert test_eig_vectors[1:].flatten().tolist() \
-        == pytest.approx(ref_eig_vectors[1:].flatten().tolist())
+    assert test_eig_vectors[1:].flatten().tolist() == pytest.approx(
+        ref_eig_vectors[1:].flatten().tolist()
+    )
+
 
 def test_mass_weights_simple():
     """
@@ -89,25 +92,23 @@ def test_mass_weights_simple():
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
     ff = springcraft.InvariantForceField(7.9)
 
-    ref_gnm = springcraft.GNM(atoms, ff)
-    identical_gnm = springcraft.GNM(
-        atoms, ff, masses=np.ones(atoms.array_length())
-    )
+    ref_gnm = springcraft.GNM(ca, ff)
+    identical_gnm = springcraft.GNM(ca, ff, masses=np.ones(ca.array_length()))
     different_gnm = springcraft.GNM(
-        atoms, ff, masses=np.arange(1, atoms.array_length() + 1, dtype=float)
+        ca, ff, masses=np.arange(1, ca.array_length() + 1, dtype=float)
     )
 
     assert np.allclose(identical_gnm.kirchhoff, ref_gnm.kirchhoff)
     assert not np.allclose(different_gnm.kirchhoff, ref_gnm.kirchhoff)
 
-@pytest.mark.parametrize("file_path, cutoff", itertools.product(
-        glob.glob(join(data_dir(), "*.pdb")),
-        [4, 7]
-))
+
+@pytest.mark.parametrize(
+    "file_path, cutoff", itertools.product(glob.glob(join(data_dir(), "*.pdb")), [4, 7])
+)
 def test_fluctuation_dcc(file_path, cutoff):
     """
-    Comparison of mean-square fluctuations and 
-    dynamic cross-correlations computed with Springcraft and Prody. 
+    Comparison of mean-square fluctuations and
+    dynamic cross-correlations computed with Springcraft and Prody.
     """
     test_gnm = prepare_gnm(file_path, cutoff)
     test_fluc = test_gnm.mean_square_fluctuation()
@@ -118,20 +119,27 @@ def test_fluctuation_dcc(file_path, cutoff):
     pdb_name = basename(file_path).split(".")[0]
 
     reference_fluc = np.genfromtxt(
-        join(data_dir(), f"prody_gnm_{cutoff}_ang_cutoff_fluctuations_{pdb_name}.csv.gz"),
-        delimiter=","
+        join(
+            data_dir(), f"prody_gnm_{cutoff}_ang_cutoff_fluctuations_{pdb_name}.csv.gz"
+        ),
+        delimiter=",",
     )
     reference_dcc = np.genfromtxt(
         join(data_dir(), f"prody_gnm_{cutoff}_ang_cutoff_dcc_norm_{pdb_name}.csv.gz"),
-        delimiter=","
+        delimiter=",",
     )
     reference_dcc_norm_subset = np.genfromtxt(
-        join(data_dir(), f"prody_gnm_{cutoff}_ang_cutoff_dcc_norm_subset_{pdb_name}.csv.gz"),
-        delimiter=","
+        join(
+            data_dir(),
+            f"prody_gnm_{cutoff}_ang_cutoff_dcc_norm_subset_{pdb_name}.csv.gz",
+        ),
+        delimiter=",",
     )
     reference_dcc_absolute = np.genfromtxt(
-        join(data_dir(), f"prody_gnm_{cutoff}_ang_cutoff_dcc_absolute_{pdb_name}.csv.gz"),
-        delimiter=","
+        join(
+            data_dir(), f"prody_gnm_{cutoff}_ang_cutoff_dcc_absolute_{pdb_name}.csv.gz"
+        ),
+        delimiter=",",
     )
 
     print(test_dcc_subset.shape)

@@ -15,6 +15,7 @@ from . import nma
 K_B = 1.380649e-23
 N_A = 6.02214076e23
 
+
 class ANM:
     """
     This class represents an *Anisotropic Network Model*.
@@ -69,20 +70,21 @@ class ANM:
                 raise TypeError(
                     "An AtomArray is required to automatically infer masses"
                 )
-            self._masses = np.array([
-                struc.info.mass(res_name, is_residue=True)
-                for res_name in atoms.res_name
-            ])
+            self._masses = np.array(
+                [
+                    struc.info.mass(res_name, is_residue=True)
+                    for res_name in atoms.res_name
+                ]
+            )
         else:
             if len(masses) != atoms.array_length():
                 raise IndexError(
-                    f"{len(masses)} masses for "
-                    f"{atoms.array_length()} atoms given"
+                    f"{len(masses)} masses for " f"{atoms.array_length()} atoms given"
                 )
             if np.any(masses == 0):
                 raise ValueError("Masses must not be 0")
             self._masses = np.array(masses, dtype=float)
-        
+
         if self._masses is not None:
             mass_weights = 1 / np.sqrt(self._masses)
             # 3 repetitions,
@@ -113,7 +115,7 @@ class ANM:
                     self._covariance, hermitian=True, rcond=1e-6
                 )
         return self._hessian
-    
+
     @hessian.setter
     def hessian(self, value):
         if value.shape != (len(self._coord) * 3, len(self._coord) * 3):
@@ -125,15 +127,13 @@ class ANM:
         self._hessian = value
         # Invalidate dependent values
         self._covariance = None
-    
+
     @property
     def covariance(self):
         if self._covariance is None:
-            self._covariance = np.linalg.pinv(
-                self.hessian, hermitian=True, rcond=1e-6
-            )
+            self._covariance = np.linalg.pinv(self.hessian, hermitian=True, rcond=1e-6)
         return self._covariance
-    
+
     @covariance.setter
     def covariance(self, value):
         if value.shape != (len(self._coord) * 3, len(self._coord) * 3):
@@ -145,16 +145,16 @@ class ANM:
         self._covariance = value
         # Invalidate dependent values
         self._hessian = None
-        
+
     def eigen(self):
         """
         Compute the Eigenvalues and Eigenvectors of the
         *Hessian* matrix.
 
-        The first six Eigenvalues/Eigenvectors correspond to 
-        trivial modes (translations/rotations) and are usually omitted 
-        in normal mode analysis. 
-        
+        The first six Eigenvalues/Eigenvectors correspond to
+        trivial modes (translations/rotations) and are usually omitted
+        in normal mode analysis.
+
         Returns
         -------
         eig_values : ndarray, shape=(k,), dtype=float
@@ -164,7 +164,7 @@ class ANM:
             ``eig_values[i]`` corresponds to ``eig_vectors[i]``.
         """
         return nma.eigen(self)
-    
+
     def normal_mode(self, index, amplitude, frames, movement="sine"):
         """
         Create displacements for a trajectory depicting the given normal
@@ -185,7 +185,7 @@ class ANM:
             Increasing indices refer to oscillations with increasing
             frequency.
             The first 6 modes represent tigid body movements
-            (rotations and translations). 
+            (rotations and translations).
         amplitude : int
             The oscillation amplitude is scaled so that the maximum
             value for an atom is the given value.
@@ -196,7 +196,7 @@ class ANM:
             If set to ``'sine'`` the atom movement is sinusoidal.
             If set to ``'triangle'`` the atom movement is linear with
             *sharp* amplitude.
-        
+
         Returns
         -------
         displacement : ndarray, shape=(m,n,3), dtype=float
@@ -204,7 +204,7 @@ class ANM:
             *m* is the number of frames.
         """
         return nma.normal_mode(self, index, amplitude, frames, movement)
-            
+
     def linear_response(self, force):
         """
         Compute the atom displacement induced by the given force using
@@ -225,7 +225,7 @@ class ANM:
             The vector of displacement induced by the given force.
             The first dimension represents the atom index,
             the second dimension represents spatial dimension.
-        
+
         References
         ----------
         .. [1] M Ikeguchi, J Ueno, M Sato, A Kidera,
@@ -254,13 +254,12 @@ class ANM:
         """
         return nma.frequencies(self)
 
-    def mean_square_fluctuation(self, mode_subset=None, 
-                                tem=None, tem_factors=K_B):
+    def mean_square_fluctuation(self, mode_subset=None, tem=None, tem_factors=K_B):
         """
         Compute the *mean square fluctuation* for the atoms according
         to the ANM.
-        This is equal to the sum of the diagonal of each 3x3 
-        superelement of the ANM covariance matrix, if all k-6 non-trivial 
+        This is equal to the sum of the diagonal of each 3x3
+        superelement of the ANM covariance matrix, if all k-6 non-trivial
         modes are considered.
 
         Parameters
@@ -274,11 +273,11 @@ class ANM:
             If mode_subset is None, all modes except the first six
             trivial modes (0-5) are included.
         tem : int, float, None, optional
-            Temperature in Kelvin to compute the temperature scaling 
+            Temperature in Kelvin to compute the temperature scaling
             factor by multiplying with the Boltzmann constant.
-            If tem is None, no temperature scaling is conducted. 
+            If tem is None, no temperature scaling is conducted.
         tem_factors : int, float, optional
-            Factors included in temperature weighting 
+            Factors included in temperature weighting
             (with K_B as preset).
 
         Returns
@@ -286,17 +285,14 @@ class ANM:
         msqf : ndarray, shape=(n,), dtype=float
             The mean square fluctuations for each atom in the model.
         """
-        return nma.mean_square_fluctuation(
-            self, mode_subset, tem, tem_factors  
-        )
+        return nma.mean_square_fluctuation(self, mode_subset, tem, tem_factors)
 
-    def bfactor(self, mode_subset=None, tem=None, 
-                tem_factors=K_B):
+    def bfactor(self, mode_subset=None, tem=None, tem_factors=K_B):
         """
         Computes the isotropic B-factors/temperature factors/
-        Deby-Waller factors for atoms/coarse-grained beads using 
+        Deby-Waller factors for atoms/coarse-grained beads using
         the mean-square fluctuation.
-        These can be used to relate results obtained from ENMs 
+        These can be used to relate results obtained from ENMs
         to experimental results.
 
         Parameters
@@ -310,31 +306,29 @@ class ANM:
             If mode_subset is None, all modes except the first six
             trivial modes (0-5) are included.
         tem : int, float, None, optional
-            Temperature in Kelvin to compute the temperature scaling 
+            Temperature in Kelvin to compute the temperature scaling
             factor by multiplying with the Boltzmann constant.
-            If tem is None, no temperature scaling is conducted. 
+            If tem is None, no temperature scaling is conducted.
         tem_factors : int, float, optional
-            Factors included in temperature weighting 
+            Factors included in temperature weighting
             (with K_B as preset).
         Returns
         -------
         bfac_values : ndarray, shape=(n,), dtype=float
             B-factors of C-alpha atoms.
         """
-        return nma.bfactor(
-            self, mode_subset, tem, tem_factors
-        )
+        return nma.bfactor(self, mode_subset, tem, tem_factors)
 
     def dcc(self, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
         r"""
-        Computes the normalized *dynamic cross-correlation* between 
+        Computes the normalized *dynamic cross-correlation* between
         nodes of the ANM.
 
         The DCC is a measure for the correlation in fluctuations
-        exhibited by a given pair of nodes. If normalized, pairs with 
-        correlated fluctuations (same phase and period), 
+        exhibited by a given pair of nodes. If normalized, pairs with
+        correlated fluctuations (same phase and period),
         anticorrelated fluctuations (opposite phase, same period)
-        and non-correlated fluctuations are assigned (normalized) 
+        and non-correlated fluctuations are assigned (normalized)
         DCC values of 1, -1 and 0 respectively.
         For results consistent with MSFs, temperature-weighted
         absolute values can be computed (only relevant if results
@@ -353,28 +347,28 @@ class ANM:
         norm : bool, optional
             Normalize the DCC using the MSFs of interacting nodes.
         tem : int, float, None, optional
-            Temperature in Kelvin to compute the temperature scaling 
+            Temperature in Kelvin to compute the temperature scaling
             factor by multiplying with the Boltzmann constant.
-            If tem is None, no temperature scaling is conducted. 
+            If tem is None, no temperature scaling is conducted.
         tem_factors : int, float, optional
-            Factors included in temperature weighting 
+            Factors included in temperature weighting
             (with :math:`k_B` as preset).
 
         Returns
         -------
         dcc : ndarray, shape=(n, n), dtype=float
             DCC values for ENM nodes.
-        
+
         Notes
         -----
         The DCC for a nodepair :math:`ij` is computed as:
 
-        .. math:: 
+        .. math::
 
             DCC_{ij} = \frac{3 k_B T}{\gamma} \sum_k^L \left[ \frac{\vec{u}_k \cdot \vec{u}_k^T}{\lambda_k} \right]_{ij}
 
-        with :math:`\lambda` and :math:`\vec{u}` as 
-        Eigenvalues and Eigenvectors corresponding to mode :math:`k` of 
+        with :math:`\lambda` and :math:`\vec{u}` as
+        Eigenvalues and Eigenvectors corresponding to mode :math:`k` of
         the modeset :math:`L`.
 
         DCCs can be normalized to MSFs exhibited by two compared nodes
@@ -384,6 +378,4 @@ class ANM:
 
             nDCC_{ij} = \frac{DCC_{ij}}{[DCC_{ii} DCC_{jj}]^{1/2}}
         """
-        return nma.dcc(
-            self, mode_subset, norm, tem, tem_factors
-        )
+        return nma.dcc(self, mode_subset, norm, tem, tem_factors)
