@@ -4,6 +4,7 @@ from os import path
 
 import biotite.structure as struc
 import biotite.structure.io as bstio
+import biotite.structure.io.pdb as pdb
 import biotite.database.rcsb as rcsb
 import numpy as np
 import prody
@@ -13,21 +14,28 @@ from rpy2.robjects.vectors import DataFrame as DataFrame_r
 from rpy2.robjects import numpy2ri
 from rpy2.robjects.conversion import localconverter
 
-FETCH_PDB_IDS = ["1l2y"]
+FETCH_PDB_IDS = ["1l2y", "7cal"]
+
+for pdb_fetch_id in FETCH_PDB_IDS:
+    in_pdb = pdb.PDBFile.read(
+        rcsb.fetch(pdb_fetch_id, format="pdb", overwrite=True)
+    )
+    in_struc = in_pdb.get_structure(model=1)
+    # NOTE: Deprecated filter function -> Older Biotite version
+    protein = in_struc[struc.filter_amino_acids(in_struc)]
+    
+    outpdb = pdb.PDBFile()
+    pdb.set_structure(outpdb, protein)
+    outpdb.write(pdb_fetch_id + ".pdb")
 
 # Load bio3d in R
 bio3d = importr("bio3d")
 # Sequence funtion in R
 r_seq = robjects.r["seq"]
 
-
 # Convert AtomArray into bio3d-PDB objects
 def aarray_to_bio3d(aarray):
     coords = aarray.coord
-
-    # Resid names
-    residue_starts = struc.get_residue_starts(aarray)
-    res_names = aarray.res_name[residue_starts]
 
     xyz_r = robjects.r.matrix(robjects.FloatVector(coords.ravel()), nrow=1)
 
@@ -89,10 +97,6 @@ def aarray_to_bio3d(aarray):
         pdb_bio3d.rx2["calpha"] = np.isin(seq_all_atoms, ca_inds)
 
     return pdb_bio3d
-
-
-file_paths = rcsb.fetch(FETCH_PDB_IDS, format="pdb", target_path="./", overwrite=False)
-
 
 ## Test data-generating functions
 # -> Enforce consistent naming of output .csv
@@ -209,20 +213,21 @@ def bio3d_anm_nma(structure_path, bio3d_ff, output_markers="all"):
     pdb_bio3d = bio3d.read_pdb(structure_path)
     enm_nma_bio3d = bio3d.nma(pdb=pdb_bio3d, ff=bio3d_ff, mass=True)
 
+    # Structure I/O w. biotite
+    in_struc = bstio.load_structure(structure_path, model=1)
+    ca = in_struc[
+        (
+            (struc.filter_canonical_amino_acids(in_struc))
+            & (in_struc.atom_name == "CA")
+        )
+    ]
+
     for o in outputs:
         match o:
             case "masses":
                 bio3d_output = np.array(enm_nma_bio3d.rx2["mass"])
             case "hessian":
                 ## Have to be computed separately; AtomArrays -> bio3d-PDB objects
-                # Structure I/O w. biotite
-                in_struc = bstio.load_structure(structure_path, model=1)
-                ca = in_struc[
-                    (
-                        (struc.filter_canonical_amino_acids(in_struc))
-                        & (in_struc.atom_name == "CA")
-                    )
-                ]
                 ff_bio3d = bio3d.load_enmff(ff=bio3d_ff)
                 pdb_bio3d = aarray_to_bio3d(ca)
                 bio3d_output = bio3d.build_hessian(
@@ -249,7 +254,8 @@ def bio3d_anm_nma(structure_path, bio3d_ff, output_markers="all"):
         np.savetxt(out_str, bio3d_output, delimiter=",")
 
 
-## Generate CSV files
+### Generate CSV files
+## 1l2y - small single chain miniprotein
 path_1l2y = "1l2y.pdb"
 anm_prody_cutoffs = [13]
 # ANM - Prody
@@ -275,7 +281,7 @@ bio3d_forcefields = ("calpha", "sdenm", "pfanm")
 for bff in bio3d_forcefields:
     bio3d_anm_nma(path_1l2y, bff, "all")
 
-# Test Hessians with random coordinates
+## Test Hessians with random coordinates
 SEED = [1, 323, 777, 999]
 N_ATOMS = 500
 BOX_SIZE = 40
@@ -312,3 +318,14 @@ for s in SEED:
             random_hessian,
             delimiter=",",
         )
+
+## 7cal - KAT1; homomultimeric cation channel
+# -> Only compute (mass-weighted) eigenvalues
+path_7cal = "7cal.pdb"
+
+# ANM - Prody
+prody_enm_nma("anm", path_7cal, anm_prody_cutoffs, ["evals"])
+
+# ANM - bio3d
+for bff in bio3d_forcefields:
+    bio3d_anm_nma(path_7cal, bff, ["evals_mw", "masses"])

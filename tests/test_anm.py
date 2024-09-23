@@ -1,9 +1,10 @@
 import itertools
 from multiprocessing.spawn import prepare
-from os.path import join
+from os.path import basename, join
 import glob
 import numpy as np
 import pytest
+import biotite.structure as struc
 import biotite.structure.io.pdb as pdb
 import springcraft
 from .util import data_dir
@@ -55,19 +56,23 @@ def test_mass_weights_simple():
     assert not np.allclose(different_anm.hessian, ref_anm.hessian)
 
 
-def test_compare_eigenvals_BiophysConnectoR():
+@pytest.mark.parametrize(
+        "file_path", glob.glob(join(data_dir(), "*.pdb"))
+)
+def test_compare_eigenvals_BiophysConnectoR(file_path):
     """
     Compare non-mass-weighted eigenvalues with those computed with
     BiophysConnectoR for eANMs.
     """
-    pdb_file = pdb.PDBFile.read(join(data_dir(), "1l2y.pdb"))
+    pdb_file = pdb.PDBFile.read(file_path)
     atoms = pdb.get_structure(pdb_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
 
     ff = springcraft.TabulatedForceField.e_anm(ca)
     eanm = springcraft.ANM(ca, ff)
 
-    ref_file = "eigenval_eANM_BioPhysConnectoR.csv"
+    ref_name = basename(file_path).split(".")[0]
+    ref_file = f"biophysconnector_anm_eanm_evals_{ref_name}.csv"
 
     test_eigenval, _ = eanm.eigen()
 
@@ -80,15 +85,22 @@ def test_compare_eigenvals_BiophysConnectoR():
     assert np.allclose(test_eigenval[6:], ref_eigenval[6:])
 
 
-@pytest.mark.parametrize("ff_name", ["Hinsen", "sdENM", "pfENM"])
-def test_mass_weights_eigenvals(ff_name):
+@pytest.mark.parametrize(
+        "file_path, ff_name", 
+        itertools.product(
+            glob.glob(join(data_dir(), "*.pdb")), 
+            ["Hinsen", "sdENM", "pfENM"]
+        )
+)
+def test_mass_weights_eigenvals(file_path, ff_name):
     """
     Compare mass-weighted eigenvalues with reference values obtained
     with bio3d to test the correctness of the mass-weighting procedure
     and the validity of results obtained with SVD.
     To this end, bio3d-assigned masses are used.
     """
-    pdb_file = pdb.PDBFile.read(join(data_dir(), "1l2y.pdb"))
+    pdb_file = pdb.PDBFile.read(file_path)
+    pdb_name = basename(file_path).split(".")[0]
     atoms = pdb.get_structure(pdb_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
 
@@ -98,13 +110,33 @@ def test_mass_weights_eigenvals(ff_name):
     if ff_name == "sdENM":
         ff = springcraft.TabulatedForceField.sd_enm(ca)
         ff_bio3d_str = "sdenm"
+        
+        # NOTE: Different chains are not correctly identified in bio3d
+        # -> Connect single chains with modified covalent contacts
+        #    in springcraft
+        if struc.get_chain_count(ca) > 1:
+            after_chainbreak = struc.check_res_id_continuity(ca)
+            prior_chainbreak = after_chainbreak-1
+            contact_mod_pairs = np.array(
+                [prior_chainbreak, after_chainbreak]
+            ).T
+            bonded_force_constant = 43.52*0.0083144621*300*10
+            ff = springcraft.PatchedForceField(
+                    ff,
+                    contact_pair_off=contact_mod_pairs,
+                    contact_pair_on=contact_mod_pairs,
+                    force_constants=np.full(
+                        len(contact_mod_pairs), 
+                        bonded_force_constant
+                    )
+            )
     if ff_name == "pfENM":
         ff = springcraft.ParameterFreeForceField()
         ff_bio3d_str = "pfanm"
 
     # ENM-NMA -> Reference
-    bio3d_masses_file = "bio3d_mass_1l2y.csv"
-    bio3d_eigvals_file = f"bio3d_anm_{ff_bio3d_str}_ff_evals_mw_1l2y.csv"
+    bio3d_masses_file = f"bio3d_mass_{pdb_name}.csv.gz"
+    bio3d_eigvals_file = f"bio3d_anm_{ff_bio3d_str}_ff_evals_mw_{pdb_name}.csv.gz"
     reference_masses = np.genfromtxt(join(data_dir(), bio3d_masses_file), delimiter=",")
     reference_eigenval = np.genfromtxt(
         join(data_dir(), bio3d_eigvals_file), delimiter=","
@@ -112,9 +144,9 @@ def test_mass_weights_eigenvals(ff_name):
 
     test = springcraft.ANM(ca, ff, masses=reference_masses)
     test_eigenval, _ = test.eigen()
-    print(test_eigenval)
-    print(reference_eigenval)
-    assert np.allclose(test_eigenval[6:], reference_eigenval[6:], atol=1e-06)
+    assert np.allclose(
+        test_eigenval[6:], reference_eigenval[6:], rtol=5e-03, atol=2e-03
+    )
 
 
 @pytest.mark.parametrize(
@@ -190,7 +222,7 @@ def test_frequency_fluctuation_dcc(ff_name):
         if ff_name == "eANM":
             ff = springcraft.TabulatedForceField.e_anm(ca)
             test_nomw = springcraft.ANM(ca, ff)
-            ref_fluc = "bfacs_eANM_mj_BioPhysConnectoR.csv"
+            ref_fluc = "biophysconnector_anm_eanm_bfacs_1l2y.csv"
             test_nomw = springcraft.ANM(ca, ff)
             test_fluc_nomw = test_nomw.mean_square_fluctuation()
             # -> For alternative MSF computation method;

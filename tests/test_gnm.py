@@ -1,6 +1,5 @@
 import itertools
 from os.path import join, basename
-import glob
 import numpy as np
 import pytest
 import biotite.structure.io.pdb as pdb
@@ -9,7 +8,7 @@ from .util import data_dir
 
 
 def prepare_gnm(file_path, cutoff):
-    pdb_file = pdb.PDBFile.read(join(data_dir(), file_path))
+    pdb_file = pdb.PDBFile.read(file_path)
     atoms = pdb.get_structure(pdb_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
 
@@ -21,13 +20,14 @@ def prepare_gnm(file_path, cutoff):
 
 @pytest.mark.parametrize(
     "file_path, cutoff",
-    itertools.product(glob.glob(join(data_dir(), "*.pdb")), [4, 7, 13]),
+    itertools.product([join(data_dir(), "1l2y.pdb")], [4, 7, 13]),
 )
 def test_kirchhoff(file_path, cutoff):
     """
     Compare computed Kirchhoff matrix with output from *ProDy* with
     test files.
     """
+    print(file_path)
     test_gnm = prepare_gnm(file_path, cutoff)
     pdb_name = basename(file_path).split(".")[0]
     ref_kirchhoff = np.genfromtxt(
@@ -45,7 +45,7 @@ def test_kirchhoff(file_path, cutoff):
 @pytest.mark.parametrize(
     "file_path, cutoff",
     itertools.product(
-        glob.glob(join(data_dir(), "*.pdb")),
+        [join(data_dir(), "1l2y.pdb")],
         # Cutoff must not be too large,
         # otherwise degenerate eigenvalues appear
         [4, 7],
@@ -103,7 +103,7 @@ def test_mass_weights_simple():
 
 
 @pytest.mark.parametrize(
-    "file_path, cutoff", itertools.product(glob.glob(join(data_dir(), "*.pdb")), [4, 7])
+    "file_path, cutoff", itertools.product([join(data_dir(), "1l2y.pdb")], [4, 7])
 )
 def test_fluctuation_dcc(file_path, cutoff):
     """
