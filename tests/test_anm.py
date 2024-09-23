@@ -56,9 +56,7 @@ def test_mass_weights_simple():
     assert not np.allclose(different_anm.hessian, ref_anm.hessian)
 
 
-@pytest.mark.parametrize(
-        "file_path", glob.glob(join(data_dir(), "*.pdb"))
-)
+@pytest.mark.parametrize("file_path", glob.glob(join(data_dir(), "*.pdb")))
 def test_compare_eigenvals_BiophysConnectoR(file_path):
     """
     Compare non-mass-weighted eigenvalues with those computed with
@@ -86,11 +84,10 @@ def test_compare_eigenvals_BiophysConnectoR(file_path):
 
 
 @pytest.mark.parametrize(
-        "file_path, ff_name", 
-        itertools.product(
-            glob.glob(join(data_dir(), "*.pdb")), 
-            ["Hinsen", "sdENM", "pfENM"]
-        )
+    "file_path, ff_name",
+    itertools.product(
+        glob.glob(join(data_dir(), "*.pdb")), ["Hinsen", "sdENM", "pfENM"]
+    ),
 )
 def test_mass_weights_eigenvals(file_path, ff_name):
     """
@@ -110,25 +107,20 @@ def test_mass_weights_eigenvals(file_path, ff_name):
     if ff_name == "sdENM":
         ff = springcraft.TabulatedForceField.sd_enm(ca)
         ff_bio3d_str = "sdenm"
-        
+
         # NOTE: Different chains are not correctly identified in bio3d
         # -> Connect single chains with modified covalent contacts
         #    in springcraft
         if struc.get_chain_count(ca) > 1:
             after_chainbreak = struc.check_res_id_continuity(ca)
-            prior_chainbreak = after_chainbreak-1
-            contact_mod_pairs = np.array(
-                [prior_chainbreak, after_chainbreak]
-            ).T
-            bonded_force_constant = 43.52*0.0083144621*300*10
+            prior_chainbreak = after_chainbreak - 1
+            contact_mod_pairs = np.array([prior_chainbreak, after_chainbreak]).T
+            bonded_force_constant = 43.52 * 0.0083144621 * 300 * 10
             ff = springcraft.PatchedForceField(
-                    ff,
-                    contact_pair_off=contact_mod_pairs,
-                    contact_pair_on=contact_mod_pairs,
-                    force_constants=np.full(
-                        len(contact_mod_pairs), 
-                        bonded_force_constant
-                    )
+                ff,
+                contact_pair_off=contact_mod_pairs,
+                contact_pair_on=contact_mod_pairs,
+                force_constants=np.full(len(contact_mod_pairs), bonded_force_constant),
             )
     if ff_name == "pfENM":
         ff = springcraft.ParameterFreeForceField()

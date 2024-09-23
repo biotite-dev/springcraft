@@ -364,7 +364,7 @@ def test_compare_with_biophysconnector_heterogenous(atoms_singlechain, ff_name):
 
     if ff_name == "e_anm":
         ff = springcraft.TabulatedForceField.e_anm(atoms_singlechain)
-        ref_file = "biophysconnector_anm_eanm_hessian_1l2y.csv.gz" 
+        ref_file = "biophysconnector_anm_eanm_hessian_1l2y.csv.gz"
     if ff_name == "e_anm_mj":
         ff = springcraft.TabulatedForceField.e_anm_mj(atoms_singlechain)
         ref_file = "biophysconnector_anm_eanm_mj_hessian_1l2y.csv"

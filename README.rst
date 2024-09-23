@@ -41,6 +41,13 @@ via *pip*:
    $ git clone https://github.com/biotite-dev/springcraft.git
    $ pip install ./springcraft
 
+A development conda environment with all required dependencies for testing
+can be installed from `environment.yml`
+
+Scripts to generate reference files for tests are stored in tests/data; 
+a separate environment to rerun these locally can be found in `test_create_data_env.yml`.
+BioPhysConnectoR has to be installed separately. 
+
 Example
 =======
 

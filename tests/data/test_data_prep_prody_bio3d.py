@@ -17,13 +17,11 @@ from rpy2.robjects.conversion import localconverter
 FETCH_PDB_IDS = ["1l2y", "7cal"]
 
 for pdb_fetch_id in FETCH_PDB_IDS:
-    in_pdb = pdb.PDBFile.read(
-        rcsb.fetch(pdb_fetch_id, format="pdb", overwrite=True)
-    )
+    in_pdb = pdb.PDBFile.read(rcsb.fetch(pdb_fetch_id, format="pdb", overwrite=True))
     in_struc = in_pdb.get_structure(model=1)
     # NOTE: Deprecated filter function -> Older Biotite version
     protein = in_struc[struc.filter_amino_acids(in_struc)]
-    
+
     outpdb = pdb.PDBFile()
     pdb.set_structure(outpdb, protein)
     outpdb.write(pdb_fetch_id + ".pdb")
@@ -32,6 +30,7 @@ for pdb_fetch_id in FETCH_PDB_IDS:
 bio3d = importr("bio3d")
 # Sequence funtion in R
 r_seq = robjects.r["seq"]
+
 
 # Convert AtomArray into bio3d-PDB objects
 def aarray_to_bio3d(aarray):
@@ -97,6 +96,7 @@ def aarray_to_bio3d(aarray):
         pdb_bio3d.rx2["calpha"] = np.isin(seq_all_atoms, ca_inds)
 
     return pdb_bio3d
+
 
 ## Test data-generating functions
 # -> Enforce consistent naming of output .csv
@@ -216,10 +216,7 @@ def bio3d_anm_nma(structure_path, bio3d_ff, output_markers="all"):
     # Structure I/O w. biotite
     in_struc = bstio.load_structure(structure_path, model=1)
     ca = in_struc[
-        (
-            (struc.filter_canonical_amino_acids(in_struc))
-            & (in_struc.atom_name == "CA")
-        )
+        ((struc.filter_canonical_amino_acids(in_struc)) & (in_struc.atom_name == "CA"))
     ]
 
     for o in outputs:
