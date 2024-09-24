@@ -333,6 +333,7 @@ def test_tabulated_forcefield_predefined(atoms, name):
 
     assert ff is not None
 
+
 def test_parameterfree_forcefield():
     """
     Test whether all entries in the kirchhoff matrix are
