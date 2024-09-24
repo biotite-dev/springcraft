@@ -1,18 +1,16 @@
-import abc
 import os
-from os import path
 
+import biotite.database.rcsb as rcsb
 import biotite.structure as struc
 import biotite.structure.io as bstio
 import biotite.structure.io.pdb as pdb
-import biotite.database.rcsb as rcsb
 import numpy as np
 import prody
 import rpy2.robjects as robjects
-from rpy2.robjects.packages import importr
-from rpy2.robjects.vectors import DataFrame as DataFrame_r
 from rpy2.robjects import numpy2ri
 from rpy2.robjects.conversion import localconverter
+from rpy2.robjects.packages import importr
+from rpy2.robjects.vectors import DataFrame as DataFrame_r
 
 FETCH_PDB_IDS = ["1l2y", "7cal"]
 
@@ -184,7 +182,7 @@ def prody_enm_nma(enm_type, structure_path, cutoff_list, output_markers="all"):
 def bio3d_anm_nma(structure_path, bio3d_ff, output_markers="all"):
     # Check bio3d_ff and outputs
     accepted_bio3d_ff = ["calpha", "sdenm", "pfanm"]
-    if not bio3d_ff in accepted_bio3d_ff:
+    if bio3d_ff not in accepted_bio3d_ff:
         raise ValueError(
             "Onle the following bio3d FFs are accepted: \n", f"{accepted_bio3d_ff}"
         )

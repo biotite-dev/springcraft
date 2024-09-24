@@ -9,13 +9,12 @@ of them using arrows.
 # Code source: Patrick Kunzmann
 # License: BSD 3 clause
 
-import numpy as np
+import ammolite
+import biotite.database.rcsb as rcsb
 import biotite.structure as struc
 import biotite.structure.io.mmtf as mmtf
-import biotite.database.rcsb as rcsb
-import ammolite
+import numpy as np
 import springcraft
-
 
 PNG_SIZE = (800, 800)
 

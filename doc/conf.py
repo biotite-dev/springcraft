@@ -4,22 +4,22 @@
 
 __author__ = "Patrick Kunzmann"
 
-from os.path import realpath, dirname, join
-import types
 import sys
+import types
+from os.path import dirname, join, realpath
+
+import scraper
+import springcraft
 
 # Include 'src/' in PYTHONPATH
 # in order to import the 'Ammolite' package
 doc_path = dirname(realpath(__file__))
 package_path = join(dirname(doc_path), "src")
 sys.path.insert(0, package_path)
-import springcraft
 
 # Include springcraft/doc in PYTHONPATH
 # in order to import modules for example generation etc.
 sys.path.insert(0, doc_path)
-import scraper
-
 
 #### General ####
 

@@ -1,9 +1,10 @@
 import itertools
 from os.path import join
+
 import numpy as np
 import pytest
-import biotite.structure.io.pdb as pdb
 import springcraft
+
 from .util import data_dir
 
 

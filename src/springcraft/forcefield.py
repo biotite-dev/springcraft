@@ -14,13 +14,13 @@ __all__ = [
     "TabulatedForceField",
 ]
 
-import numbers
 import abc
-from os.path import join, dirname, realpath
-import numpy as np
-import biotite.structure as struc
-import biotite.sequence as seq
+import numbers
+from os.path import dirname, join, realpath
 
+import biotite.sequence as seq
+import biotite.structure as struc
+import numpy as np
 
 DATA_DIR = join(dirname(realpath(__file__)), "data")
 
@@ -439,7 +439,7 @@ class TabulatedForceField(ForceField):
             raise TypeError(f"Expected 'AtomArray', not {type(atoms).__name__}")
         if not np.all((atoms.atom_name == "CA") & (atoms.element == "C")):
             raise struc.BadStructureError(
-                f"AtomArray does not contain exclusively CA atoms"
+                "AtomArray does not contain exclusively CA atoms"
             )
 
         self._natoms = atoms.array_length()
@@ -756,8 +756,8 @@ class TabulatedForceField(ForceField):
            Protein Science, 7 2578-2586 (1998)
         """
 
-        intra = _load_matrix(f"miyazawa.csv")
-        inter = _load_matrix(f"keskin.csv")
+        intra = _load_matrix("miyazawa.csv")
+        inter = _load_matrix("keskin.csv")
 
         if nonbonded_mean:
             intra = np.average(intra) * np.ones(shape=(20, 20))
@@ -882,7 +882,7 @@ def _convert_to_matrix(value, n_bins):
     3D matrix.
     """
     if np.isnan(value).any():
-        raise IndexError(f"Array contains NaN elements")
+        raise IndexError("Array contains NaN elements")
 
     if isinstance(value, numbers.Number):
         # One value for all distances and types

@@ -1,12 +1,13 @@
-import itertools
 from os.path import join
-import numpy as np
-import pytest
+
+import biotite.sequence as seq
 import biotite.structure as struc
 import biotite.structure.io.pdb as pdb
-import biotite.sequence as seq
+import numpy as np
+import pytest
 import springcraft
 from springcraft.forcefield import InvariantForceField
+
 from .util import data_dir
 
 
@@ -330,6 +331,7 @@ def test_tabulated_forcefield_predefined(atoms, name):
     meth = getattr(springcraft.TabulatedForceField, name)
     ff = meth(atoms)
 
+    assert ff is not None
 
 def test_parameterfree_forcefield():
     """

@@ -17,4 +17,4 @@ dependencies:
   - sphinx-gallery =0.9.0
   - numpydoc >=0.8
   - ammolite >=0.8
-  - ruff =0.5.2
+  - ruff >=0.6.7

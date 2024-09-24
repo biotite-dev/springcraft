@@ -1,8 +1,9 @@
-from glob import glob
+import datetime
 import shutil
 import tempfile
-import datetime
+import time
 from os.path import getsize
+
 from sphinx_gallery.scrapers import figure_rst
 
 NO_ASSIGN = "___"

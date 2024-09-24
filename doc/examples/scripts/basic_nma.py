@@ -9,14 +9,13 @@ coarse-grained elastic network model (ENM) is conducted.
 # Code source: Jan Krumbach
 # License: BSD 3 clause
 
-import numpy as np
-import matplotlib.pyplot as plt
 import biotite
+import biotite.database.rcsb as rcsb
 import biotite.structure as struc
 import biotite.structure.io.mmtf as mmtf
-import biotite.database.rcsb as rcsb
+import matplotlib.pyplot as plt
+import numpy as np
 import springcraft
-
 
 # Fetch G:T/U Mismatch-specific DNA glycosylase from E. coli
 PDB_ID = "1MUG"

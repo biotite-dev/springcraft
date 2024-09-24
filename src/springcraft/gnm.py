@@ -7,10 +7,11 @@ __name__ = "springcraft"
 __author__ = "Patrick Kunzmann, Faisal Islam"
 __all__ = ["GNM"]
 
-import numpy as np
 import biotite.structure as struc
-from .interaction import compute_kirchhoff
+import numpy as np
+
 from . import nma
+from .interaction import compute_kirchhoff
 
 K_B = 1.380649e-23
 N_A = 6.02214076e23

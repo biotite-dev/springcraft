@@ -1,5 +1,6 @@
 import re
-from os.path import join, dirname, realpath
+from os.path import dirname, join, realpath
+
 from springcraft import __version__
 
 

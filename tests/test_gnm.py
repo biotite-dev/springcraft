@@ -1,9 +1,11 @@
 import itertools
-from os.path import join, basename
+from os.path import basename, join
+
+import biotite.structure.io.pdb as pdb
 import numpy as np
 import pytest
-import biotite.structure.io.pdb as pdb
 import springcraft
+
 from .util import data_dir
 
 

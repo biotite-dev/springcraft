@@ -16,6 +16,7 @@ __all__ = [
 ]
 
 import numpy as np
+
 # -> Import ANM/GNM in functions to prevent circular import error
 
 K_B = 1.380649e-23
@@ -43,8 +44,8 @@ def eigen(enm):
         Eigenvectors of the *Kirchhoff*/*Hessian* matrix.
         ``eig_values[i]`` corresponds to ``eig_vectors[i]``.
     """
-    from .gnm import GNM
     from .anm import ANM
+    from .gnm import GNM
 
     # Assign Kirchhoff/Hessian
     if isinstance(enm, GNM):
@@ -81,8 +82,8 @@ def frequencies(enm):
         The frequency in ascending order of the associated modes'
         Eigenvalues.
     """
-    from .gnm import GNM
     from .anm import ANM
+    from .gnm import GNM
 
     if isinstance(enm, GNM):
         ntriv_modes = 1
@@ -133,8 +134,8 @@ def mean_square_fluctuation(enm, mode_subset=None, tem=None, tem_factors=K_B):
     msqf : ndarray, shape=(n,), dtype=float
         The mean square fluctuations for each atom in the model.
     """
-    from .gnm import GNM
     from .anm import ANM
+    from .gnm import GNM
 
     if not isinstance(enm, (GNM, ANM)):
         raise ValueError("Instance of GNM/ANM class expected.")
@@ -215,8 +216,8 @@ def bfactor(enm, mode_subset=None, tem=None, tem_factors=K_B):
     bfac_values : ndarray, shape=(n,), dtype=float
         B-factors of C-alpha atoms.
     """
-    from .gnm import GNM
     from .anm import ANM
+    from .gnm import GNM
 
     if not isinstance(enm, (GNM, ANM)):
         raise ValueError("Instance of GNM/ANM class expected.")
@@ -287,8 +288,8 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     for 'mode_subset' and 'memory_efficient' are passed to the function.
     """
 
-    from .gnm import GNM
     from .anm import ANM
+    from .gnm import GNM
 
     eig_values, eig_vectors = enm.eigen()
     n_nodes = len(enm._coord)

@@ -1,12 +1,13 @@
-import itertools
-from multiprocessing.spawn import prepare
-from os.path import basename, join
 import glob
-import numpy as np
-import pytest
+import itertools
+from os.path import basename, join
+
 import biotite.structure as struc
 import biotite.structure.io.pdb as pdb
+import numpy as np
+import pytest
 import springcraft
+
 from .util import data_dir
 
 

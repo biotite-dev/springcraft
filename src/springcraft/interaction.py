@@ -7,8 +7,8 @@ __name__ = "springcraft"
 __author__ = "Patrick Kunzmann, Jan Krumbach"
 __all__ = ["compute_kirchhoff", "compute_hessian"]
 
-import numpy as np
 import biotite.structure as struc
+import numpy as np
 
 
 def compute_kirchhoff(coord, force_field, use_cell_list=True):
