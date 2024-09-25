@@ -39,12 +39,14 @@ biotite = ">= 0.32"
 numpy = ">= 1.25"
 
 [tool.poetry.dev-dependencies]
-biotite = ">= 2.0"
+biotite = ">= 1.0"
 pytest = "^5.2"
 sphinx = "^3.0"
 sphinx-gallery = "0.9.0"
+numpy = ">= 2.0"
 numpydoc = ">= 0.8"
 ammolite = ">=0.8"
+ruff = ">=0.6.7"
 
 [build-system]
 requires = ["poetry_core>=1.0.0"]
@@ -71,4 +73,5 @@ ignore = [
 "__init__.py" = ["F403", "TID252"]
 
 [tool.pytest.ini_options]
+# Pytest: Ignore Python scripts for reference data creation
 addopts =  "--ignore=tests/data"
