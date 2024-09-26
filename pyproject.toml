@@ -34,18 +34,44 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = ">=3.10"
 biotite = ">= 0.32"
-numpy = "^1.15"
+numpy = ">= 1.25"
 
 [tool.poetry.dev-dependencies]
+biotite = ">= 1.0"
 pytest = "^5.2"
 sphinx = "^3.0"
 sphinx-gallery = "0.9.0"
+numpy = ">= 2.0"
 numpydoc = ">= 0.8"
 ammolite = ">=0.8"
-
+ruff = ">=0.6.7"
 
 [build-system]
 requires = ["poetry_core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff.lint]
+# pyflakes, pycodestyle isort and variable naming
+select = ["F", "E", "W", "I", "TID", "N"]
+ignore = [
+    # In docstrings long lines are often intentional
+    # Most other ocassions are caught by the ruff formatter
+    "E501",
+    # camel cases for forcefields
+    "N802", 
+    # eANM/sdENM as static methods of TabulatedForceField 
+    # should not accept "self" as argument by design
+    "N805",
+    # Due to constants used in functions
+    "N806",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Due to `from .module import *` imports in `__init__.py` modules
+"__init__.py" = ["F403", "TID252"]
+
+[tool.pytest.ini_options]
+# Pytest: Ignore Python scripts for reference data creation
+addopts =  "--ignore=tests/data"

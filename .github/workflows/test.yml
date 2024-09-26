@@ -3,6 +3,20 @@ name: Testing Springcraft
 on: [push, pull_request]
 
 jobs:
+  lint:
+    name: Check code style
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install ruff
+      run: pip install ruff==0.5.2
+    - name: Check code formatting
+      run: ruff format --diff
+    - name: Lint code base
+      run: ruff check
   test:
     name: Testing
 
@@ -19,7 +33,7 @@ jobs:
           auto-update-conda: true
           python-version: '3.10'
       - name: Installing dependencies
-        run: conda install -c conda-forge poetry prody pytest r-bio3d rpy2
+        run: conda install -c conda-forge poetry pytest
       - name: Building distribution
         run: poetry build -f wheel
       - name: Installing distribution

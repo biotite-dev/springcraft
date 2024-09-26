@@ -1,4 +1,4 @@
-from os.path import join, dirname, realpath
+from os.path import dirname, join, realpath
 
 
 def data_dir():

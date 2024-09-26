@@ -5,17 +5,22 @@ i.e. Kirchhoff and Hessian matrices.
 
 __name__ = "springcraft"
 __author__ = "Patrick Kunzmann, Jan Krumbach"
-__all__ = ["ForceField", "PatchedForceField", "InvariantForceField",
-           "HinsenForceField", "ParameterFreeForceField",
-           "TabulatedForceField"]
+__all__ = [
+    "ForceField",
+    "PatchedForceField",
+    "InvariantForceField",
+    "HinsenForceField",
+    "ParameterFreeForceField",
+    "TabulatedForceField",
+]
 
-import numbers
 import abc
-from os.path import join, dirname, realpath
-import numpy as np
-import biotite.structure as struc
-import biotite.sequence as seq
+import numbers
+from os.path import dirname, join, realpath
 
+import biotite.sequence as seq
+import biotite.structure as struc
+import numpy as np
 
 DATA_DIR = join(dirname(realpath(__file__)), "data")
 
@@ -26,7 +31,7 @@ AA_LIST = [
     # Omit ambiguous amino acids and stop signal
     for letter in seq.ProteinSequence.alphabet.get_symbols()[:N_AMINO_ACIDS]
 ]
-AA_TO_INDEX = {aa : i for i, aa in enumerate(AA_LIST)}
+AA_TO_INDEX = {aa: i for i, aa in enumerate(AA_LIST)}
 
 
 class ForceField(metaclass=abc.ABCMeta):
@@ -69,12 +74,12 @@ class ForceField(metaclass=abc.ABCMeta):
         Parameters
         ----------
         atom_i, atom_j : ndarray, shape=(n,), dtype=int
-            The indices to the first and second atoms in each 
+            The indices to the first and second atoms in each
             interacting atom pair.
         sq_distance : ndarray, shape=(n,), dtype=float
             The distance between the atoms indicated by `atom_i` and
             `atom_j`.
-        
+
         Notes
         -----
         Implementations of this method do not need
@@ -91,7 +96,7 @@ class ForceField(metaclass=abc.ABCMeta):
     @property
     def cutoff_distance(self):
         return None
-    
+
     @property
     def contact_shutdown(self):
         return None
@@ -99,7 +104,7 @@ class ForceField(metaclass=abc.ABCMeta):
     @property
     def contact_pair_off(self):
         return None
-    
+
     @property
     def contact_pair_on(self):
         return None
@@ -134,27 +139,28 @@ class PatchedForceField(ForceField):
         contacts.
         Must be given, if `contact_pair_on` is set.
     """
-    
-    def __init__(self, force_field,
-                 contact_shutdown=None, contact_pair_off=None,
-                 contact_pair_on=None, force_constants=None):
+
+    def __init__(
+        self,
+        force_field,
+        contact_shutdown=None,
+        contact_pair_off=None,
+        contact_pair_on=None,
+        force_constants=None,
+    ):
         # Support other array-like objects
         self._force_field = force_field
         self._contact_shutdown = (
-            np.asarray(contact_shutdown)
-            if contact_shutdown is not None else None
+            np.asarray(contact_shutdown) if contact_shutdown is not None else None
         )
         self._contact_pair_off = (
-            np.asarray(contact_pair_off)
-            if contact_pair_off is not None else None
+            np.asarray(contact_pair_off) if contact_pair_off is not None else None
         )
         self._contact_pair_on = (
-            np.asarray(contact_pair_on)
-            if contact_pair_on is not None else None
+            np.asarray(contact_pair_on) if contact_pair_on is not None else None
         )
         self._force_constants = (
-            np.asarray(force_constants)
-            if force_constants is not None else None
+            np.asarray(force_constants) if force_constants is not None else None
         )
 
         # Input argument checks
@@ -185,42 +191,44 @@ class PatchedForceField(ForceField):
             force_constants = np.zeros(len(sq_distance))
             cutoff_mask = sq_distance <= self._force_field.cutoff_distance**2
             force_constants[cutoff_mask] = self._force_field.force_constant(
-                atom_i[cutoff_mask], atom_j[cutoff_mask],
-                sq_distance[cutoff_mask]
+                atom_i[cutoff_mask], atom_j[cutoff_mask], sq_distance[cutoff_mask]
             )
-        
+
         if self._contact_pair_on is not None:
             patch_atom_i, patch_atom_j = self._contact_pair_on.T
             # The minimum required size of the patch matrix is the
-            # maximum of the indices + 1 
-            required_size = np.max([
-                np.max(patch_atom_i), np.max(patch_atom_j),
-                np.max(atom_i), np.max(atom_j)
-            ]) + 1
+            # maximum of the indices + 1
+            required_size = (
+                np.max(
+                    [
+                        np.max(patch_atom_i),
+                        np.max(patch_atom_j),
+                        np.max(atom_i),
+                        np.max(atom_j),
+                    ]
+                )
+                + 1
+            )
             # Fill matrix containing patched force constants
             # -1 for atom pairs with no patched force constants
-            patch_matrix = np.full(
-                (required_size, required_size), -1, dtype=float
-            )
+            patch_matrix = np.full((required_size, required_size), -1, dtype=float)
             patch_matrix[patch_atom_i, patch_atom_j] = self._force_constants
             patch_matrix[patch_atom_j, patch_atom_i] = self._force_constants
-            
+
             patched_force_constants = patch_matrix[atom_i, atom_j]
 
             # Return regular force constants for pairs where no patch exists
             return np.where(
-                patched_force_constants == -1,
-                force_constants,
-                patched_force_constants
+                patched_force_constants == -1, force_constants, patched_force_constants
             )
         else:
             # No pairs are switched on -> no patching necessary
             return force_constants
-    
+
     @property
     def cutoff_distance(self):
         return self._force_field.cutoff_distance
-    
+
     @property
     def contact_shutdown(self):
         if self._force_field.contact_shutdown is None:
@@ -228,7 +236,7 @@ class PatchedForceField(ForceField):
         else:
             return np.concatenate(
                 [self._contact_shutdown, self._force_field.contact_shutdown]
-            ) 
+            )
 
     @property
     def contact_pair_off(self):
@@ -238,7 +246,7 @@ class PatchedForceField(ForceField):
             return np.concatenate(
                 [self._contact_pair_off, self._force_field.contact_pair_off]
             )
-    
+
     @property
     def contact_pair_on(self):
         if self._force_field.contact_pair_on is None:
@@ -264,6 +272,7 @@ class InvariantForceField(ForceField):
         The interaction of two atoms is only considered, if the distance
         between them is smaller or equal to this value.
     """
+
     def __init__(self, cutoff_distance):
         if cutoff_distance is None:
             # A value of 'None' would give a fully connected network
@@ -274,21 +283,21 @@ class InvariantForceField(ForceField):
 
     def force_constant(self, atom_i, atom_j, sq_distance):
         return np.ones(len(atom_i))
-    
+
     @property
     def cutoff_distance(self):
         return self._cutoff_distance
-    
+
 
 class HinsenForceField(ForceField):
     """
     The Hinsen force field was parametrized using the *Amber94* force
-    field for a local energy minimum, with crambin as template. 
+    field for a local energy minimum, with crambin as template.
     In a strict distance-dependent manner, contacts are subdivided
-    into nearest-neighbour pairs along the backbone (r < 4 Å) and 
+    into nearest-neighbour pairs along the backbone (r < 4 Å) and
     mid-/far-range pair interactions (r >= 4 Å).
     Force constants for these interactions are computed with two
-    distinct formulas. 
+    distinct formulas.
     2.9 Å is the lowest accepted distance between ``CA`` atoms.
     Values below that threshold are set to 2.9 Å.
 
@@ -298,13 +307,14 @@ class HinsenForceField(ForceField):
         The interaction of two atoms is only considered, if the distance
         between them is smaller or equal to this value.
         By default all interactions are included.
-    
+
     References
     ----------
     .. [1] K Hinsen et al.,
-        "Harmonicity in small proteins." 
-        Chemical Physics 261(1-2): 25-37 (2000). 
+        "Harmonicity in small proteins."
+        Chemical Physics 261(1-2): 25-37 (2000).
     """
+
     def __init__(self, cutoff_distance=None):
         self._cutoff_distance = cutoff_distance
 
@@ -312,15 +322,13 @@ class HinsenForceField(ForceField):
         distance = np.sqrt(sq_distance)
         distance = np.clip(distance, a_min=2.9, a_max=None)
         return np.where(
-            distance < 4.0,
-            distance * 8.6e2 - 2.39e3,
-            distance**(-6) * 128e4
+            distance < 4.0, distance * 8.6e2 - 2.39e3, distance ** (-6) * 128e4
         )
-    
+
     @property
     def cutoff_distance(self):
         return self._cutoff_distance
-    
+
 
 class ParameterFreeForceField(ForceField):
     """
@@ -339,19 +347,20 @@ class ParameterFreeForceField(ForceField):
         The interaction of two atoms is only considered, if the distance
         between them is smaller or equal to this value.
         By default all interactions are included.
-    
+
     References
     ----------
     .. [1] L Yanga, G Songa, and R L Jernigan,
         "Protein elastic network models and the ranges of cooperativity."
         PNAS.  106, 30, 12347-12352 (2009).
     """
+
     def __init__(self, cutoff_distance=None):
         self._cutoff_distance = cutoff_distance
 
     def force_constant(self, atom_i, atom_j, sq_distance):
         return 1 / sq_distance
-    
+
     @property
     def cutoff_distance(self):
         return self._cutoff_distance
@@ -373,19 +382,19 @@ class TabulatedForceField(ForceField):
         Must contain only ``CA`` atoms and only canonic amino acids.
         ``CA`` atoms with the same chain ID and adjacent residue IDs
         are treated as bonded.
-    bonded, intra_chain, inter_chain : float or ndarray, shape=(k,) or 
+    bonded, intra_chain, inter_chain : float or ndarray, shape=(k,) or
         shape=(20, 20) or shape=(20, 20, k), dtype=float
         The force constants for interactions between each combination of
         amino acid type and for each distance bin.
         The order of amino acids is alphabetically with respect to the
         one-letter code, i.e.
-        ``'ALA'``, ``'CYS'``, ``'ASP'``, ``'GLU'``, ``'PHE'``, 
+        ``'ALA'``, ``'CYS'``, ``'ASP'``, ``'GLU'``, ``'PHE'``,
         ``'GLY'``, ``'HIS'``, ``'ILE'``, ``'LYS'``, ``'LEU'``,
         ``'MET'``, ``'ASN'``, ``'PRO'``, ``'GLN'``, ``'ARG'``,
         ``'SER'``, ``'THR'``, ``'VAL'``, ``'TRP'`` and ``'TYR'``.
         `bonded` gives values for bonded amino acids,
         `intra_chain` gives values for non-bonded interactions within
-        the same peptide chain and 
+        the same peptide chain and
         `inter_chain` gives values for non-bonded interactions for amino
         acids in different chains.
         The possible shapes are:
@@ -425,20 +434,15 @@ class TabulatedForceField(ForceField):
         field.
     """
 
-    def __init__(self, atoms,
-                 bonded, intra_chain, inter_chain, cutoff_distance):
-
+    def __init__(self, atoms, bonded, intra_chain, inter_chain, cutoff_distance):
         if not isinstance(atoms, struc.AtomArray):
-            raise TypeError(
-                f"Expected 'AtomArray', not {type(atoms).__name__}"
-            )
+            raise TypeError(f"Expected 'AtomArray', not {type(atoms).__name__}")
         if not np.all((atoms.atom_name == "CA") & (atoms.element == "C")):
             raise struc.BadStructureError(
-                f"AtomArray does not contain exclusively CA atoms"
+                "AtomArray does not contain exclusively CA atoms"
             )
-        
+
         self._natoms = atoms.array_length()
-        
 
         if cutoff_distance is None:
             self._edges = None
@@ -453,7 +457,7 @@ class TabulatedForceField(ForceField):
                     "Distance bin edges are not sorted in increasing order"
                 )
             n_bins = len(self._edges)
-            
+
         # Always create 3D matrices, even if no bins are given,
         # to generalize the code
         self._bonded = _convert_to_matrix(bonded, n_bins)
@@ -477,17 +481,14 @@ class TabulatedForceField(ForceField):
             np.tile(np.arange(self._natoms), self._natoms),
         )
         # Convert indices to type-specific_indices
-        type_indices = (
-            matrix_indices[pos_indices[0]],
-            matrix_indices[pos_indices[1]]
-        )
+        type_indices = (matrix_indices[pos_indices[0]], matrix_indices[pos_indices[1]])
         intra_interactions = self._intra_chain[type_indices[0], type_indices[1]]
         inter_interactions = self._inter_chain[type_indices[0], type_indices[1]]
         # Distinguish between intra- and inter-chain interactions
         interactions = np.where(
             atoms.chain_id[pos_indices[0]] == atoms.chain_id[pos_indices[1]],
             intra_interactions.T,
-            inter_interactions.T
+            inter_interactions.T,
         ).T
         # Initialize pos-specific interaction matrix
         # For simplicity bonded interactions are also handled as
@@ -498,22 +499,18 @@ class TabulatedForceField(ForceField):
         )
 
         ## Handle bonded interactions
-        # Convert pos-specific indices to type-specific indices 
+        # Convert pos-specific indices to type-specific indices
         # -> general case
-        indices = (
-            matrix_indices[peptide_bond_i],
-            matrix_indices[peptide_bond_i+1]
-        )
+        indices = (matrix_indices[peptide_bond_i], matrix_indices[peptide_bond_i + 1])
         constants = self._bonded[indices]
 
         # Overwrite previous values
-        self._interaction_matrix[peptide_bond_i, peptide_bond_i+1] = constants
-        self._interaction_matrix[peptide_bond_i+1, peptide_bond_i] = constants
+        self._interaction_matrix[peptide_bond_i, peptide_bond_i + 1] = constants
+        self._interaction_matrix[peptide_bond_i + 1, peptide_bond_i] = constants
 
         ## Handle interaction of atoms with itself
         diag_i, diag_j = np.diag_indices(len(self._interaction_matrix))
         self._interaction_matrix[diag_i, diag_j, :] = 0
-
 
     def force_constant(self, atom_i, atom_j, sq_distance):
         if self._edges is None or len(self._edges) == 1:
@@ -534,7 +531,7 @@ class TabulatedForceField(ForceField):
                     )
                 else:
                     raise
-    
+
     @property
     def cutoff_distance(self):
         return None if self._edges is None else self._edges[-1]
@@ -547,16 +544,15 @@ class TabulatedForceField(ForceField):
     def interaction_matrix(self):
         return self._interaction_matrix
 
-    
     @staticmethod
     def s_enm_10(atoms):
         r"""
         The sENM10 forcefield by Dehouck and Mikhailov was parametrized
-        by statisctical analysis of a NMR conformational 
+        by statisctical analysis of a NMR conformational
         ensemble dataset.
-        Non-bonded interactions between amino acid species are 
-        parametrized in an amino acid type-specific manner, with a 
-        cutoff distance of 1 nm.  
+        Non-bonded interactions between amino acid species are
+        parametrized in an amino acid type-specific manner, with a
+        cutoff distance of 1 nm.
         Bonded interactions are evaluated with
         :math:`10 \, RT/\text{Å}^2`,  corresponding to the tenfold mean
         of all amino acid species interactions at a distance of 3.5 nm.
@@ -573,25 +569,25 @@ class TabulatedForceField(ForceField):
         -------
         force_field : TabulatedForceField
             Force field tailored to the sENM10 parameter set.
-        
+
         References
         ----------
         .. [1] Y Dehouck, A S Mikhailov,
-           "Effective Harmonic Potentials: Insights into the Internal 
-           Cooperativity and Sequence-Specificity of Protein Dynamics." 
-           PLOS Computational Biology 9(8): e1003209 (2013). 
+           "Effective Harmonic Potentials: Insights into the Internal
+           Cooperativity and Sequence-Specificity of Protein Dynamics."
+           PLOS Computational Biology 9(8): e1003209 (2013).
         """
         fc = _load_matrix("s_enm_10.csv")
         return TabulatedForceField(atoms, 10.0, fc, fc, 10.0)
-    
+
     @staticmethod
     def s_enm_13(atoms):
         r"""
         The sENM13 forcefield by Dehouck and Mikhailov was parametrized
         by statisctical analysis of a NMR conformational ensemble dataset.
-        Non-bonded interactions between amino acid species are 
-        parametrized in an amino acid type-specific manner, with a 
-        cutoff distance of 1.3 nm.  
+        Non-bonded interactions between amino acid species are
+        parametrized in an amino acid type-specific manner, with a
+        cutoff distance of 1.3 nm.
         Bonded interactions are evaluated with
         :math:`10 \, RT/\text{Å}^2`,  corresponding to the tenfold mean
         of all amino acid species interactions at a distance of 3.5 nm.
@@ -608,26 +604,26 @@ class TabulatedForceField(ForceField):
         -------
         force_field : TabulatedForceField
             Force field tailored to the sENM13 parameter set.
-        
+
         References
         ----------
         .. [1] Y Dehouck, A S Mikhailov,
-           "Effective Harmonic Potentials: Insights into the Internal 
-           Cooperativity and Sequence-Specificity of Protein Dynamics." 
-           PLOS Computational Biology 9(8): e1003209 (2013). 
+           "Effective Harmonic Potentials: Insights into the Internal
+           Cooperativity and Sequence-Specificity of Protein Dynamics."
+           PLOS Computational Biology 9(8): e1003209 (2013).
         """
         fc = _load_matrix("s_enm_13.csv")
         return TabulatedForceField(atoms, 10.0, fc, fc, 13.0)
-    
+
     @staticmethod
     def d_enm(atoms):
         r"""
         The dENM forcefield by Dehouck and Mikhailov was parametrized
-        by statisctical analysis of a NMR conformational 
+        by statisctical analysis of a NMR conformational
         ensemble dataset.
-        Non-bonded amino acid interactions are solely assigned depending 
-        on the spatial pair distance, ignorant towards interacting 
-        amino acid species. 
+        Non-bonded amino acid interactions are solely assigned depending
+        on the spatial pair distance, ignorant towards interacting
+        amino acid species.
         Spatial distances are divided into 27 bins.
         Bonded interactions are evaluated with
         :math:`46.83 \, RT/\text{Å}^2`, corresponding to the tenfold
@@ -646,18 +642,18 @@ class TabulatedForceField(ForceField):
         -------
         force_field : TabulatedForceField
             Force field tailored to the dENM parameter set.
-        
+
         References
         ----------
         .. [1] Y Dehouck, A S Mikhailov,
-           "Effective Harmonic Potentials: Insights into the Internal 
-           Cooperativity and Sequence-Specificity of Protein Dynamics." 
-           PLOS Computational Biology 9(8): e1003209 (2013). 
+           "Effective Harmonic Potentials: Insights into the Internal
+           Cooperativity and Sequence-Specificity of Protein Dynamics."
+           PLOS Computational Biology 9(8): e1003209 (2013).
         """
         fc = _load_matrix("d_enm.csv")
         bin_edges = _load_matrix("d_enm_edges.csv")
         return TabulatedForceField(atoms, 46.83, fc, fc, bin_edges)
-    
+
     @staticmethod
     def sd_enm(atoms):
         r"""
@@ -686,22 +682,22 @@ class TabulatedForceField(ForceField):
         -------
         force_field : TabulatedForceField
             Force field tailored to the sdENM parameter set.
-        
+
         References
         ----------
         .. [1] Y Dehouck, A S Mikhailov,
-           "Effective Harmonic Potentials: Insights into the Internal 
-           Cooperativity and Sequence-Specificity of Protein Dynamics." 
-           PLOS Computational Biology 9(8): e1003209 (2013). 
+           "Effective Harmonic Potentials: Insights into the Internal
+           Cooperativity and Sequence-Specificity of Protein Dynamics."
+           PLOS Computational Biology 9(8): e1003209 (2013).
         """
         fc = _load_matrix("sd_enm.csv").reshape(-1, 20, 20).T
         # sdENM: Tabulated values in AU
         # -> * R * T to scale to kJ/(mol*A**2) -> verify
-        fc = fc*0.0083144621*300*10
-        bonded = 43.52*0.0083144621*300*10
+        fc = fc * 0.0083144621 * 300 * 10
+        bonded = 43.52 * 0.0083144621 * 300 * 10
         bin_edges = _load_matrix("d_enm_edges.csv")
         return TabulatedForceField(atoms, bonded, fc, fc, bin_edges)
-    
+
     @staticmethod
     def e_anm(atoms, nonbonded_mean=False):
         r"""
@@ -709,7 +705,7 @@ class TabulatedForceField(ForceField):
         non-bonded interactions of amino acids within a single
         polypeptide chain (intrachain) and those present in different
         chains (interchain) in a residue-specific manner:
-        the former are described by Miyazawa-Jernigan parameters, the 
+        the former are described by Miyazawa-Jernigan parameters, the
         latter by Keskin parameters, which are both derived by
         mean-force statistical analysis of protein structures resolved
         by X-ray crystallography.
@@ -719,7 +715,7 @@ class TabulatedForceField(ForceField):
 
         By averaging over all non-bonded residue-specific parameters,
         an eANM variant with homogenous parametrization of non-bonded
-        interactions can be derived.  
+        interactions can be derived.
 
         Parameters
         ----------
@@ -730,7 +726,7 @@ class TabulatedForceField(ForceField):
             are treated as bonded.
         nonbonded_mean  :  Booleam  (optional)
             If True, the average of nonbonded interaction tables is
-            computed and used for nonbonded interactions, which yields 
+            computed and used for nonbonded interactions, which yields
             an homogenous, amino acid-species ignorant parametrization
             of non-bonded contacts.
 
@@ -738,31 +734,31 @@ class TabulatedForceField(ForceField):
         -------
         force_field : TabulatedForceField
             Force field tailored to the eANM method.
-        
+
         References
         ----------
         .. [1] K Hamacher, J A McCammon,
-           "Computing the Amino Acid Specificity of Fluctuations 
+           "Computing the Amino Acid Specificity of Fluctuations
            in Biomolecular Systems."
            J Chem. Theory Comput.  2, 3, 873–878 (2006).
 
         .. [2] S Miyazawa, R L Jernigan,
-           "Residue – Residue Potentials with a Favorable Contact Pair 
-           Term and an Unfavorable High Packing Density Term, 
-           for Simulation and Threading."  
+           "Residue – Residue Potentials with a Favorable Contact Pair
+           Term and an Unfavorable High Packing Density Term,
+           for Simulation and Threading."
            J Mol Biol., 256(3) 623-44 (1996).
-        
-        .. [3] O Keskin, I Bahar, R L Jernigan, A Y Badretdinov, 
-           O B Ptitsyn, 
-           "Empirical solvent-mediated potentials hold for both 
-           intra-molecular and inter-molecular inter-residue 
+
+        .. [3] O Keskin, I Bahar, R L Jernigan, A Y Badretdinov,
+           O B Ptitsyn,
+           "Empirical solvent-mediated potentials hold for both
+           intra-molecular and inter-molecular inter-residue
            interactions."
            Protein Science, 7 2578-2586 (1998)
         """
 
-        intra = _load_matrix(f"miyazawa.csv")
-        inter = _load_matrix(f"keskin.csv")
-        
+        intra = _load_matrix("miyazawa.csv")
+        inter = _load_matrix("keskin.csv")
+
         if nonbonded_mean:
             intra = np.average(intra) * np.ones(shape=(20, 20))
             inter = np.average(inter) * np.ones(shape=(20, 20))
@@ -771,73 +767,18 @@ class TabulatedForceField(ForceField):
 
     def e_anm_mj(atoms, nonbonded_mean=False):
         r"""
-        In this variant of the "extended ANM" (eANM) method, 
-        non-bonded interactions between amino acids are parametrized in 
-        a residue-specific manner using solely Miyazawa-Jernigan (MJ) 
-        parameters. 
-        MJ parameters were derived from contact numbers between 
-        amino acids in a X-ray structure dataset of globular proteins 
+        In this variant of the "extended ANM" (eANM) method,
+        non-bonded interactions between amino acids are parametrized in
+        a residue-specific manner using solely Miyazawa-Jernigan (MJ)
+        parameters.
+        MJ parameters were derived from contact numbers between
+        amino acids in a X-ray structure dataset of globular proteins
         using the Bethe approximation.
         Bonded interactions are evaluated with
         :math:`82 \, RT/\text{Å}^2`.
         For noncovalent interactions the cut-off is set to 13 Å.
 
-        Averaging over all non-bonded residue-specific parameters yields 
-        a homogenous description of non-bonded interactions. 
-
-        Parameters
-        ----------
-        atoms : AtomArray, shape=(n,)
-            The atoms in the model.
-            Must contain only ``CA`` atoms and only canonic amino acids.
-            ``CA`` atoms with the same chain ID and adjacent residue IDs
-            are treated as bonded.
-        nonbonded_mean  :  Booleam  (optional)
-            If True, the average of nonbonded interaction tables is
-            computed and used for nonbonded interactions, which yields 
-            an homogenous, amino acid-species ignorant parametrization
-            of non-bonded contacts.
-
-        Returns
-        -------
-        force_field : TabulatedForceField
-            Force field tailored to the eANM method in the MJ 
-            parameterset variant.
-
-        References
-        ----------
-
-        .. [1] S Miyazawa, R L Jernigan,
-           "Residue - Residue Potentials with a Favorable Contact Pair 
-           Term and an Unfavorable High Packing Density Term, 
-           for Simulation and Threading."  
-           J Mol Biol., 256(3) 623-44 (1996).
-        
-        @TODO Additional citations
-        """
-
-        intra = _load_matrix("miyazawa.csv") 
-        inter = _load_matrix("miyazawa.csv")
-
-        if nonbonded_mean:
-            intra = np.average(intra) * np.ones(shape=(20, 20))
-            inter = np.average(inter) * np.ones(shape=(20, 20))
-
-        return TabulatedForceField(atoms, 82.0, intra, inter, 13.0)
-        
-    def e_anm_ke(atoms, nonbonded_mean=False):
-        r"""
-        For this variant of the "extended ANM" (eANM), non-bonded 
-        interactions between amino-acid pairs are parametrized in a 
-        residue-specific manner using Keskin parameters. 
-        This parameterset was derived from contact frequencies between
-        different protein monomers using the methodology established by 
-        Miyazawa-Jernigan.
-        Bonded interactions are evaluated with
-        :math:`82 \, RT/\text{Å}^2`.
-        For noncovalent interactions, the cut-off is set to 13 Å. 
-
-        Averaging over all non-bonded residue-specific parameters yields 
+        Averaging over all non-bonded residue-specific parameters yields
         a homogenous description of non-bonded interactions.
 
         Parameters
@@ -849,28 +790,83 @@ class TabulatedForceField(ForceField):
             are treated as bonded.
         nonbonded_mean  :  Booleam  (optional)
             If True, the average of nonbonded interaction tables is
-            computed and used for nonbonded interactions, which yields 
+            computed and used for nonbonded interactions, which yields
             an homogenous, amino acid-species ignorant parametrization
             of non-bonded contacts.
 
         Returns
         -------
         force_field : TabulatedForceField
-            Force field tailored to the eANM method in the Keskin 
+            Force field tailored to the eANM method in the MJ
             parameterset variant.
 
         References
         ----------
 
-        .. [1] O Keskin, I Bahar, R L Jernigan, A Y Badretdinov, 
-           O B Ptitsyn, 
-           "Empirical solvent-mediated potentials hold for both 
-           intra-molecular and inter-molecular inter-residue 
+        .. [1] S Miyazawa, R L Jernigan,
+           "Residue - Residue Potentials with a Favorable Contact Pair
+           Term and an Unfavorable High Packing Density Term,
+           for Simulation and Threading."
+           J Mol Biol., 256(3) 623-44 (1996).
+
+        @TODO Additional citations
+        """
+
+        intra = _load_matrix("miyazawa.csv")
+        inter = _load_matrix("miyazawa.csv")
+
+        if nonbonded_mean:
+            intra = np.average(intra) * np.ones(shape=(20, 20))
+            inter = np.average(inter) * np.ones(shape=(20, 20))
+
+        return TabulatedForceField(atoms, 82.0, intra, inter, 13.0)
+
+    def e_anm_ke(atoms, nonbonded_mean=False):
+        r"""
+        For this variant of the "extended ANM" (eANM), non-bonded
+        interactions between amino-acid pairs are parametrized in a
+        residue-specific manner using Keskin parameters.
+        This parameterset was derived from contact frequencies between
+        different protein monomers using the methodology established by
+        Miyazawa-Jernigan.
+        Bonded interactions are evaluated with
+        :math:`82 \, RT/\text{Å}^2`.
+        For noncovalent interactions, the cut-off is set to 13 Å.
+
+        Averaging over all non-bonded residue-specific parameters yields
+        a homogenous description of non-bonded interactions.
+
+        Parameters
+        ----------
+        atoms : AtomArray, shape=(n,)
+            The atoms in the model.
+            Must contain only ``CA`` atoms and only canonic amino acids.
+            ``CA`` atoms with the same chain ID and adjacent residue IDs
+            are treated as bonded.
+        nonbonded_mean  :  Booleam  (optional)
+            If True, the average of nonbonded interaction tables is
+            computed and used for nonbonded interactions, which yields
+            an homogenous, amino acid-species ignorant parametrization
+            of non-bonded contacts.
+
+        Returns
+        -------
+        force_field : TabulatedForceField
+            Force field tailored to the eANM method in the Keskin
+            parameterset variant.
+
+        References
+        ----------
+
+        .. [1] O Keskin, I Bahar, R L Jernigan, A Y Badretdinov,
+           O B Ptitsyn,
+           "Empirical solvent-mediated potentials hold for both
+           intra-molecular and inter-molecular inter-residue
            interactions."
            Protein Science, 7 2578-2586 (1998)
         """
 
-        intra = _load_matrix("keskin.csv") 
+        intra = _load_matrix("keskin.csv")
         inter = _load_matrix("keskin.csv")
 
         if nonbonded_mean:
@@ -879,24 +875,21 @@ class TabulatedForceField(ForceField):
 
         return TabulatedForceField(atoms, 82.0, intra, inter, 13.0)
 
+
 def _convert_to_matrix(value, n_bins):
     """
     Perform checks on input interactions matrices and return consistent
     3D matrix.
     """
     if np.isnan(value).any():
-        raise IndexError(
-            f"Array contains NaN elements"
-        )
+        raise IndexError("Array contains NaN elements")
 
     if isinstance(value, numbers.Number):
         # One value for all distances and types
-        return np.full(
-            (N_AMINO_ACIDS, N_AMINO_ACIDS, n_bins), value, dtype=np.float32
-        )
+        return np.full((N_AMINO_ACIDS, N_AMINO_ACIDS, n_bins), value, dtype=np.float32)
     else:
         array = np.asarray(value, dtype=np.float32)
-        
+
         if array.ndim == 1:
             # Individual value for distances
             if len(array) != n_bins:
@@ -906,16 +899,14 @@ def _convert_to_matrix(value, n_bins):
                 )
             # Reapeat bin-wise values into both residue type dimensions
             for _ in range(2):
-                array = np.repeat(
-                    array[np.newaxis, ...], N_AMINO_ACIDS, axis=0
-                )
+                array = np.repeat(array[np.newaxis, ...], N_AMINO_ACIDS, axis=0)
             return array
-        
+
         elif array.ndim == 2:
             # Individual value for types
             _check_matrix(array)
             return np.repeat(array[..., np.newaxis], n_bins, axis=-1)
-        
+
         elif array.ndim == 3:
             # Individual value for distances and types
             _check_matrix(array)
@@ -925,7 +916,7 @@ def _convert_to_matrix(value, n_bins):
                     f"for {n_bins} distance bins"
                 )
             return array
-        
+
         else:
             raise IndexError(
                 f"Expected array with at most 3 dimensions, {array.ndim} given"
@@ -943,17 +934,17 @@ def _check_matrix(matrix):
         )
     tranpose_axes = (1, 0, 2) if matrix.ndim == 3 else (1, 0)
     if not np.allclose(matrix, np.transpose(matrix, tranpose_axes)):
-        raise ValueError(
-            "Input matrix is not symmetric"
-        )
+        raise ValueError("Input matrix is not symmetric")
 
 
 matrices = {}
+
+
 def _load_matrix(fname):
     if fname in matrices:
         # Matrix was already loaded
         return matrices[fname]
-    
+
     matrix = np.loadtxt(join(DATA_DIR, fname), delimiter=",")
     matrices[fname] = matrix
     return matrix

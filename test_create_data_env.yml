@@ -1,0 +1,13 @@
+# Conda environment for test reference data generation
+name: springcraft-test-data
+
+channels:
+    - conda-forge
+
+dependencies:
+    - biotite <=0.41.2
+    - numpy <1.25
+    - prody >=2.1
+    - scipy <=1.13.1
+    - rpy2 >=3.5.11
+    - r-bio3d =2.4

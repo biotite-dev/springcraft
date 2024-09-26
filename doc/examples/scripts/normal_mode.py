@@ -9,13 +9,12 @@ of them using arrows.
 # Code source: Patrick Kunzmann
 # License: BSD 3 clause
 
-import numpy as np
+import ammolite
+import biotite.database.rcsb as rcsb
 import biotite.structure as struc
 import biotite.structure.io.mmtf as mmtf
-import biotite.database.rcsb as rcsb
-import ammolite
+import numpy as np
 import springcraft
-
 
 PNG_SIZE = (800, 800)
 
@@ -37,8 +36,7 @@ structure = mmtf.get_structure(mmtf_file, model=1, include_bonds=True)
 
 # Filter first peptide chain
 protein_chain = structure[
-    struc.filter_amino_acids(structure)
-    & (structure.chain_id == structure.chain_id[0])
+    struc.filter_amino_acids(structure) & (structure.chain_id == structure.chain_id[0])
 ]
 # Filter CA atoms
 ca_mask = (protein_chain.atom_name == "CA") & (protein_chain.element == "C")
@@ -57,15 +55,28 @@ pymol_object = ammolite.PyMOLObject.from_structure(protein_chain)
 pymol_object.show_as("cartoon")
 # Show eigenvectors as arrows
 ammolite.draw_arrows(
-    ca.coord, ca.coord + vector,
-    radius=0.2, head_radius=0.4, head_length=1.0
+    ca.coord, ca.coord + vector, radius=0.2, head_radius=0.4, head_length=1.0
 )
-ammolite.cmd.set_view((
-     0.605540633,    0.363677770,   -0.707855821,
-    -0.416691631,    0.902691007,    0.107316799,
-     0.678002179,    0.229972601,    0.698157668,
-     0.000000000,    0.000000000, -115.912551880,
-    32.098876953,   31.005725861,   78.377349854,
-    89.280677795,  142.544403076,  -20.000000000
-))
+ammolite.cmd.set_view(
+    (
+        0.605540633,
+        0.363677770,
+        -0.707855821,
+        -0.416691631,
+        0.902691007,
+        0.107316799,
+        0.678002179,
+        0.229972601,
+        0.698157668,
+        0.000000000,
+        0.000000000,
+        -115.912551880,
+        32.098876953,
+        31.005725861,
+        78.377349854,
+        89.280677795,
+        142.544403076,
+        -20.000000000,
+    )
+)
 ammolite.show(PNG_SIZE)

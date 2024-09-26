@@ -4,32 +4,34 @@
 
 __author__ = "Patrick Kunzmann"
 
-from os.path import realpath, dirname, join
-import types
 import sys
+import types
+from os.path import dirname, join, realpath
+
+import scraper
+import springcraft
 
 # Include 'src/' in PYTHONPATH
 # in order to import the 'Ammolite' package
 doc_path = dirname(realpath(__file__))
 package_path = join(dirname(doc_path), "src")
 sys.path.insert(0, package_path)
-import springcraft
 
 # Include springcraft/doc in PYTHONPATH
 # in order to import modules for example generation etc.
 sys.path.insert(0, doc_path)
-import scraper
-
 
 #### General ####
 
-extensions = ["sphinx.ext.autodoc",
-              "sphinx.ext.autosummary",
-              "sphinx.ext.doctest",
-              "sphinx.ext.mathjax",
-              "sphinx.ext.viewcode",
-              "sphinx_gallery.gen_gallery",
-              "numpydoc"]
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.doctest",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.viewcode",
+    "sphinx_gallery.gen_gallery",
+    "numpydoc",
+]
 
 templates_path = ["templates"]
 source_suffix = [".rst"]
@@ -42,9 +44,7 @@ version = springcraft.__version__
 exclude_patterns = ["build"]
 
 numpydoc_show_class_members = False
-autodoc_default_options = {
-    "show-inheritance": True
-}
+autodoc_default_options = {"show-inheritance": True}
 
 pygments_style = "sphinx"
 
@@ -68,33 +68,37 @@ html_css_files = [
 html_favicon = "static/assets/springcraft_logo_32p.png"
 htmlhelp_basename = "SpringcraftDoc"
 html_theme_options = {
-    "description"   : "Investigate molecular dynamics by elastic network models",
-    "logo"          : "assets/springcraft_logo.svg",
-    "logo_name"     : "true",
-    "github_user"   : "biotite-dev",
-    "github_repo"   : "springcraft",
-    "github_banner" : "true",
-    "github_type"   : "star",
-    "fixed_sidebar" : "true",
-    "page_width"    : "1200px",
+    "description": "Investigate molecular dynamics by elastic network models",
+    "logo": "assets/springcraft_logo.svg",
+    "logo_name": "true",
+    "github_user": "biotite-dev",
+    "github_repo": "springcraft",
+    "github_banner": "true",
+    "github_type": "star",
+    "fixed_sidebar": "true",
+    "page_width": "1200px",
 }
 sphinx_gallery_conf = {
-    "examples_dirs"             : "examples/scripts",
-    "gallery_dirs"              : "examples/gallery",
-    'filename_pattern'          : "",
-    "download_all_examples"     : False,
+    "examples_dirs": "examples/scripts",
+    "gallery_dirs": "examples/gallery",
+    "filename_pattern": "",
+    "download_all_examples": False,
     # Never report run time
-    "min_reported_time"         : sys.maxsize,
-    "image_scrapers"            : ("matplotlib", scraper.pymol_scraper,),
+    "min_reported_time": sys.maxsize,
+    "image_scrapers": (
+        "matplotlib",
+        scraper.pymol_scraper,
+    ),
     # Replace 'ammolite.show()'
-    "reset_modules"             : (scraper.overwrite_display_func,),
+    "reset_modules": (scraper.overwrite_display_func,),
     # Do not capture file path string output
     # by the overwritten 'ammolite.show()'
-    "capture_repr"              : (),
+    "capture_repr": (),
 }
 
 
 #### App setup ####
+
 
 def skip_non_methods(app, what, name, obj, skip, options):
     if skip:
@@ -102,7 +106,9 @@ def skip_non_methods(app, what, name, obj, skip, options):
     if what == "class":
         # Functions
         if type(obj) in [
-            types.FunctionType, types.BuiltinFunctionType, types.MethodType
+            types.FunctionType,
+            types.BuiltinFunctionType,
+            types.MethodType,
         ]:
             return False
         return True

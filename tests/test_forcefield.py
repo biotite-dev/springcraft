@@ -1,98 +1,23 @@
-import itertools
 from os.path import join
+
+import biotite.sequence as seq
+import biotite.structure as struc
+import biotite.structure.io.pdb as pdb
 import numpy as np
 import pytest
-import biotite.structure as struc
-import biotite.structure.io.mmtf as mmtf
-import biotite.sequence as seq
 import springcraft
 from springcraft.forcefield import InvariantForceField
-import rpy2.robjects as robjects
-from rpy2.robjects.packages import importr
-from rpy2.robjects.vectors import DataFrame as DataFrame_r
-from rpy2.robjects import numpy2ri
-from rpy2.robjects.conversion import localconverter
+
 from .util import data_dir
 
-# Load bio3d in R
-bio3d = importr("bio3d")
-
-# Convert AtomArray into bio3d-PDB objects
-def aarray_to_bio3d(aarray):
-    coords = aarray.coord
-    
-    # Resid names
-    residue_starts = struc.get_residue_starts(aarray)
-    res_names = aarray.res_name[residue_starts]
-
- 
-    xyz_r = robjects.r.matrix(robjects.FloatVector(coords.ravel()), 
-                             nrow = 1
-                            )
-    
-    assert not any(aarray.hetero)
-    # Local converter for Numpy -> R conversion
-    with localconverter(robjects.default_converter + numpy2ri.converter):
-        # TODO: HETATM should also be included 
-        #       -> AtomArrays should only contain protein atoms here for now
-        type_r = robjects.StrVector(["ATOM"]*len(aarray)) 
-        atom_id_r = robjects.IntVector(np.arange(1, len(aarray) + 1))
-        atom_names_r = robjects.StrVector(aarray.atom_name)
-        alt_r = robjects.StrVector(["NA"]*len(aarray))
-        res_names_r = robjects.StrVector(aarray.res_name)
-        chain_r = robjects.StrVector(aarray.chain_id)
-        resid_r = robjects.IntVector(aarray.res_id)
-        x_r = robjects.IntVector(coords[:,0])
-        y_r = robjects.IntVector(coords[:,1])
-        z_r = robjects.IntVector(coords[:,2])
-        o_r = robjects.IntVector([1]*len(aarray))
-        b_r = robjects.IntVector([0]*len(aarray))
-
-    # Create a R dataframe
-    # equivalent of res_name is resid in bio3d 
-    atoms_r = DataFrame_r({
-                            "type": type_r,
-                            "eleno": atom_id_r,
-                            "elety": atom_names_r,
-                            "alt": alt_r,
-                            "resid": res_names_r, 
-                            "chain": chain_r,
-                            "resno": resid_r,
-                            "x": x_r,
-                            "y": y_r,
-                            "z": z_r,
-                            "o": o_r,
-                            "b": b_r
-                        })
-
-    # Create bio3d PDB -> ListVector (list in R)
-    pdb_bio3d = robjects.ListVector({"xyz": xyz_r, 
-                                     "atom": atoms_r,
-                                     "calpha": robjects.NULL,
-                                     })
-    # Create S3 R class object
-    pdb_bio3d.rclass = robjects.StrVector(["pdb", "sse"])
-
-    # Get indices of Calpha atoms, as required by bio3d
-    ca = aarray[aarray.atom_name=="CA"]
-    ca_inds = ca.res_id
-    seq_all_atoms = np.arange(aarray.res_id[0], aarray.res_id[-1] + 1)
-    
-    # Local converter for Numpy -> R conversion
-    with localconverter(robjects.default_converter + numpy2ri.converter):
-        pdb_bio3d.rx2["calpha"] = np.isin(
-                        seq_all_atoms, ca_inds
-                        )
-
-    return pdb_bio3d
 
 @pytest.fixture
 def atoms():
     """
     Create a simple protein structure with two chains.
     """
-    mmtf_file = mmtf.MMTFFile.read(join(data_dir(), "1l2y.mmtf"))
-    atoms = mmtf.get_structure(mmtf_file, model=1)
+    pdb_file = pdb.PDBFile.read(join(data_dir(), "1l2y.pdb"))
+    atoms = pdb.get_structure(pdb_file, model=1)
     ca = atoms[(atoms.atom_name == "CA") & (atoms.element == "C")]
 
     ca_new_chain = ca.copy()
@@ -104,31 +29,30 @@ def atoms():
     # does not influence TabulatedForceField
     return ca + ca_new_chain
 
+
 @pytest.fixture
 def atoms_singlechain(atoms):
     ca = atoms[0:20]
     return ca
 
+
 def test_patched_force_field_shutdown(atoms):
     N_CONTACTS = 5
-    
+
     np.random.seed(0)
     shutdown_indices = np.random.choice(
         np.arange(len(atoms)), size=N_CONTACTS, replace=False
     )
-    
+
     ref_ff = InvariantForceField(7.0)
     ref_kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, ref_ff)
     # Manual shutdown of contacts after Kirchhoff calculation
     ref_kirchhoff[shutdown_indices, :] = 0
     ref_kirchhoff[:, shutdown_indices] = 0
-    
-    test_ff = springcraft.PatchedForceField(
-        ref_ff,
-        contact_shutdown=shutdown_indices
-    )
+
+    test_ff = springcraft.PatchedForceField(ref_ff, contact_shutdown=shutdown_indices)
     test_kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, test_ff)
-    
+
     # Main diagonal is not easily adjusted
     # -> simply set main diagonal of ref and test matrix to 0
     np.fill_diagonal(test_kirchhoff, 0)
@@ -138,25 +62,22 @@ def test_patched_force_field_shutdown(atoms):
 
 def test_patched_force_field_pairs_off(atoms):
     N_CONTACTS = 5
-    
+
     np.random.seed(0)
     off_indices = np.random.choice(
         np.arange(len(atoms)), size=(N_CONTACTS, 2), replace=False
     )
-    
+
     ref_ff = InvariantForceField(7.0)
     ref_kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, ref_ff)
     # Manual shutdown of contacts after Kirchhoff calculation
     atom_i, atom_j = off_indices.T
     ref_kirchhoff[atom_i, atom_j] = 0
     ref_kirchhoff[atom_j, atom_i] = 0
-    
-    test_ff = springcraft.PatchedForceField(
-        ref_ff,
-        contact_pair_off=off_indices
-    )
+
+    test_ff = springcraft.PatchedForceField(ref_ff, contact_pair_off=off_indices)
     test_kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, test_ff)
-    
+
     # Main diagonal is not easily adjusted
     # -> simply set main diagonal of ref and test matrix to 0
     np.fill_diagonal(test_kirchhoff, 0)
@@ -166,27 +87,25 @@ def test_patched_force_field_pairs_off(atoms):
 
 def test_patched_force_field_pairs_on(atoms):
     N_CONTACTS = 5
-    
+
     np.random.seed(0)
     on_indices = np.random.choice(
         np.arange(len(atoms)), size=(N_CONTACTS, 2), replace=False
     )
     force_constants = np.random.rand(N_CONTACTS)
-    
+
     ref_ff = InvariantForceField(7.0)
     ref_kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, ref_ff)
     # Manual shutdown of contacts after Kirchhoff calculation
     atom_i, atom_j = on_indices.T
     ref_kirchhoff[atom_i, atom_j] = -force_constants
     ref_kirchhoff[atom_j, atom_i] = -force_constants
-    
+
     test_ff = springcraft.PatchedForceField(
-        ref_ff,
-        contact_pair_on=on_indices,
-        force_constants=force_constants
+        ref_ff, contact_pair_on=on_indices, force_constants=force_constants
     )
     test_kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, test_ff)
-    
+
     # Main diagonal is not easily adjusted
     # -> simply set main diagonal of ref and test matrix to 0
     np.fill_diagonal(test_kirchhoff, 0)
@@ -194,7 +113,7 @@ def test_patched_force_field_pairs_on(atoms):
     np.set_printoptions(threshold=10000, linewidth=1000)
     assert np.all(test_kirchhoff == ref_kirchhoff)
 
-    
+
 def test_tabulated_forcefield_homogeneous(atoms):
     """
     Check contents of position-specifc interaction matrix, where the
@@ -218,7 +137,7 @@ def test_tabulated_forcefield_homogeneous(atoms):
             try:
                 if i == j:
                     assert force_constant == 0
-                elif j == i+1 and atoms.chain_id[i] == atoms.chain_id[j]:
+                elif j == i + 1 and atoms.chain_id[i] == atoms.chain_id[j]:
                     assert force_constant == BONDED
                 elif atoms.chain_id[i] == atoms.chain_id[j]:
                     assert force_constant == INTRA
@@ -243,7 +162,7 @@ def test_tabulated_forcefield_inhomogeneous(atoms):
         # Omit ambiguous amino acids and stop signal
         for letter in seq.ProteinSequence.alphabet.get_symbols()[:20]
     ]
-    aa_to_index = {aa : i for i, aa in enumerate(aa_list)}
+    aa_to_index = {aa: i for i, aa in enumerate(aa_list)}
     # Maps pos-specific indices to type-specific_indices
     mapping = np.array([aa_to_index[aa] for aa in atoms.res_name])
 
@@ -265,7 +184,7 @@ def test_tabulated_forcefield_inhomogeneous(atoms):
             try:
                 if i == j:
                     assert force_constant == 0
-                elif j == i+1 and atoms.chain_id[i] == atoms.chain_id[j]:
+                elif j == i + 1 and atoms.chain_id[i] == atoms.chain_id[j]:
                     assert force_constant == pytest.approx(
                         bonded[mapping[i], mapping[j]]
                     )
@@ -303,7 +222,7 @@ def test_tabulated_forcefield_distance(atoms):
     # after the final edge in 'ff.force_constant()' (see below)
     assert np.all(distance_edges < MAX_DISTANCE)
 
-    # Only distance dependent force constants 
+    # Only distance dependent force constants
     fc = np.arange(N_BINS)
     ff = springcraft.TabulatedForceField(atoms, fc, fc, fc, distance_edges)
 
@@ -316,7 +235,7 @@ def test_tabulated_forcefield_distance(atoms):
                 assert np.all(ff.interaction_matrix[i, j] == 0)
             else:
                 assert np.all(ff.interaction_matrix[i, j] == fc)
-    
+
     ## Check if 'force_constant()' gives the correct values
     atom_i = np.random.randint(len(atoms), size=N_SAMPLE_INTERACTIONS)
     atom_j = np.random.randint(len(atoms), size=N_SAMPLE_INTERACTIONS)
@@ -325,11 +244,7 @@ def test_tabulated_forcefield_distance(atoms):
     test_force_constants = ff.force_constant(atom_i, atom_j, sample_dist**2)
     # Force constants (i.e. 'fc') are designed such that the force is
     # the index of the bin
-    ref_force_constans = np.where(
-        atom_i != atom_j,
-        sample_bin_indices,
-        0
-    )
+    ref_force_constans = np.where(atom_i != atom_j, sample_bin_indices, 0)
     assert np.allclose(test_force_constants, ref_force_constans)
 
 
@@ -344,7 +259,7 @@ def test_tabulated_forcefield_cutoff(atoms, cutoff_distance):
     kirchhoff, _ = springcraft.compute_kirchhoff(atoms.coord, ff)
     ref_adj_matrix = -kirchhoff
     np.fill_diagonal(ref_adj_matrix, 0)
-    assert np.isin(ref_adj_matrix.flatten(), [0,1]).all()
+    assert np.isin(ref_adj_matrix.flatten(), [0, 1]).all()
     ref_adj_matrix = ref_adj_matrix.astype(bool)
 
     if cutoff_distance is None:
@@ -355,35 +270,38 @@ def test_tabulated_forcefield_cutoff(atoms, cutoff_distance):
         cell_list = struc.CellList(atoms, cutoff_distance)
         test_adj_matrix = cell_list.create_adjacency_matrix(cutoff_distance)
         np.fill_diagonal(test_adj_matrix, False)
-    
+
     assert np.all(test_adj_matrix == ref_adj_matrix)
 
 
-@pytest.mark.parametrize("shape, n_edges, is_valid", [
-    [(),           None, True ],
-    [(),           1,    True ],
-    [(),           10,   True ],
-    [(10,),        None, False],
-    [(10,),        1,    False],
-    [( 9,),        10,   False],
-    [(10,),        10,   True ],
-    [( 1,),        None, True ],
-    [(20,  1),     1,    False],
-    [(20, 30),     1,    False],
-    [( 1, 20),     1,    False],
-    [(30, 20),     1,    False],
-    [(20, 20),     1,    True ],
-    [(20, 20),     None, True ],
-    [(20, 20),     10,   True ],
-    [(20,  1, 10), 10,   False],
-    [(20, 30, 10), 10,   False],
-    [( 1, 20, 10), 10,   False],
-    [(30, 20, 10), 10,   False],
-    [(20, 20, 10), 10,   True ],
-    [(20, 20,  1), 1,    True ],
-    [(20, 20,  1), None, True ],
-    [(20, 20, 10), 9,    False],
-])
+@pytest.mark.parametrize(
+    "shape, n_edges, is_valid",
+    [
+        [(), None, True],
+        [(), 1, True],
+        [(), 10, True],
+        [(10,), None, False],
+        [(10,), 1, False],
+        [(9,), 10, False],
+        [(10,), 10, True],
+        [(1,), None, True],
+        [(20, 1), 1, False],
+        [(20, 30), 1, False],
+        [(1, 20), 1, False],
+        [(30, 20), 1, False],
+        [(20, 20), 1, True],
+        [(20, 20), None, True],
+        [(20, 20), 10, True],
+        [(20, 1, 10), 10, False],
+        [(20, 30, 10), 10, False],
+        [(1, 20, 10), 10, False],
+        [(30, 20, 10), 10, False],
+        [(20, 20, 10), 10, True],
+        [(20, 20, 1), 1, True],
+        [(20, 20, 1), None, True],
+        [(20, 20, 10), 9, False],
+    ],
+)
 def test_tabulated_forcefield_input_shapes(atoms, shape, n_edges, is_valid):
     """
     Test whether all supported input shapes are handled properly.
@@ -403,10 +321,7 @@ def test_tabulated_forcefield_input_shapes(atoms, shape, n_edges, is_valid):
             ff = springcraft.TabulatedForceField(atoms, fc, fc, fc, edges)
 
 
-@pytest.mark.parametrize(
-    "name",
-    ["s_enm_10", "s_enm_13", "d_enm", "sd_enm", "e_anm"]
-)
+@pytest.mark.parametrize("name", ["s_enm_10", "s_enm_13", "d_enm", "sd_enm", "e_anm"])
 def test_tabulated_forcefield_predefined(atoms, name):
     """
     Test the instantiation of predefined force fields.
@@ -415,6 +330,8 @@ def test_tabulated_forcefield_predefined(atoms, name):
     """
     meth = getattr(springcraft.TabulatedForceField, name)
     ff = meth(atoms)
+
+    assert ff is not None
 
 
 def test_parameterfree_forcefield():
@@ -426,47 +343,43 @@ def test_parameterfree_forcefield():
 
     np.random.seed(0)
     coord = np.random.rand(N_ATOMS, 3)
-    
-    dist_matrix = struc.distance(
-        coord[np.newaxis, :], coord[:, np.newaxis]
-    )
+
+    dist_matrix = struc.distance(coord[np.newaxis, :], coord[:, np.newaxis])
     # Note that the main diagonal is not correct
     ref_kirchhoff = -1 / dist_matrix**2
 
     ff = springcraft.ParameterFreeForceField()
     test_kirchhoff, _ = springcraft.compute_kirchhoff(coord, ff)
-    
+
     # Ignore main diagonal -> Set main diagonal of both matrices to 0
     np.fill_diagonal(ref_kirchhoff, 0)
     np.fill_diagonal(test_kirchhoff, 0)
-    assert np.allclose(test_kirchhoff,  ref_kirchhoff)
+    assert np.allclose(test_kirchhoff, ref_kirchhoff)
 
 
 @pytest.mark.parametrize("ff_name", ["e_anm", "e_anm_mj", "e_anm_ke"])
-def test_compare_with_biophysconnector_heterogenous(atoms_singlechain, 
-                                                    ff_name):
+def test_compare_with_biophysconnector_heterogenous(atoms_singlechain, ff_name):
     """
-    Comparisons between Hessians computed for eANM variants using 
+    Comparisons between Hessians computed for eANM variants using
     springcraft and BioPhysConnectoR.
     Cut-off: 1.3 nm.
     """
 
     if ff_name == "e_anm":
         ff = springcraft.TabulatedForceField.e_anm(atoms_singlechain)
-        ref_file = "hessian_eANM_BioPhysConnectoR.csv"
+        ref_file = "biophysconnector_anm_eanm_hessian_1l2y.csv.gz"
     if ff_name == "e_anm_mj":
         ff = springcraft.TabulatedForceField.e_anm_mj(atoms_singlechain)
-        ref_file = "hessian_eANM_mj_BioPhysConnectoR.csv"
+        ref_file = "biophysconnector_anm_eanm_mj_hessian_1l2y.csv"
     if ff_name == "e_anm_ke":
         ff = springcraft.TabulatedForceField.e_anm_ke(atoms_singlechain)
-        ref_file = "hessian_eANM_ke_BioPhysConnectoR.csv"
-    
+        ref_file = "biophysconnector_anm_eanm_ke_hessian_1l2y.csv"
+
     test_hessian, _ = springcraft.compute_hessian(atoms_singlechain.coord, ff)
-    
-    # Load .csv file data from BiophysConnectoR
+
+    # Load .csv.gz file data from BiophysConnectoR
     ref_hessian = np.genfromtxt(
-        join(data_dir(), ref_file),
-        skip_header=1, delimiter=","
+        join(data_dir(), ref_file), skip_header=1, delimiter=","
     )
 
     # Higher deviation for eANM_Ke-FF
@@ -474,6 +387,7 @@ def test_compare_with_biophysconnector_heterogenous(atoms_singlechain,
         assert np.allclose(test_hessian, ref_hessian, atol=1e-04)
     else:
         assert np.allclose(test_hessian, ref_hessian)
+
 
 @pytest.mark.parametrize("ff_name", ["Hinsen", "sdENM", "pfENM"])
 def test_compare_with_bio3d(atoms_singlechain, ff_name):
@@ -486,7 +400,7 @@ def test_compare_with_bio3d(atoms_singlechain, ff_name):
     atoms_singlechain
     if ff_name == "Hinsen":
         ff = springcraft.HinsenForceField()
-        ff_bio3d_str = 'calpha'
+        ff_bio3d_str = "calpha"
     if ff_name == "sdENM":
         ff = springcraft.TabulatedForceField.sd_enm(atoms_singlechain)
         ff_bio3d_str = "sdenm"
@@ -494,12 +408,10 @@ def test_compare_with_bio3d(atoms_singlechain, ff_name):
         ff = springcraft.ParameterFreeForceField()
         ff_bio3d_str = "pfanm"
 
-    ff_bio3d = bio3d.load_enmff(ff=ff_bio3d_str)
-    pdb_bio3d = aarray_to_bio3d(atoms_singlechain)
-    ref_hessian = bio3d.build_hessian(pdb_bio3d.rx2("xyz"), 
-                                      pfc_fun=ff_bio3d,
-                                      pdb=pdb_bio3d
-                                    )
+    ref_hessian = np.genfromtxt(
+        join(data_dir(), f"bio3d_anm_{ff_bio3d_str}_ff_hessian_1l2y.csv.gz"),
+        delimiter=",",
+    )
 
     test_hessian, _ = springcraft.compute_hessian(atoms_singlechain.coord, ff)
 
