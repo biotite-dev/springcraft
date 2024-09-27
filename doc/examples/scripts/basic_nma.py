@@ -12,15 +12,15 @@ coarse-grained elastic network model (ENM) is conducted.
 import biotite
 import biotite.database.rcsb as rcsb
 import biotite.structure as struc
-import biotite.structure.io.mmtf as mmtf
+import biotite.structure.io.pdbx as pdbx
 import matplotlib.pyplot as plt
 import numpy as np
 import springcraft
 
 # Fetch G:T/U Mismatch-specific DNA glycosylase from E. coli
 PDB_ID = "1MUG"
-mmtf_file = mmtf.MMTFFile.read(rcsb.fetch(PDB_ID, "mmtf"))
-whole_structure = mmtf.get_structure(mmtf_file, model=1, include_bonds=True)
+bcif_file = pdbx.BinaryCIFFile.read(rcsb.fetch(PDB_ID, "bcif"))
+whole_structure = pdbx.get_structure(bcif_file, model=1, include_bonds=True)
 protein = whole_structure[struc.filter_amino_acids(whole_structure)]
 ca = protein[(protein.atom_name == "CA") & (protein.element == "C")]
 
@@ -39,7 +39,7 @@ msqf = eanm.mean_square_fluctuation()
 freq = eanm.frequencies()[6:106]
 
 ## Plot
-fig = plt.figure(figsize=(8.0, 8.0), constrained_layout=True)
+fig = plt.figure(figsize=(8.0, 8.0), constrained_layout=True, dpi=300)
 grid = fig.add_gridspec(nrows=2, ncols=2)
 
 ax00 = fig.add_subplot(grid[0, 0])
