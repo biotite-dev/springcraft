@@ -12,7 +12,7 @@ of them using arrows.
 import ammolite
 import biotite.database.rcsb as rcsb
 import biotite.structure as struc
-import biotite.structure.io.mmtf as mmtf
+import biotite.structure.io.pdbx as pdbx
 import numpy as np
 import springcraft
 
@@ -31,8 +31,8 @@ AMPLITUDE = 10
 
 
 # Load structure
-mmtf_file = mmtf.MMTFFile.read(rcsb.fetch(PDB_ID, "mmtf"))
-structure = mmtf.get_structure(mmtf_file, model=1, include_bonds=True)
+bcif_file = pdbx.BinaryCIFFile.read(rcsb.fetch(PDB_ID, "bcif"))
+structure = pdbx.get_structure(bcif_file, model=1, include_bonds=True)
 
 # Filter first peptide chain
 protein_chain = structure[
