@@ -13,6 +13,8 @@ __all__ = [
     "dcc",
     "normal_mode",
     "linear_response",
+    "prs", 
+    "prs_to_eff_sens"
 ]
 
 import numpy as np
@@ -469,3 +471,42 @@ def linear_response(anm, force):
             raise ValueError(f"Expected 1D or 2D array, got {force.ndim} dimensions")
 
         return np.dot(anm.covariance, force).reshape(len(anm._coord), 3)
+
+def prs(anm, norm=True):
+    """
+    Compute the perturbation response matrix following
+    Atilgan et al.
+    """
+    from .anm import ANM
+    
+    if not isinstance(anm, ANM):
+        raise ValueError(
+            "Instance of ANM class expected."
+        )
+    
+    cov = anm.covariance
+    dim_3n = cov.shape[0]
+    # Maybe better to add coord as attributes
+    dim_n = anm._coord.shape[0]
+
+    # 3Nx3N -> Nx3N -> NxN
+    reduce_at_inds = np.arange(0, dim_3n, 3)
+    sq_cov_summedrow = np.add.reduceat(cov**2, reduce_at_inds, axis=0)
+    prs_mat = np.add.reduceat(sq_cov_summedrow, reduce_at_inds, axis=1)
+
+    if norm:
+        prs_mat_ii = np.diagonal(prs_mat)
+        prs_mat_ii = np.repeat(np.reshape(prs_mat_ii, (dim_n, 1)), dim_n, axis=1)
+        prs_mat = prs_mat / prs_mat_ii
+    return prs_mat
+
+def prs_to_eff_sens(prs_mat):
+    """
+    Compute effector/sensor residues according to the PRS-Matrix
+    as described in Atilgan et al. .
+    Note, that the PRS matrix should be normalized (standard case).
+    """
+    diag_zero = 1 - np.eye(len(prs_mat))
+    eff = np.average(prs_mat, weights=diag_zero, axis=1)
+    sens = np.average(prs_mat, weights=diag_zero, axis=0)
+    return eff, sens

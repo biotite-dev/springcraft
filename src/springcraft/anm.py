@@ -380,3 +380,12 @@ class ANM:
             nDCC_{ij} = \frac{DCC_{ij}}{[DCC_{ii} DCC_{jj}]^{1/2}}
         """
         return nma.dcc(self, mode_subset, norm, tem, tem_factors)
+
+    def prs_eff_sens(self, norm=True):
+        """
+        Compute the perturbation response matrix following
+        Atilgan et al.
+        """
+        prs_mat = nma.prs(self, norm)
+        eff, sens = nma.prs_to_eff_sens(prs_mat)
+        return prs_mat, eff, sens
