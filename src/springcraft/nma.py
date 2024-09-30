@@ -13,8 +13,8 @@ __all__ = [
     "dcc",
     "normal_mode",
     "linear_response",
-    "prs", 
-    "prs_to_eff_sens"
+    "prs",
+    "prs_to_eff_sens",
 ]
 
 import numpy as np
@@ -472,18 +472,17 @@ def linear_response(anm, force):
 
         return np.dot(anm.covariance, force).reshape(len(anm._coord), 3)
 
+
 def prs(anm, norm=True):
     """
     Compute the perturbation response matrix following
     Atilgan et al.
     """
     from .anm import ANM
-    
+
     if not isinstance(anm, ANM):
-        raise ValueError(
-            "Instance of ANM class expected."
-        )
-    
+        raise ValueError("Instance of ANM class expected.")
+
     cov = anm.covariance
     dim_3n = cov.shape[0]
     # Maybe better to add coord as attributes
@@ -499,6 +498,7 @@ def prs(anm, norm=True):
         prs_mat_ii = np.repeat(np.reshape(prs_mat_ii, (dim_n, 1)), dim_n, axis=1)
         prs_mat = prs_mat / prs_mat_ii
     return prs_mat
+
 
 def prs_to_eff_sens(prs_mat):
     """
