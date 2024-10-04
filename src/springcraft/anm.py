@@ -386,9 +386,12 @@ class ANM:
         Compute the perturbation response scanning matrix following and
         the derived effector and sensor profiles after
         Atilgan et al. [1]_ and General et al. [2]_
+        PRS matrices can be used to assess the relevance
+        of amino acid residues/ANM nodes in transmitting allosteric
+        mechanical information. 
 
         The PRS matrix contains mechanical information of the response
-        of every amino acid residue/ANM bead in column index position j after
+        of every node in column index position j after
         perturbation of every amino acid with row index i.
         In the general case, these matrices are normalized by the diagonal
         values to compensate for the self perturbation-response of a
