@@ -187,7 +187,7 @@ def mean_square_fluctuation(enm, mode_subset=None, tem=None, tem_factors=K_B):
 def bfactor(enm, mode_subset=None, tem=None, tem_factors=K_B):
     """
     Computes the isotropic B-factors/temperature factors/
-    Deby-Waller factors for atoms/coarse-grained beads using
+    Deby-Waller factors for atoms/coarse-grained nodes using
     the mean-square fluctuation.
     These can be used to relate results obtained from ENMs
     to experimental results.
@@ -489,12 +489,12 @@ def prs(anm, norm=True):
     Returns
     -------
     prs_matrix : ndarray, shape=(n,n), dtype=float
-        A 2D matrix with the perturbation response at each ENM bead position.
-        The row indices i correspond to the perturbed bead with the same index,
-        the responses of beads j are stored at the respective columnar
+        A 2D matrix with the perturbation response at each ENM node position.
+        The row indices i correspond to the perturbed node with the same index,
+        the responses of nodes j are stored at the respective columnar
         index positions.
         The whole matrix is normalized to the value of the self-perturbation
-        response of bead i stored in the diagonal i=j for 'norm=True'.
+        response of node i stored in the diagonal i=j for 'norm=True'.
 
     References
     ----------
@@ -534,12 +534,12 @@ def prs_to_eff_sens(prs_matrix):
     Parameters
     ----------
     prs_matrix : ndarray, shape=(n,n), dtype=float
-        A 2D matrix with the perturbation response at each ENM bead position.
-        The row indices i correspond to the perturbed bead with the same index,
-        the responses of beads j are stored at the respective columnar
+        A 2D matrix with the perturbation response at each ENM node position.
+        The row indices i correspond to the perturbed node with the same index,
+        the responses of node j are stored at the respective columnar
         index positions.
         The whole matrix is normalized to the value of the self-perturbation
-        response of bead i stored in the diagonal i=j.
+        response of node i stored in the diagonal i=j.
 
     Returns
     -------

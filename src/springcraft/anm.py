@@ -388,11 +388,11 @@ class ANM:
         Atilgan et al. [1]_ and General et al. [2]_
         PRS matrices can be used to assess the relevance
         of amino acid residues/ANM nodes in transmitting allosteric
-        mechanical information. 
+        mechanical information.
 
         The PRS matrix contains mechanical information of the response
-        of every node in column index position j after
-        perturbation of every amino acid with row index i.
+        of every node in column index position j after perturbation of
+        every amino acid with row index i.
         In the general case, these matrices are normalized by the diagonal
         values to compensate for the self perturbation-response of a
         given residue.
@@ -408,17 +408,17 @@ class ANM:
         ----------
         norm: bool, optional
             Normalize by the self perturbation-response of the perturbed
-            ANM bead.
+            ANM node.
 
         Returns
         -------
         prs_matrix : ndarray, shape=(n,n), dtype=float
-            A 2D matrix with the perturbation response at each ENM bead position.
-            The row indices i correspond to the perturbed bead with the same index,
+            A 2D matrix with the perturbation response at each ENM node position.
+            The row indices i correspond to the perturbed node with the same index,
             the responses of nodes j are stored at the respective columnar
             index positions.
             The whole matrix is normalized to the value of the self-perturbation
-            response of bead i stored in the diagonal i=j for 'norm=True'.
+            response of node i stored in the diagonal i=j for 'norm=True'.
         effector_profile: ndarray, shape=(n), dtype=float
             Row averages of the non-diagonal row elements of the PRS.
             This profiles the effectiveness/influence of a given amino acid
