@@ -291,7 +291,7 @@ class ANM:
     def bfactor(self, mode_subset=None, tem=None, tem_factors=K_B):
         """
         Computes the isotropic B-factors/temperature factors/
-        Deby-Waller factors for atoms/coarse-grained beads using
+        Deby-Waller factors for atoms/coarse-grained nodes using
         the mean-square fluctuation.
         These can be used to relate results obtained from ENMs
         to experimental results.
@@ -381,10 +381,61 @@ class ANM:
         """
         return nma.dcc(self, mode_subset, norm, tem, tem_factors)
 
-    def prs_eff_sens(self, norm=True):
+    def prs_effector_sensitivity(self, norm=True):
         """
-        Compute the perturbation response matrix following
-        Atilgan et al.
+        Compute the perturbation response scanning matrix following and
+        the derived effector and sensor profiles after
+        Atilgan et al. [1]_ and General et al. [2]_
+
+        The PRS matrix contains mechanical information of the response
+        of every amino acid residue/ANM bead in column index position j after
+        perturbation of every amino acid with row index i.
+        In the general case, these matrices are normalized by the diagonal
+        values to compensate for the self perturbation-response of a
+        given residue.
+
+        The effector/sensor profiles are the row and column averages
+        of a normalized PRS, respectively.
+        These profiles allow an assessment, whether perturbations
+        at a given residue position are effectively spread to
+        the remaining residues (high effectivity) and how perturbations
+        at other positions affect a residue (high sensitivity).
+
+        Parameters
+        ----------
+        norm: bool, optional
+            Normalize by the self perturbation-response of the perturbed
+            ANM bead.
+
+        Returns
+        -------
+        prs_matrix : ndarray, shape=(n,n), dtype=float
+            A 2D matrix with the perturbation response at each ENM bead position.
+            The row indices i correspond to the perturbed bead with the same index,
+            the responses of nodes j are stored at the respective columnar
+            index positions.
+            The whole matrix is normalized to the value of the self-perturbation
+            response of bead i stored in the diagonal i=j for 'norm=True'.
+        effector_profile: ndarray, shape=(n), dtype=float
+            Row averages of the non-diagonal row elements of the PRS.
+            This profiles the effectiveness/influence of a given amino acid
+            in relaying a mechanical signal to the whole structure
+            after perturbation.
+        sensor_profile: ndarray, shape=(n), dtype=float
+            Column average of the non-diagonal row elements of the PRS.
+            The resultant array is a measure for the sensitivity of
+            the corresponding amino acid to perturbations in other positions.
+
+        References
+        ----------
+        .. [1] C Atilgan, AR Atilgan
+            "Perturbation-Response Scanning Reveals Ligand Entry-Exit
+            Mechanisms of Ferric Binding Protein."
+            PLoS Comput Biol 5(10) (2009).
+        .. [2] IJ General, Y Liu, ME Blackburn, W Mao, LM Gierasch et al.
+            "ATPase Subdomain IA Is a Mediator of Interdomain Allostery
+            in Hsp70 Molecular Chaperones."
+            PLOS Computational Biology 10(5) (2014).
         """
         prs_mat = nma.prs(self, norm)
         eff, sens = nma.prs_to_eff_sens(prs_mat)

@@ -475,8 +475,33 @@ def linear_response(anm, force):
 
 def prs(anm, norm=True):
     """
-    Compute the perturbation response matrix following
-    Atilgan et al.
+    Compute the perturbation response scanning matrix following
+    Atilgan et al. [1]_
+
+    Parameters
+    ----------
+    anm : ANM
+        Instance of ANM object.
+    norm: bool, optional
+        Normalize by the self perturbation-response of the perturbed
+        ANM node.
+
+    Returns
+    -------
+    prs_matrix : ndarray, shape=(n,n), dtype=float
+        A 2D matrix with the perturbation response at each ENM bead position.
+        The row indices i correspond to the perturbed bead with the same index,
+        the responses of beads j are stored at the respective columnar
+        index positions.
+        The whole matrix is normalized to the value of the self-perturbation
+        response of bead i stored in the diagonal i=j for 'norm=True'.
+
+    References
+    ----------
+    .. [1] C Atilgan, AR Atilgan
+        "Perturbation-Response Scanning Reveals Ligand Entry-Exit
+        Mechanisms of Ferric Binding Protein."
+        PLoS Comput Biol 5(10) (2009).
     """
     from .anm import ANM
 
@@ -491,22 +516,55 @@ def prs(anm, norm=True):
     # 3Nx3N -> Nx3N -> NxN
     reduce_at_inds = np.arange(0, dim_3n, 3)
     sq_cov_summedrow = np.add.reduceat(cov**2, reduce_at_inds, axis=0)
-    prs_mat = np.add.reduceat(sq_cov_summedrow, reduce_at_inds, axis=1)
+    prs_matrix = np.add.reduceat(sq_cov_summedrow, reduce_at_inds, axis=1)
 
     if norm:
-        prs_mat_ii = np.diagonal(prs_mat)
-        prs_mat_ii = np.repeat(np.reshape(prs_mat_ii, (dim_n, 1)), dim_n, axis=1)
-        prs_mat = prs_mat / prs_mat_ii
-    return prs_mat
+        prs_matrix_ii = np.diagonal(prs_matrix)
+        prs_matrix_ii = np.repeat(np.reshape(prs_matrix_ii, (dim_n, 1)), dim_n, axis=1)
+        prs_matrix = prs_matrix / prs_matrix_ii
+    return prs_matrix
 
 
-def prs_to_eff_sens(prs_mat):
+def prs_to_eff_sens(prs_matrix):
     """
     Compute effector/sensor residues according to the PRS-Matrix
-    as described in Atilgan et al. .
+    as described in General et al. [1]_
     Note, that the PRS matrix should be normalized (standard case).
+
+    Parameters
+    ----------
+    prs_matrix : ndarray, shape=(n,n), dtype=float
+        A 2D matrix with the perturbation response at each ENM bead position.
+        The row indices i correspond to the perturbed bead with the same index,
+        the responses of beads j are stored at the respective columnar
+        index positions.
+        The whole matrix is normalized to the value of the self-perturbation
+        response of bead i stored in the diagonal i=j.
+
+    Returns
+    -------
+    effector_profile: ndarray, shape=(n), dtype=float
+        Row averages of the non-diagonal row elements of the PRS.
+        This profiles the effectiveness/influence of a given amino acid
+        in relaying a mechanical signal to the whole structure
+        after perturbation.
+    sensor_profile: ndarray, shape=(n), dtype=float
+        Column average of the non-diagonal row elements of the PRS.
+        The resultant array is a measure for the sensitivity of
+        the corresponding amino acid to perturbations in other positions.
+
+    References
+    ----------
+    .. [1] IJ General, Y Liu, ME Blackburn, W Mao, LM Gierasch et al.
+        "ATPase Subdomain IA Is a Mediator of Interdomain Allostery
+        in Hsp70 Molecular Chaperones."
+        PLOS Computational Biology 10(5) (2014).
     """
-    diag_zero = 1 - np.eye(len(prs_mat))
-    eff = np.average(prs_mat, weights=diag_zero, axis=1)
-    sens = np.average(prs_mat, weights=diag_zero, axis=0)
-    return eff, sens
+    # Weights for averaging -> 0 for off-diagonal elements
+    prs_row_num = len(prs_matrix)
+    av_weights = 1 - np.eye(prs_row_num)
+
+    # Average over rows/columns -> eff/sens
+    effector_profile = np.average(prs_matrix, weights=av_weights, axis=1)
+    sensor_profile = np.average(prs_matrix, weights=av_weights, axis=0)
+    return effector_profile, sensor_profile
