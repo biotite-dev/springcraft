@@ -510,7 +510,6 @@ def prs(anm, norm=True):
 
     cov = anm.covariance
     dim_3n = cov.shape[0]
-    # Maybe better to add coord as attributes
     dim_n = anm._coord.shape[0]
 
     # 3Nx3N -> Nx3N -> NxN
