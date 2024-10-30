@@ -14,7 +14,7 @@ __all__ = [
     "normal_mode",
     "linear_response",
     "prs",
-    "prs_to_eff_sens",
+    "effector_sensor",
 ]
 
 import numpy as np
