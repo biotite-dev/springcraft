@@ -524,7 +524,7 @@ def prs(anm, norm=True):
     return prs_matrix
 
 
-def prs_to_eff_sens(prs_matrix):
+def effector_sensor(prs_matrix):
     """
     Compute effector/sensor residues according to the PRS-Matrix
     as described in General et al. [1]_

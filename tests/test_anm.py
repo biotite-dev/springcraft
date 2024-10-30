@@ -344,7 +344,7 @@ def test_prs(file_path):
 
     strucname = basename(file_path).split(".")[0]
 
-    test_prs, test_eff, test_sens = test_anm.prs_effector_sensitivity()
+    test_prs, test_eff, test_sens = test_anm.prs_effector_sensor()
     ref_prs, ref_eff, ref_sens = [
         np.genfromtxt(
             join(data_dir(), f"prody_anm_13_ang_cutoff_{prs_type}_{strucname}.csv.gz"),

@@ -381,7 +381,7 @@ class ANM:
         """
         return nma.dcc(self, mode_subset, norm, tem, tem_factors)
 
-    def prs_effector_sensitivity(self, norm=True):
+    def prs_effector_sensor(self, norm=True):
         """
         Compute the perturbation response scanning matrix following and
         the derived effector and sensor profiles after
@@ -441,5 +441,5 @@ class ANM:
             PLOS Computational Biology 10(5) (2014).
         """
         prs_mat = nma.prs(self, norm)
-        eff, sens = nma.prs_to_eff_sens(prs_mat)
+        eff, sens = nma.effector_sensor(prs_mat)
         return prs_mat, eff, sens
