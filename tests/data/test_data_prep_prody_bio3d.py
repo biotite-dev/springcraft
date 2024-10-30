@@ -114,6 +114,7 @@ def prody_enm_nma(enm_type, structure_path, cutoff_list, output_markers="all"):
         "dcc_norm",
         "dcc_norm_subset",
         "dcc_absolute",
+        "prs",
     ]
     # Check output string/list of strings
     outputs = accepted_outputs if output_markers == "all" else output_markers
@@ -175,8 +176,18 @@ def prody_enm_nma(enm_type, structure_path, cutoff_list, output_markers="all"):
                     )
                 case "dcc_absolute":
                     prody_output = prody.calcCrossCorr(prody_enm, norm=False)
-            out_str = f"prody_{enm_type}_{c}_ang_cutoff_{o}_{strucname}.csv.gz"
-            np.savetxt(out_str, prody_output, delimiter=",")
+                case "prs":
+                    prody_output = prody.calcPerturbResponse(prody_enm)
+
+            if o == "prs":
+                for name_add, prs_result in zip(
+                    ["_mat", "_eff", "_sens"], prody_output
+                ):
+                    out_str = f"prody_{enm_type}_{c}_ang_cutoff_{o + name_add}_{strucname}.csv.gz"
+                    np.savetxt(out_str, prs_result, delimiter=",")
+            else:
+                out_str = f"prody_{enm_type}_{c}_ang_cutoff_{o}_{strucname}.csv.gz"
+                np.savetxt(out_str, prody_output, delimiter=",")
 
 
 def bio3d_anm_nma(structure_path, bio3d_ff, output_markers="all"):
@@ -254,7 +265,14 @@ def bio3d_anm_nma(structure_path, bio3d_ff, output_markers="all"):
 path_1l2y = "1l2y.pdb"
 anm_prody_cutoffs = [13]
 # ANM - Prody
-anm_prody_out = ["evals", "fluctuations", "dcc_norm", "dcc_norm_subset", "dcc_absolute"]
+anm_prody_out = [
+    "evals",
+    "fluctuations",
+    "dcc_norm",
+    "dcc_norm_subset",
+    "dcc_absolute",
+    "prs",
+]
 prody_enm_nma("anm", path_1l2y, anm_prody_cutoffs, anm_prody_out)
 
 # GNM - Prody
@@ -319,7 +337,7 @@ for s in SEED:
 path_7cal = "7cal.pdb"
 
 # ANM - Prody
-prody_enm_nma("anm", path_7cal, anm_prody_cutoffs, ["evals"])
+prody_enm_nma("anm", path_7cal, anm_prody_cutoffs, ["evals", "prs"])
 
 # ANM - bio3d
 for bff in bio3d_forcefields:

@@ -211,7 +211,7 @@ class GNM:
     def bfactor(self, mode_subset=None, tem=None, tem_factors=K_B):
         """
         Computes the isotropic B-factors/temperature factors/
-        Deby-Waller factors for atoms/coarse-grained beads using
+        Deby-Waller factors for atoms/coarse-grained nodes using
         the mean-square fluctuation.
 
         These can be used to relate results obtained from ENMs

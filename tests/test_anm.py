@@ -332,3 +332,27 @@ def test_frequency_fluctuation_dcc(ff_name):
 
         # Compare with alternative method of MSF computation
         assert np.allclose(test_fluc_nomw, msqf_alternative)
+
+
+@pytest.mark.parametrize("file_path", glob.glob(join(data_dir(), "*.pdb")))
+def test_prs(file_path):
+    """
+    Compare perturbation response scanning (PRS)
+    results with those obtained with ProDy.
+    """
+    test_anm = prepare_springcraft_anm(file_path, cutoff=13)
+
+    strucname = basename(file_path).split(".")[0]
+
+    test_prs, test_eff, test_sens = test_anm.prs_effector_sensor()
+    ref_prs, ref_eff, ref_sens = [
+        np.genfromtxt(
+            join(data_dir(), f"prody_anm_13_ang_cutoff_{prs_type}_{strucname}.csv.gz"),
+            delimiter=",",
+        )
+        for prs_type in ["prs_mat", "prs_eff", "prs_sens"]
+    ]
+
+    assert np.allclose(test_prs, ref_prs)
+    assert np.allclose(test_eff, ref_eff)
+    assert np.allclose(test_sens, ref_sens)
