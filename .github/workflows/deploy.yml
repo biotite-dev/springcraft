@@ -2,7 +2,8 @@ name: Building and deploying Springcraft
 
 on:
   release:
-    types: [published]
+    types: 
+    - published
   workflow_dispatch: {}
 
 jobs:
@@ -15,17 +16,17 @@ jobs:
         shell: bash -l {0}
 
     steps:
-      - uses: actions/checkout@v2
-      - uses: conda-incubator/setup-miniconda@v2
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: springcraft-dev
           auto-update-conda: true
-          python-version: '3.9'
+          python-version:"3.12"
       - name: Installing dependencies
         run: conda install -c conda-forge poetry
       - name: Building distributions
         run: poetry build
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: Springcraft distribution
           path: dist/*
@@ -40,12 +41,12 @@ jobs:
         shell: bash -l {0}
 
     steps:
-      - uses: actions/checkout@v2
-      - uses: conda-incubator/setup-miniconda@v2
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: springcraft-dev
           auto-update-conda: true
-          python-version: '3.9'
+          python-version:"3.12"
           environment-file: environment.yml
           mamba-version: "*"
       - name: Installing Springcraft
@@ -54,8 +55,37 @@ jobs:
         run: sphinx-build ./doc ./build/doc
       - name: Zipping documentation
         run: cd ./build; zip -r doc.zip doc; cd ..
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: Springcraft documentation
           path: build/doc.zip
           if-no-files-found: error
+
+  upload-package:
+    name: Upload package to GitHub Releases & PyPI
+    permissions:
+      contents: write
+      id-token: write
+    needs:
+    - lint
+    - test
+    runs-on: ubuntu-latest
+    environment:
+      name: publish
+      url: https://pypi.org/project/springcraft/
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        pattern: release-*
+        merge-multiple: true
+        path: dist
+    - name: List distributions to be uploaded
+      run: ls dist
+    - name: Upload to GitHub Releases
+      uses: softprops/action-gh-release@v2.0.5
+      if: github.event_name == 'release' && github.event.action == 'published'
+      with:
+        files: dist/*
+    - name: Upload to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      if: github.event_name == 'release' && github.event.action == 'published'
