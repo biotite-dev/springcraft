@@ -84,7 +84,7 @@ def frequencies(enm) -> np.ndarray:
     else:
         raise ValueError("Instance of GNM/ANM class expected.")
 
-    eig_values, _ = enm.eigen()
+    eig_values, _, ntriv_modes = enm.eigen()
 
     # The very first / first six Eigenvalue(s) is/are usually close to 0;
     # but can have a negative sign.
@@ -137,17 +137,15 @@ def mean_square_fluctuation(
     if not isinstance(enm, (GNM, ANM)):
         raise ValueError("Instance of GNM/ANM class expected.")
 
-    eig_values, eig_vectors = enm.eigen()
+    eig_values, eig_vectors, ntriv_modes = enm.eigen()
 
     if isinstance(enm, ANM):
         # Eigenvectors: 3N -> N
         cols_n = np.arange(0, len(eig_vectors[0]), 3)
         eig_vectors = np.add.reduceat(np.square(eig_vectors), cols_n, axis=1)
-        ntriv_modes = 6
     # -> GNMs
     else:
         eig_vectors = np.square(eig_vectors)
-        ntriv_modes = 1
 
     # Choose modes included in computation; raise error, if trivial
     # modes are included
@@ -299,16 +297,14 @@ def dcc(
     from .anm import ANM
     from .gnm import GNM
 
-    eig_values, eig_vectors = enm.eigen()
+    eig_values, eig_vectors, ntriv_modes = enm.eigen()
     n_nodes = len(enm._coord)
 
     if isinstance(enm, ANM):
         is_gnm = False
-        ntriv_modes = 6
         num_dim = 3
     elif isinstance(enm, GNM):
         is_gnm = True
-        ntriv_modes = 1
         num_dim = 1
     else:
         raise ValueError("Instance of GNM/ANM class expected.")
@@ -365,6 +361,37 @@ def dcc(
     return dcc
 
 
+def free_energy_contribution(enm, tem=None, tem_factors=K_B) -> float:
+    """
+    Calculates the contribution of the protein configuration to the
+    Helmholtz free energy.
+
+    According to
+    Hamacher K. Free energy of contact formation in proteins: efficient computation in the elastic network approximation. Phys Rev E Stat Nonlin Soft Matter Phys. 2011 Jul;84(1 Pt 2):016703. doi: 10.1103/PhysRevE.84.016703. Epub 2011 Jul 7. PMID: 21867339.
+    """
+
+    from .enm import ENM
+    from .gnm import GNM
+
+    if not isinstance(enm, ENM):
+        raise ValueError("Instance of ENM class expected.")
+
+    eig_vals, _, nzero = enm.eigen()
+    dof = enm.dof_per_node
+
+    tem_scaling = 1
+    if tem is not None:
+        tem_scaling = tem * tem_factors
+
+    pdet_log = np.multiply.reduce(np.log(eig_vals[nzero:]))
+    base = (len(eig_vals) - nzero * dof) * np.log(2 * np.pi * tem_scaling)
+    free_energy_contrib = tem_scaling * (pdet_log - base)
+    if isinstance(enm, GNM):
+        free_energy_contrib *= 3
+
+    return free_energy_contrib
+
+
 ## ANM specific functions
 def normal_mode(
     anm,
@@ -411,7 +438,7 @@ def normal_mode(
     if not isinstance(anm, ANM):
         raise ValueError("Instance of ANM class expected.")
     else:
-        _, eig_vectors = anm.eigen()
+        _, eig_vectors, _ = anm.eigen()
         # Extract vectors for given mode and reshape to (n,3) array
         mode_vectors = eig_vectors[index].reshape((-1, 3))
         # Rescale, so that the largest vector has the length 'amplitude'
