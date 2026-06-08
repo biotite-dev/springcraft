@@ -3,8 +3,10 @@ This module contains functionality for computing interaction matrices,
 i.e. Kirchhoff and Hessian matrices.
 """
 
+from __future__ import annotations
+
 __name__ = "springcraft"
-__author__ = "Patrick Kunzmann, Jan Krumbach"
+__author__ = "Patrick Kunzmann, Jan Krumbach, Raphael Sutter"
 __all__ = [
     "ForceField",
     "PatchedForceField",
@@ -21,6 +23,8 @@ from os.path import dirname, join, realpath
 import biotite.sequence as seq
 import biotite.structure as struc
 import numpy as np
+import numpy.typing as npt
+from typing_extensions import override
 
 DATA_DIR = join(dirname(realpath(__file__)), "data")
 
@@ -29,7 +33,7 @@ N_AMINO_ACIDS = 20
 AA_LIST = [
     seq.ProteinSequence.convert_letter_1to3(letter)
     # Omit ambiguous amino acids and stop signal
-    for letter in seq.ProteinSequence.alphabet.get_symbols()[:N_AMINO_ACIDS]
+    for letter in seq.ProteinSequence.alphabet.get_symbols()[:N_AMINO_ACIDS]  # type: ignore[index]
 ]
 AA_TO_INDEX = {aa: i for i, aa in enumerate(AA_LIST)}
 
@@ -65,7 +69,9 @@ class ForceField(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def force_constant(self, atom_i, atom_j, sq_distance):
+    def force_constant(
+        self, atom_i: np.ndarray, atom_j: np.ndarray, sq_distance: np.ndarray
+    ) -> np.ndarray:
         """
         Get the force constant for the interaction of the given atoms.
 
@@ -77,7 +83,13 @@ class ForceField(metaclass=abc.ABCMeta):
             The indices to the first and second atoms in each
             interacting atom pair.
         sq_distance : ndarray, shape=(n,), dtype=float
-            The distance between the atoms indicated by `atom_i` and
+            The squared distance between the atoms indicated by `atom_i` and
+            `atom_j`.
+
+        Returns
+        -------
+        force_constants: ndarray, shape=(n,), dtype=float
+            The force constant between the atoms indicated by `atom_i` and
             `atom_j`.
 
         Notes
@@ -94,23 +106,27 @@ class ForceField(metaclass=abc.ABCMeta):
         pass
 
     @property
-    def cutoff_distance(self):
+    def cutoff_distance(self) -> float | None:
         return None
 
     @property
-    def contact_shutdown(self):
+    def contact_shutdown(self) -> np.ndarray | None:
         return None
 
     @property
-    def contact_pair_off(self):
+    def contact_pair_off(self) -> np.ndarray | None:
         return None
 
     @property
-    def contact_pair_on(self):
+    def contact_pair_on(self) -> np.ndarray | None:
         return None
 
     @property
-    def natoms(self):
+    def natoms(self) -> int | None:
+        return None
+
+    @property
+    def _force_constants(self) -> np.ndarray | None:
         return None
 
 
@@ -124,17 +140,17 @@ class PatchedForceField(ForceField):
     force_field : ForceField
         The base force field.
         For all atoms pairs, that are not patched, the force
-        constant from the base force field is taken
-    contact_shutdown : ndarray, shape=(n,), dtype=float, optional
+        constant from the base force field is taken.
+    contact_shutdown : arraylike, shape=(n,), dtype=float, optional
         Indices that point to atoms, whose contacts to all other
         atoms are artificially switched off.
-    contact_pair_off : ndarray, shape=(n,2), dtype=int, optional
+    contact_pair_off : arraylike, shape=(n,2), dtype=int, optional
         Indices that point to pairs of atoms, whose contacts
         are artificially switched off.
-    contact_pair_on : ndarray, shape=(n,2), dtype=int, optional
+    contact_pair_on : arraylike, shape=(n,2), dtype=int, optional
         Indices that point to pairs of atoms, whose contacts
         are are artificially established.
-    force_constants : ndarray, shape=(n,), dtype=float, optional
+    force_constants : arraylike, shape=(n,), dtype=float, optional
         Individual force constants for artificially established
         contacts.
         Must be given, if `contact_pair_on` is set.
@@ -142,11 +158,11 @@ class PatchedForceField(ForceField):
 
     def __init__(
         self,
-        force_field,
-        contact_shutdown=None,
-        contact_pair_off=None,
-        contact_pair_on=None,
-        force_constants=None,
+        force_field: ForceField,
+        contact_shutdown: npt.ArrayLike | None = None,
+        contact_pair_off: npt.ArrayLike | None = None,
+        contact_pair_on: npt.ArrayLike | None = None,
+        force_constants: npt.ArrayLike | None = None,
     ):
         # Support other array-like objects
         self._force_field = force_field
@@ -159,7 +175,7 @@ class PatchedForceField(ForceField):
         self._contact_pair_on = (
             np.asarray(contact_pair_on) if contact_pair_on is not None else None
         )
-        self._force_constants = (
+        self._force_constants_local = (
             np.asarray(force_constants) if force_constants is not None else None
         )
 
@@ -168,19 +184,22 @@ class PatchedForceField(ForceField):
         _check_indices(force_field.natoms, self._contact_pair_off)
         _check_indices(force_field.natoms, self._contact_pair_on)
         if self._contact_pair_on is not None:
-            if self._force_constants is None:
+            if self._force_constants_local is None:
                 raise TypeError(
                     "Individual force constants must be given, "
                     "if contacts are turned on"
                 )
-            if len(self._force_constants) != len(self._contact_pair_on):
+            if len(self._force_constants_local) != len(self._contact_pair_on):
                 raise IndexError(
-                    f"{len(self._force_constants)} force constants were "
+                    f"{len(self._force_constants_local)} force constants were "
                     f"given for "
                     f"{len(self._contact_pair_on)} switched on contact_pairs"
                 )
 
-    def force_constant(self, atom_i, atom_j, sq_distance):
+    @override
+    def force_constant(
+        self, atom_i: np.ndarray, atom_j: np.ndarray, sq_distance: np.ndarray
+    ) -> np.ndarray:
         if self._force_field.cutoff_distance is None:
             force_constants = self._force_field.force_constant(
                 atom_i, atom_j, sq_distance
@@ -194,8 +213,8 @@ class PatchedForceField(ForceField):
                 atom_i[cutoff_mask], atom_j[cutoff_mask], sq_distance[cutoff_mask]
             )
 
-        if self._contact_pair_on is not None:
-            patch_atom_i, patch_atom_j = self._contact_pair_on.T
+        if self.contact_pair_on is not None:
+            patch_atom_i, patch_atom_j = self.contact_pair_on.T
             # The minimum required size of the patch matrix is the
             # maximum of the indices + 1
             required_size = (
@@ -226,12 +245,14 @@ class PatchedForceField(ForceField):
             return force_constants
 
     @property
-    def cutoff_distance(self):
+    @override
+    def cutoff_distance(self) -> float | None:
         return self._force_field.cutoff_distance
 
     @property
-    def contact_shutdown(self):
-        if self._force_field.contact_shutdown is None:
+    @override
+    def contact_shutdown(self) -> np.ndarray | None:
+        if self._contact_shutdown is None or self._force_field.contact_shutdown is None:
             return self._contact_shutdown
         else:
             return np.concatenate(
@@ -239,8 +260,9 @@ class PatchedForceField(ForceField):
             )
 
     @property
-    def contact_pair_off(self):
-        if self._force_field.contact_pair_off is None:
+    @override
+    def contact_pair_off(self) -> np.ndarray | None:
+        if self._contact_pair_off is None or self._force_field.contact_pair_off is None:
             return self._contact_pair_off
         else:
             return np.concatenate(
@@ -248,8 +270,9 @@ class PatchedForceField(ForceField):
             )
 
     @property
-    def contact_pair_on(self):
-        if self._force_field.contact_pair_on is None:
+    @override
+    def contact_pair_on(self) -> np.ndarray | None:
+        if self._contact_pair_on is None or self._force_field.contact_pair_on is None:
             return self._contact_pair_on
         else:
             return np.concatenate(
@@ -257,8 +280,22 @@ class PatchedForceField(ForceField):
             )
 
     @property
-    def natoms(self):
+    @override
+    def natoms(self) -> int | None:
         return self._force_field.natoms
+
+    @property
+    @override
+    def _force_constants(self) -> np.ndarray | None:
+        if (
+            self._force_constants_local is None
+            or self._force_field._force_constants is None
+        ):
+            return self._force_constants_local
+        else:
+            return np.concatenate(
+                [self._force_constants_local, self._force_field._force_constants]
+            )
 
 
 class InvariantForceField(ForceField):
@@ -273,7 +310,7 @@ class InvariantForceField(ForceField):
         between them is smaller or equal to this value.
     """
 
-    def __init__(self, cutoff_distance):
+    def __init__(self, cutoff_distance: float):
         if cutoff_distance is None:
             # A value of 'None' would give a fully connected network
             # with equal force constants for each connection,
@@ -281,11 +318,15 @@ class InvariantForceField(ForceField):
             raise ValueError("Cutoff distance must be a float")
         self._cutoff_distance = cutoff_distance
 
-    def force_constant(self, atom_i, atom_j, sq_distance):
+    @override
+    def force_constant(
+        self, atom_i: np.ndarray, atom_j: np.ndarray, sq_distance: np.ndarray
+    ) -> np.ndarray:
         return np.ones(len(atom_i))
 
     @property
-    def cutoff_distance(self):
+    @override
+    def cutoff_distance(self) -> float:
         return self._cutoff_distance
 
 
@@ -315,10 +356,13 @@ class HinsenForceField(ForceField):
         Chemical Physics 261(1-2): 25-37 (2000).
     """
 
-    def __init__(self, cutoff_distance=None):
+    def __init__(self, cutoff_distance: float | None = None):
         self._cutoff_distance = cutoff_distance
 
-    def force_constant(self, atom_i, atom_j, sq_distance):
+    @override
+    def force_constant(
+        self, atom_i: np.ndarray, atom_j: np.ndarray, sq_distance: np.ndarray
+    ) -> np.ndarray:
         distance = np.sqrt(sq_distance)
         distance = np.clip(distance, a_min=2.9, a_max=None)
         return np.where(
@@ -326,7 +370,8 @@ class HinsenForceField(ForceField):
         )
 
     @property
-    def cutoff_distance(self):
+    @override
+    def cutoff_distance(self) -> float | None:
         return self._cutoff_distance
 
 
@@ -355,14 +400,18 @@ class ParameterFreeForceField(ForceField):
         PNAS.  106, 30, 12347-12352 (2009).
     """
 
-    def __init__(self, cutoff_distance=None):
+    def __init__(self, cutoff_distance: float | None = None):
         self._cutoff_distance = cutoff_distance
 
-    def force_constant(self, atom_i, atom_j, sq_distance):
+    @override
+    def force_constant(
+        self, atom_i: np.ndarray, atom_j: np.ndarray, sq_distance: np.ndarray
+    ) -> np.ndarray:
         return 1 / sq_distance
 
     @property
-    def cutoff_distance(self):
+    @override
+    def cutoff_distance(self) -> float | None:
         return self._cutoff_distance
 
 
@@ -382,33 +431,25 @@ class TabulatedForceField(ForceField):
         Must contain only ``CA`` atoms and only canonic amino acids.
         ``CA`` atoms with the same chain ID and adjacent residue IDs
         are treated as bonded.
-    bonded, intra_chain, inter_chain : float or ndarray, shape=(k,) or
-        shape=(20, 20) or shape=(20, 20, k), dtype=float
-        The force constants for interactions between each combination of
-        amino acid type and for each distance bin.
-        The order of amino acids is alphabetically with respect to the
-        one-letter code, i.e.
-        ``'ALA'``, ``'CYS'``, ``'ASP'``, ``'GLU'``, ``'PHE'``,
-        ``'GLY'``, ``'HIS'``, ``'ILE'``, ``'LYS'``, ``'LEU'``,
-        ``'MET'``, ``'ASN'``, ``'PRO'``, ``'GLN'``, ``'ARG'``,
-        ``'SER'``, ``'THR'``, ``'VAL'``, ``'TRP'`` and ``'TYR'``.
-        `bonded` gives values for bonded amino acids,
-        `intra_chain` gives values for non-bonded interactions within
-        the same peptide chain and
-        `inter_chain` gives values for non-bonded interactions for amino
-        acids in different chains.
+    bonded : float or ndarray, shape=(k,) or shape=(20, 20) or shape=(20, 20, k), dtype=float
+        The force constant for interactions between bonded amino acids
+        and for each distance bin.
         The possible shapes are:
 
-            - Scalar value:
-              Same value for all amino acid types and distances.
-            - 1-dim array:
-              Individual value for each distance bin.
-            - 2-dim array:
-              Individual value for each pair of amino acid types.
-              Note the alphabetical order shown above.
-            - 3-dim array:
-              Individual value for each distance bin and pair of amino
-              acid types.
+            - Scalar value: Same value for all types and distances.
+            - 1-dim array: Individual value for each distance bin.
+            - 2-dim array: Individual value for each pair of amino acid types.
+            - 3-dim array: Individual value per distance bin and pair of types.
+
+        The quadratic layers of the matrizes must be symmetric.
+    intra_chain : float or ndarray, shape=(k,) or shape=(20, 20) or shape=(20, 20, k), dtype=float
+        The force constant for non-bonded interactions within the same
+        peptide chain and for each distance bin.
+        Same shape options as `bonded`.
+    inter_chain : float or ndarray, shape=(k,) or shape=(20, 20) or shape=(20, 20, k), dtype=float
+        The force constant for non-bonded interactions between amino acids
+        in different chains and for each distance bin.
+        Same shape options as `bonded`.
 
     cutoff_distance : float or None or ndarray, shape=(k), dtype=float
         If no distance dependent values are given for `bonded`,
@@ -432,11 +473,16 @@ class TabulatedForceField(ForceField):
         *k* is the number of distance bins. Otherwise, *k = 1*.
         This is not a copy, modifications on this array affect the force
         field.
-    """
+    """  # noqa: E501
 
-    def __init__(self, atoms, bonded, intra_chain, inter_chain, cutoff_distance):
-        if not isinstance(atoms, struc.AtomArray):
-            raise TypeError(f"Expected 'AtomArray', not {type(atoms).__name__}")
+    def __init__(
+        self,
+        atoms: struc.AtomArray,
+        bonded: float | np.ndarray,
+        intra_chain: float | np.ndarray,
+        inter_chain: float | np.ndarray,
+        cutoff_distance: float | np.ndarray | None,
+    ):
         if not np.all((atoms.atom_name == "CA") & (atoms.element == "C")):
             raise struc.BadStructureError(
                 "AtomArray does not contain exclusively CA atoms"
@@ -465,11 +511,11 @@ class TabulatedForceField(ForceField):
         self._inter_chain = _convert_to_matrix(inter_chain, n_bins)
 
         # Maps pos-specific indices to type-specific_indices
-        matrix_indices = np.array([AA_TO_INDEX[aa] for aa in atoms.res_name])
+        matrix_indices = np.array([AA_TO_INDEX[aa] for aa in atoms.res_name])  # pyright: ignore[reportOptionalIterable]
 
         # Find peptide bonds
-        continuous_res_id = np.diff(atoms.res_id) == 1
-        continuous_chain_id = atoms.chain_id[:-1] == atoms.chain_id[1:]
+        continuous_res_id = np.diff(atoms.res_id) == 1  # pyright: ignore[reportArgumentType]
+        continuous_chain_id = atoms.chain_id[:-1] == atoms.chain_id[1:]  # pyright: ignore[reportOptionalSubscript]
         peptide_bond_i = np.where(continuous_res_id & continuous_chain_id)[0]
 
         ### Fill interaction matrix
@@ -486,7 +532,7 @@ class TabulatedForceField(ForceField):
         inter_interactions = self._inter_chain[type_indices[0], type_indices[1]]
         # Distinguish between intra- and inter-chain interactions
         interactions = np.where(
-            atoms.chain_id[pos_indices[0]] == atoms.chain_id[pos_indices[1]],
+            atoms.chain_id[pos_indices[0]] == atoms.chain_id[pos_indices[1]],  # pyright: ignore[reportOptionalSubscript]
             intra_interactions.T,
             inter_interactions.T,
         ).T
@@ -512,7 +558,10 @@ class TabulatedForceField(ForceField):
         diag_i, diag_j = np.diag_indices(len(self._interaction_matrix))
         self._interaction_matrix[diag_i, diag_j, :] = 0
 
-    def force_constant(self, atom_i, atom_j, sq_distance):
+    @override
+    def force_constant(
+        self, atom_i: np.ndarray, atom_j: np.ndarray, sq_distance: np.ndarray
+    ) -> np.ndarray:
         if self._edges is None or len(self._edges) == 1:
             # Only a single distance bin -> No distance dependency
             return self._interaction_matrix[atom_i, atom_j, 0]
@@ -533,22 +582,24 @@ class TabulatedForceField(ForceField):
                     raise
 
     @property
-    def cutoff_distance(self):
+    @override
+    def cutoff_distance(self) -> float | None:
         return None if self._edges is None else self._edges[-1]
 
     @property
-    def natoms(self):
+    @override
+    def natoms(self) -> int:
         return self._natoms
 
     @property
-    def interaction_matrix(self):
+    def interaction_matrix(self) -> np.ndarray:
         return self._interaction_matrix
 
     @staticmethod
-    def s_enm_10(atoms):
+    def s_enm_10(atoms: struc.AtomArray) -> TabulatedForceField:
         r"""
         The sENM10 forcefield by Dehouck and Mikhailov was parametrized
-        by statisctical analysis of a NMR conformational
+        by statistical analysis of a NMR conformational
         ensemble dataset.
         Non-bonded interactions between amino acid species are
         parametrized in an amino acid type-specific manner, with a
@@ -581,10 +632,10 @@ class TabulatedForceField(ForceField):
         return TabulatedForceField(atoms, 10.0, fc, fc, 10.0)
 
     @staticmethod
-    def s_enm_13(atoms):
+    def s_enm_13(atoms: struc.AtomArray) -> TabulatedForceField:
         r"""
         The sENM13 forcefield by Dehouck and Mikhailov was parametrized
-        by statisctical analysis of a NMR conformational ensemble dataset.
+        by statistical analysis of a NMR conformational ensemble dataset.
         Non-bonded interactions between amino acid species are
         parametrized in an amino acid type-specific manner, with a
         cutoff distance of 1.3 nm.
@@ -616,7 +667,7 @@ class TabulatedForceField(ForceField):
         return TabulatedForceField(atoms, 10.0, fc, fc, 13.0)
 
     @staticmethod
-    def d_enm(atoms):
+    def d_enm(atoms: struc.AtomArray) -> TabulatedForceField:
         r"""
         The dENM forcefield by Dehouck and Mikhailov was parametrized
         by statisctical analysis of a NMR conformational
@@ -655,7 +706,7 @@ class TabulatedForceField(ForceField):
         return TabulatedForceField(atoms, 46.83, fc, fc, bin_edges)
 
     @staticmethod
-    def sd_enm(atoms):
+    def sd_enm(atoms: struc.AtomArray) -> TabulatedForceField:
         r"""
         The sdENM forcefield by Dehouck and Mikhailov was parametrized
         by statistical analysis of a NMR conformational ensemble
@@ -699,7 +750,9 @@ class TabulatedForceField(ForceField):
         return TabulatedForceField(atoms, bonded, fc, fc, bin_edges)
 
     @staticmethod
-    def e_anm(atoms, nonbonded_mean=False):
+    def e_anm(
+        atoms: struc.AtomArray, nonbonded_mean: bool = False
+    ) -> TabulatedForceField:
         r"""
         The "extended ANM" (eANM) method discriminates between
         non-bonded interactions of amino acids within a single
@@ -724,7 +777,7 @@ class TabulatedForceField(ForceField):
             Must contain only ``CA`` atoms and only canonic amino acids.
             ``CA`` atoms with the same chain ID and adjacent residue IDs
             are treated as bonded.
-        nonbonded_mean  :  Booleam  (optional)
+        nonbonded_mean : bool, optional
             If True, the average of nonbonded interaction tables is
             computed and used for nonbonded interactions, which yields
             an homogenous, amino acid-species ignorant parametrization
@@ -765,7 +818,10 @@ class TabulatedForceField(ForceField):
 
         return TabulatedForceField(atoms, 82.0, intra, inter, 13.0)
 
-    def e_anm_mj(atoms, nonbonded_mean=False):
+    @staticmethod
+    def e_anm_mj(
+        atoms: struc.AtomArray, nonbonded_mean: bool = False
+    ) -> TabulatedForceField:
         r"""
         In this variant of the "extended ANM" (eANM) method,
         non-bonded interactions between amino acids are parametrized in
@@ -788,7 +844,7 @@ class TabulatedForceField(ForceField):
             Must contain only ``CA`` atoms and only canonic amino acids.
             ``CA`` atoms with the same chain ID and adjacent residue IDs
             are treated as bonded.
-        nonbonded_mean  :  Booleam  (optional)
+        nonbonded_mean : bool, optional
             If True, the average of nonbonded interaction tables is
             computed and used for nonbonded interactions, which yields
             an homogenous, amino acid-species ignorant parametrization
@@ -821,7 +877,10 @@ class TabulatedForceField(ForceField):
 
         return TabulatedForceField(atoms, 82.0, intra, inter, 13.0)
 
-    def e_anm_ke(atoms, nonbonded_mean=False):
+    @staticmethod
+    def e_anm_ke(
+        atoms: struc.AtomArray, nonbonded_mean: bool = False
+    ) -> TabulatedForceField:
         r"""
         For this variant of the "extended ANM" (eANM), non-bonded
         interactions between amino-acid pairs are parametrized in a
@@ -843,7 +902,7 @@ class TabulatedForceField(ForceField):
             Must contain only ``CA`` atoms and only canonic amino acids.
             ``CA`` atoms with the same chain ID and adjacent residue IDs
             are treated as bonded.
-        nonbonded_mean  :  Booleam  (optional)
+        nonbonded_mean : bool, optional
             If True, the average of nonbonded interaction tables is
             computed and used for nonbonded interactions, which yields
             an homogenous, amino acid-species ignorant parametrization
@@ -876,7 +935,8 @@ class TabulatedForceField(ForceField):
         return TabulatedForceField(atoms, 82.0, intra, inter, 13.0)
 
 
-def _convert_to_matrix(value, n_bins):
+def _convert_to_matrix(value: float | np.ndarray, n_bins: int) -> np.ndarray:
+    # numpydoc ignore=PR01,RT01
     """
     Perform checks on input interactions matrices and return consistent
     3D matrix.
@@ -894,8 +954,7 @@ def _convert_to_matrix(value, n_bins):
             # Individual value for distances
             if len(array) != n_bins:
                 raise IndexError(
-                    f"Array contains {len(array)} elements "
-                    f"for {n_bins} distance bins"
+                    f"Array contains {len(array)} elements for {n_bins} distance bins"
                 )
             # Reapeat bin-wise values into both residue type dimensions
             for _ in range(2):
@@ -912,8 +971,7 @@ def _convert_to_matrix(value, n_bins):
             _check_matrix(array)
             if array.shape[-1] != n_bins:
                 raise IndexError(
-                    f"Array contains {len(array)} elements "
-                    f"for {n_bins} distance bins"
+                    f"Array contains {len(array)} elements for {n_bins} distance bins"
                 )
             return array
 
@@ -923,7 +981,8 @@ def _convert_to_matrix(value, n_bins):
             )
 
 
-def _check_matrix(matrix):
+def _check_matrix(matrix: np.ndarray) -> None:
+    # numpydoc ignore=PR01
     """
     Check matrix on number of elements and symmetry.
     """
@@ -937,10 +996,10 @@ def _check_matrix(matrix):
         raise ValueError("Input matrix is not symmetric")
 
 
-matrices = {}
+matrices: dict[str, np.ndarray] = {}
 
 
-def _load_matrix(fname):
+def _load_matrix(fname: str) -> np.ndarray:
     if fname in matrices:
         # Matrix was already loaded
         return matrices[fname]
@@ -950,11 +1009,11 @@ def _load_matrix(fname):
     return matrix
 
 
-def _check_indices(length, indices):
+def _check_indices(length: int | None, indices: np.ndarray | None) -> None:
     if indices is None or length is None:
         return
     flat_indices = indices.flatten()
-    out_of_bounds_i = np.where(flat_indices >= length)[0]
+    out_of_bounds_i = np.where((flat_indices < 0) | (flat_indices >= length))[0]
     if len(out_of_bounds_i) > 0:
         raise IndexError(
             f"Index {flat_indices[out_of_bounds_i[0]]} is out of bounds "

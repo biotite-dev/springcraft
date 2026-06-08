@@ -1,11 +1,12 @@
 import itertools
 from os.path import join
 
+import biotite.structure as struc
 import numpy as np
 import pytest
-import springcraft
 
-from .util import data_dir
+import springcraft
+from tests.util import data_dir, load_protein_structure
 
 
 @pytest.mark.parametrize(
@@ -114,3 +115,47 @@ def test_cartesian_index_product(use_cell_list):
     # Every possible pair of atoms should interact,
     # except an atom with itself
     assert (interaction_matrix == ~np.identity(N_ATOMS).astype(bool)).all()
+
+
+def test_patched_forcefield():
+    """
+    Tests that PatchedForceFields are correctly handled. Activating
+    a contact takes precedence over deactivation.
+    """
+    ca = load_protein_structure("1l2y")
+    coord = np.asarray(struc.coord(ca)).astype(np.float64, copy=False)
+    ff = springcraft.InvariantForceField(7.0)
+    ff = springcraft.PatchedForceField(
+        ff,
+        contact_shutdown=[2],
+        contact_pair_off=[[3, 2], [3, 4], [3, 5]],
+        contact_pair_on=[[2, 4], [3, 4], [3, 14]],
+        force_constants=[2, 2, 2],
+    )
+
+    test_kirchhoff_cell_list, _ = springcraft.compute_kirchhoff(
+        coord, ff, use_cell_list=True
+    )
+    test_kirchhoff_brute_force, _ = springcraft.compute_kirchhoff(
+        coord, ff, use_cell_list=True
+    )
+
+    assert np.allclose(test_kirchhoff_cell_list, test_kirchhoff_brute_force)
+
+    # contacts turned on
+    kirchhoff = test_kirchhoff_cell_list
+    assert kirchhoff[2, 4] == -2
+    assert kirchhoff[4, 2] == -2
+    assert kirchhoff[3, 4] == -2
+    assert kirchhoff[4, 3] == -2
+    assert kirchhoff[3, 14] == -2
+    assert kirchhoff[14, 3] == -2
+
+    # contacts turned off
+    third = np.zeros(len(ca))
+    third[2] = 2
+    third[4] = -2
+    assert np.array_equal(kirchhoff[2, :], third)
+    assert np.array_equal(kirchhoff[:, 2], third)
+    assert kirchhoff[3, 5] == 0
+    assert kirchhoff[5, 3] == 0

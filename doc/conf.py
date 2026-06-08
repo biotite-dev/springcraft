@@ -8,9 +8,6 @@ import sys
 import types
 from os.path import dirname, join, realpath
 
-import scraper
-import springcraft
-
 # Include 'src/' in PYTHONPATH
 # in order to import the 'Ammolite' package
 doc_path = dirname(realpath(__file__))
@@ -20,6 +17,10 @@ sys.path.insert(0, package_path)
 # Include springcraft/doc in PYTHONPATH
 # in order to import modules for example generation etc.
 sys.path.insert(0, doc_path)
+
+import scraper  # noqa: E402
+
+import springcraft  # noqa: E402
 
 #### General ####
 
@@ -56,6 +57,8 @@ numpydoc_show_class_members = False
 
 autodoc_member_order = "bysource"
 
+autodoc_typehints = "none"  # types are described in docstring
+
 
 #### HTML ####
 
@@ -83,8 +86,7 @@ sphinx_gallery_conf = {
     "gallery_dirs": "examples/gallery",
     "filename_pattern": "",
     "download_all_examples": False,
-    # Never report run time
-    "min_reported_time": sys.maxsize,
+    "write_computation_times": False,
     "image_scrapers": (
         "matplotlib",
         scraper.pymol_scraper,

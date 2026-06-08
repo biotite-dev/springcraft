@@ -1,17 +1,15 @@
-[tool.poetry]
+[project]
 name = "springcraft"
-version = "0.3.0"
+version = "0.3.1"
 description = "Investigate molecular dynamics with elastic network models"
 readme = "README.rst"
+requires-python = ">=3.11,<4.0"
 license = "BSD-3-Clause"
 authors = [
-    "Patrick Kunzmann <padix.key@gmail.com>",
-    "Jan Krumbach <jhkr@web.de>",
-    "Faisal Islam <faisalislam98@yahoo.de>"
+    { name = "Patrick Kunzmann", email = "padix.key@gmail.com" },
+    { name = "Jan Krumbach", email = "jhkr@web.de" },
+    { name = "Faisal Islam", email = "faisalislam98@yahoo.de" },
 ]
-homepage = "https://springcraft.biotite-python.org"
-repository = "https://github.com/biotite-dev/springcraft"
-documentation = "https://springcraft.biotite-python.org"
 keywords = [
     "Bioinformatics",
     "Computational biology",
@@ -21,7 +19,6 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
@@ -29,41 +26,74 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
-packages = [
-    { include = "springcraft", from = "src" },
+dependencies = [
+    "biotite>=1.0",
+    "numpy>=1.25",
+    "typing_extensions>=4.0",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.10"
-biotite = ">= 0.32"
-numpy = ">= 1.25"
+[project.optional-dependencies]
+lint = [
+    "ruff==0.15.16",
+]
+test =[
+    "pytest",
+    "pytest-cov",
+]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-gallery>=0.17.0",
+    "matplotlib>=3.7",
+    "numpydoc==1.8.0",
+    "jinja2>=3.1",
+    "ammolite>=0.8",
+]
 
-[tool.poetry.dev-dependencies]
-biotite = ">= 1.0"
-pytest = "^5.2"
-sphinx = "^3.0"
-sphinx-gallery = "0.9.0"
-numpy = ">= 2.0"
-numpydoc = ">= 0.8"
-ammolite = ">=0.8"
-ruff = ">=0.6.7"
+[project.urls]
+Homepage = "https://springcraft.biotite-python.org"
+Repository = "https://github.com/biotite-dev/springcraft"
+Documentation = "https://springcraft.biotite-python.org"
+
+# ---- BUILD SYSTEM ----
 
 [build-system]
-requires = ["poetry_core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.30"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/springcraft"]
+
+# ---- SCRIPTS ----
+
+[tool.hatch.envs.lint]
+features = ["lint"]
+
+[tool.hatch.envs.lint.scripts]
+run = "ruff check ."
+
+[tool.hatch.envs.test]
+features = ["test"]
+
+[tool.hatch.envs.test.scripts]
+run = "pytest {args}"
+cov = "pytest --cov=springcraft --cov-report=html --cov-branch {args}"
+
+[tool.hatch.envs.docs]
+features = ["docs"]
+
+[tool.hatch.envs.docs.scripts]
+all = ["lint", "build"]
+lint = "python -m numpydoc lint src/springcraft/*.py"
+build = "sphinx-build doc build/doc"
+
+# ---- LINTING ----
 
 [tool.ruff.lint]
 # pyflakes, pycodestyle isort and variable naming
 select = ["F", "E", "W", "I", "TID", "N"]
 ignore = [
-    # In docstrings long lines are often intentional
-    # Most other ocassions are caught by the ruff formatter
-    "E501",
     # camel cases for forcefields
-    "N802", 
-    # eANM/sdENM as static methods of TabulatedForceField 
-    # should not accept "self" as argument by design
-    "N805",
+    "N802",
     # Due to constants used in functions
     "N806",
 ]
@@ -72,6 +102,35 @@ ignore = [
 # Due to `from .module import *` imports in `__init__.py` modules
 "__init__.py" = ["F403", "TID252"]
 
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.numpydoc_validation]
+checks = [
+    "all",
+    # ... except:
+    "GL08",  # Properties do not have a docstring
+    "SS03",  # Sometimes the citation comes after the period
+    "SS05",  # Too error-prone; classes do not use infinite verbs
+    "SS06",  # Sometimes summaries are a bit longer
+    "ES01",  # Some functions are simple enough to not need an extended summary
+    "PR06",  # The types are quite descriptive (include shape, dtype, etc.)
+    "RT02",  # In Biotite all return values have names
+    # Intentionally not all docstrings contain these sections
+    "YD01",
+    "SA01",
+    "EX01",
+]
+exclude_files = [
+    "tests/.*",
+    "doc/.*"
+]
+exclude = [
+    "\\.__.*__$",
+]
+
+# ---- TEST ----
+
 [tool.pytest.ini_options]
 # Pytest: Ignore Python scripts for reference data creation
-addopts =  "--ignore=tests/data"
+addopts = "--ignore=tests/data"

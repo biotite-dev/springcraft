@@ -4,10 +4,9 @@ i.e. Kirchhoff and Hessian matrices.
 """
 
 __name__ = "springcraft"
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __author__ = "Patrick Kunzmann"
 __all__ = []
-
 
 from .anm import *
 from .forcefield import *

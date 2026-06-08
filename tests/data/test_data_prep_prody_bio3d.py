@@ -183,7 +183,10 @@ def prody_enm_nma(enm_type, structure_path, cutoff_list, output_markers="all"):
                 for name_add, prs_result in zip(
                     ["_mat", "_eff", "_sens"], prody_output
                 ):
-                    out_str = f"prody_{enm_type}_{c}_ang_cutoff_{o + name_add}_{strucname}.csv.gz"
+                    out_str = (
+                        f"prody_{enm_type}_{c}_ang_cutoff_{o + name_add}_"
+                        f"{strucname}.csv.gz"
+                    )
                     np.savetxt(out_str, prs_result, delimiter=",")
             else:
                 out_str = f"prody_{enm_type}_{c}_ang_cutoff_{o}_{strucname}.csv.gz"

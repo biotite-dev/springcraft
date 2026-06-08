@@ -6,9 +6,11 @@ Advanced usage
 Adding or removing contacts between atoms
 -----------------------------------------
 Altering the contacts between two atom can be achieved using the
-:class:`PatchedForceField`.
-It wraps another :class:`ForceField` and applied custom changes to it.
-As example the contact between the first and second residue should be removed.
+:class:`PatchedForceField` or by modifying the model directly.
+
+The :class:`PatchedForceField` wraps another :class:`ForceField` and applied
+custom changes to it. As example the contact between the first and second
+residue should be removed.
 
 .. code-block:: python
 
@@ -62,7 +64,7 @@ For the purpose of an example a chimeric force field is created
                 self._type_ff(atom_i, atom_j, sq_distance) *
                 self._dist_ff(atom_i, atom_j, sq_distance)
             )
-        
+
         @property
         def natoms(self):
             return self._type_ff.natoms

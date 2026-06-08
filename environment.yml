@@ -1,20 +1,14 @@
-# Conda environment, that includes all packages that are necessary for
-# the complete Biotite development process.
-
+# Coda environment to facilitate Biotite development process.
 name: springcraft-dev
 
 channels:
   - conda-forge
 
 dependencies:
-  - numpy >=2.0
-  - biotite >=1.0.1
-  - pytest >=5.2
-  - matplotlib >=3.3
-  - poetry >=1.0
-  - jinja2 <3.1
-  - sphinx >=3.0
-  - sphinx-gallery =0.9.0
-  - numpydoc >=0.8
-  - ammolite >=0.8
-  - ruff >=0.6.7
+  - python=3.12
+  - hatch
+  # project dependencies
+  - biotite>=1.6
+  - numpy>=2.0
+  # docs dependencies
+  - pymol-open-source>=3.1

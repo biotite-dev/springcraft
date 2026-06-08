@@ -17,7 +17,10 @@ __all__ = [
     "effector_sensor",
 ]
 
+from typing import Literal
+
 import numpy as np
+from typing_extensions import deprecated
 
 # -> Import ANM/GNM in functions to prevent circular import error
 
@@ -26,7 +29,8 @@ N_A = 6.02214076e23
 
 
 ## NMA functions for GNMs/ANMs
-def eigen(enm):
+@deprecated("Use class method instead.")
+def eigen(enm) -> tuple[np.ndarray, np.ndarray]:
     """
     Compute the Eigenvalues and Eigenvectors of the
     *Kirchhoff*/*Hessian* matrix for GNMs and ANMs respectively.
@@ -34,7 +38,7 @@ def eigen(enm):
     Parameters
     ----------
     enm : ANM or GNM
-        Elastic network model; an instance of either an GNM or ANM
+        Elastic network model; an instance of either a GNM or ANM
         object.
 
     Returns
@@ -46,191 +50,198 @@ def eigen(enm):
         Eigenvectors of the *Kirchhoff*/*Hessian* matrix.
         ``eig_values[i]`` corresponds to ``eig_vectors[i]``.
     """
-    from .anm import ANM
-    from .gnm import GNM
-
-    # Assign Kirchhoff/Hessian
-    if isinstance(enm, GNM):
-        mech_matrix = enm.kirchhoff
-    elif isinstance(enm, ANM):
-        mech_matrix = enm.hessian
-    else:
-        raise ValueError("Instance of GNM/ANM class expected.")
-
-    # 'np.eigh' can be used since the Hessian/Kirchhoff matrix is symmetric
-    eig_values, eig_vectors = np.linalg.eigh(mech_matrix)
-
-    return eig_values, eig_vectors.T
+    return enm.eigen()
 
 
-def frequencies(enm):
+def frequencies(enm) -> np.ndarray:
     """
     Computes the frequency associated with each mode.
 
-    The modes corresponding to rigid-body translations/rotations are
-    omitted in the return value.
-    The returned units are arbitrary and should only be compared
-    relative to each other.
+    The modes corresponding to rigid-body translations/rotations are ``NaN`` in the
+    return value. The returned units are arbitrary and should only be compared relative
+    to each other.
 
     Parameters
     ----------
-    enm : ANM or GNM
-        Elastic network model; an instance of either an GNM or ANM
-        object.
+    enm : ENM
+        Elastic network model.
 
     Returns
     -------
     freq : ndarray, shape=(n,), dtype=float
-        The frequency in ascending order of the associated modes'
-        Eigenvalues.
+        Oscillation frequencies of the model in descending order. ``NaN`` values mark
+        frequencies corresponding to translations or rotations. These are guaranteed to
+        be the ``k`` elements.
+
+    Raises
+    ------
+    ValueError
+        If the supplied `enm` is not an :class:`ENM`.
+
+    See Also
+    --------
+    springcraft.enm.ENM.eigen : Eigenvalue calculation.
+
+    Notes
+    -----
+    Given a set of :math:`\\lambda` of eigenvalues the frequencies :math:`f` are
+    calculated as
+
+    .. math:: f_i = \\frac{1}{2 \\pi \\sqrt{\\lambda_i}}
     """
-    from .anm import ANM
-    from .gnm import GNM
+    from springcraft.enm import ENM
 
-    if isinstance(enm, GNM):
-        ntriv_modes = 1
-    elif isinstance(enm, ANM):
-        ntriv_modes = 6
-    else:
-        raise ValueError("Instance of GNM/ANM class expected.")
+    if not isinstance(enm, ENM):
+        raise ValueError("Instance of ENM class expected.")
 
-    eig_values, _ = eigen(enm)
+    eig_values, _ = enm.eigen(copy=False)
 
     # The very first / first six Eigenvalue(s) is/are usually close to 0;
     # but can have a negative sign.
-    eig_values[0:ntriv_modes] = np.abs(eig_values[0:ntriv_modes])
+    eig_values = np.abs(eig_values)
 
-    freq = 1 / (2 * np.pi) * np.sqrt(eig_values)
-
-    return freq
+    return 1 / (2 * np.pi) * np.sqrt(eig_values)
 
 
-def mean_square_fluctuation(enm, mode_subset=None, tem=None, tem_factors=K_B):
+def mean_square_fluctuation(
+    enm,
+    mode_subset: np.ndarray | None = None,
+    tem: float | int | None = None,
+    tem_factors: float | int = K_B,
+) -> np.ndarray:
     """
-    Compute the *mean square fluctuation* for the atoms according
-    to the ANM/GNM.
+    Compute the *mean square fluctuation* (msqf) for the atoms according to the
+    :class:`ENM`.
+
+    If all non-trivial modes are considered the msqf can be directly retrieved from the
+    covariance matrix:
+
+    * In case of the :class:`GNM` the msqf are simply the main diagonal entries.
+    * In case of the :class:`ANM` the msqf are the traces of the main diagonal 3x3
+      superelements.
 
     Parameters
     ----------
-    enm : ANM or GNM
-        Elastic network model; an instance of either an GNM or ANM
-        object.
-    mode_subset : ndarray, shape=(n,) or (3n,), dtype=int, optional
-        Specifies the subset of modes considered in the MSF
-        computation.
-        Only non-trivial modes can be selected.
-        The first mode is counted as 0 in accordance with
-        Python conventions.
-        If mode_subset is None, all modes except the first/first six
-        trivial mode(s) (0, 0-5 respectively) are included.
-    tem : int, float, None, optional
-        Temperature in Kelvin to compute the temperature scaling
-        factor by multiplying with the Boltzmann constant.
-        If tem is None, no temperature scaling is conducted.
-    tem_factors : int, float, optional
-        Factors included in temperature weighting
-        (with K_B as preset).
+    enm : ENM
+        Elastic network model.
+    mode_subset : ndarray, shape=(k,), dtype=int or None, optional
+        Specifies the subset of modes considered in the computation. Only non-trivial
+        modes can be selected. The first mode is counted as 0 in accordance with Python
+        conventions.
+        If `mode_subset` is ``None``, all non-trivial modes are included.
+        The default is ``None``.
+    tem : float or int or None, optional
+        Temperature in Kelvin to compute the temperature scaling factor by multiplying
+        with `tem_factor`. If ``tem`` is ``None``, no temp scaling is conducted.
+        The default is ``None``.
+    tem_factors : float or int, optional
+        Factors included in temperature weighting.
+        The default is ``K_B`` (the *Boltzmann* constant).
 
     Returns
     -------
     msqf : ndarray, shape=(n,), dtype=float
         The mean square fluctuations for each atom in the model.
+
+    Raises
+    ------
+    ValueError
+        * If the supplied `enm` is not an :class:`ENM` or
+        * if trivial modes are included in the subset.
+
+    See Also
+    --------
+    springcraft.enm.ENM : Regarding the `covariance` attribute.
+    springcraft.enm.ENM.eigen : Eigenvalue calculation.
     """
-    from .anm import ANM
-    from .gnm import GNM
+    from springcraft.enm import ENM
 
-    if not isinstance(enm, (GNM, ANM)):
-        raise ValueError("Instance of GNM/ANM class expected.")
+    if not isinstance(enm, ENM):
+        raise ValueError("Instance of ENM class expected.")
 
-    eig_values, eig_vectors = eigen(enm)
-
-    if isinstance(enm, ANM):
-        # Eigenvectors: 3N -> N
-        cols_n = np.arange(0, len(eig_vectors[0]), 3)
-        eig_vectors = np.add.reduceat(np.square(eig_vectors), cols_n, axis=1)
-        ntriv_modes = 6
-    # -> GNMs
+    if enm.has_covariance and mode_subset is None:
+        msqf = np.diag(enm.covariance).reshape((-1, enm.dof)).sum(axis=1)
     else:
-        eig_vectors = np.square(eig_vectors)
-        ntriv_modes = 1
+        eig_values, eig_vectors, n_triv = enm.eigen(n_zero=True)
 
-    # Choose modes included in computation; raise error, if trivial
-    # modes are included
-    if mode_subset is None:
-        mode_subset = np.arange(ntriv_modes, len(eig_values))
-    elif any(mode_subset <= (ntriv_modes - 1)):
-        raise ValueError(
-            "Trivial modes are included in the current selection."
-            " Please check your input."
-        )
+        # Choose modes included in computation; raise error, if trivial
+        # modes are included
+        if mode_subset is None:
+            mode_subset = slice(n_triv, len(eig_values))  # pyright: ignore[reportAssignmentType]
+        elif np.any(mode_subset < n_triv):
+            raise ValueError(
+                "Trivial modes are included in the current selection. "
+                "Please check your input."
+            )
 
-    eig_values = eig_values[mode_subset]
-    eig_vectors = eig_vectors[mode_subset]
-
-    # Adjust shape of eig_values (N,) -> (N, 1)
-    eig_values = eig_values.reshape(eig_values.shape[0], 1)
-    # Eigenvecs in distinct rows; divide by associated
-    # squared Eigenvalues
-    sq_div_eig_vectors = np.sum(eig_vectors / eig_values, axis=0)
+        msqf = (eig_vectors[mode_subset].T ** 2) @ (1 / eig_values[mode_subset])
+        msqf = msqf.reshape(-1, enm.dof).sum(axis=1)
 
     # Temperature weighting
-    if tem is None:
-        tem_scaling = 1
-    else:
-        tem_scaling = tem * tem_factors
-
-    msqf = sq_div_eig_vectors * tem_scaling
+    if tem is not None:
+        msqf *= tem * tem_factors
 
     return msqf
 
 
-def bfactor(enm, mode_subset=None, tem=None, tem_factors=K_B):
+def bfactor(
+    enm,
+    mode_subset: np.ndarray | None = None,
+    tem: int | float | None = None,
+    tem_factors: int | float = K_B,
+) -> np.ndarray:
     """
-    Computes the isotropic B-factors/temperature factors/
-    Deby-Waller factors for atoms/coarse-grained nodes using
-    the mean-square fluctuation.
-    These can be used to relate results obtained from ENMs
-    to experimental results.
+    Computes the isotropic *B-factors/temperature factors/Debye-Waller factors* for
+    atoms/coarse-grained nodes using the mean-square fluctuation. These can be used to
+    relate results obtained from ENMs to experimental results.
 
     Parameters
     ----------
-    enm : ANM or GNM
-        Elastic network model; an instance of either an GNM or ANM
-        object.
-    mode_subset : ndarray, shape=(n,), dtype=int, optional
-        Specifies the subset of modes considered in the MSF
-        computation.
-        Only non-trivial modes can be selected.
-        The first mode is counted as 0 in accordance with
-        Python conventions.
-        If mode_subset is None, all modes except the first/first six
-        trivial mode(s) (0, 0-5 respectively) are included.
-    tem : int, float, None, optional
-        Temperature in Kelvin to compute the temperature scaling
-        factor by multiplying with the Boltzmann constant.
-        If tem is None, no temperature scaling is conducted.
-    tem_factors : int, float, optional
-        Factors included in temperature weighting
-        (with K_B as preset).
+    enm : ENM
+        Elastic network model.
+    mode_subset : ndarray, shape=(k,), dtype=int or None, optional
+        Specifies the subset of modes considered in the computation. Only non-trivial
+        modes can be selected. The first mode is counted as 0 in accordance with Python
+        conventions.
+        If `mode_subset` is ``None``, all non-trivial modes are included.
+        The default is ``None``.
+    tem : float or int or None, optional
+        Temperature in Kelvin to compute the temperature scaling factor by multiplying
+        with `tem_factor`. If ``tem`` is ``None``, no temp scaling is conducted.
+        The default is ``None``.
+    tem_factors : float or int, optional
+        Factors included in temperature weighting.
+        The default is ``K_B`` (the *Boltzmann* constant).
 
     Returns
     -------
-    bfac_values : ndarray, shape=(n,), dtype=float
+    b_factors : ndarray, shape=(n,), dtype=float
         B-factors of C-alpha atoms.
+
+    See Also
+    --------
+    mean_square_fluctuation : The msqf calculation.
+
+    Notes
+    -----
+    Given a set of :math:`m` of mean square fluctuations the B-factors :math:`b` are
+    calculated as
+
+    .. math:: b_i = \\frac{8 \\pi^2}{3} m_i
     """
-    from .anm import ANM
-    from .gnm import GNM
-
-    if not isinstance(enm, (GNM, ANM)):
-        raise ValueError("Instance of GNM/ANM class expected.")
-
     msqf = mean_square_fluctuation(enm, mode_subset, tem, tem_factors)
     b_factors = ((8 * np.pi**2) * msqf) / 3
 
     return b_factors
 
 
-def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
+def dcc(
+    enm,
+    mode_subset: np.ndarray | None = None,
+    norm: bool = True,
+    tem: int | float | None = None,
+    tem_factors: int | float = K_B,
+) -> np.ndarray:
     r"""
     Computes the normalized *dynamic cross-correlation* between
     nodes of the GNM/ANM.
@@ -238,25 +249,23 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
     Parameters
     ----------
     enm : ANM or GNM
-        Elastic network model; an instance of either an GNM or ANM
-        object.
-    mode_subset : ndarray, shape=(n,), dtype=int, optional
-        Specifies the subset of modes considered in the MSF
-        computation.
-        Only non-trivial modes can be selected.
-        The first mode is counted as 0 in accordance with
-        Python conventions.
-        If mode_subset is None, all modes except the first six
-        trivial modes (0-5) are included.
+        Elastic network model.
+    mode_subset : ndarray, shape=(k,), dtype=int or None, optional
+        Specifies the subset of modes considered in the computation. Only non-trivial
+        modes can be selected. The first mode is counted as 0 in accordance with Python
+        conventions.
+        If `mode_subset` is ``None``, all non-trivial modes are included.
+        The default is ``None``.
     norm : bool, optional
-        Normalize the DCC using the MSFs of interacting nodes.
-    tem : int, float, None, optional
-        Temperature in Kelvin to compute the temperature scaling
-        factor by multiplying with the Boltzmann constant.
-        If tem is None, no temperature scaling is conducted.
-    tem_factors : int, float, optional
-        Factors included in temperature weighting
-        (with :math:`k_B` as preset).
+        Normalize the DCC using the msqf of interacting nodes.
+        The default is ``True``.
+    tem : float or int or None, optional
+        Temperature in Kelvin to compute the temperature scaling factor by multiplying
+        with `tem_factor`. If ``tem`` is ``None``, no temp scaling is conducted.
+        The default is ``None``.
+    tem_factors : float or int, optional
+        Factors included in temperature weighting.
+        The default is ``K_B`` (the *Boltzmann* constant).
 
     Returns
     -------
@@ -270,7 +279,9 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
 
     .. math::
 
-        DCC_{ij} = \frac{3 k_B T}{\gamma} \sum_k^L \left[ \frac{\vec{u}_k \cdot \vec{u}_k^T}{\lambda_k} \right]_{ij}
+        DCC_{ij} = \frac{3 k_B T}{\gamma} \sum_k^L \left[
+                     \frac{\vec{u}_k \cdot \vec{u}_k^T}{\lambda_k}
+                   \right]_{ij}
 
     with :math:`\lambda` and :math:`\vec{u}` as
     Eigenvalues and Eigenvectors corresponding to mode :math:`k` of
@@ -283,74 +294,46 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
 
         nDCC_{ij} = \frac{DCC_{ij}}{[DCC_{ii} DCC_{jj}]^{1/2}}
 
-    When all modes are considerered, the DCC is equal to the covariance matrix
+    When all modes are considered, the DCC is equal to the covariance matrix
     of GNMs or to the trace of all supermatrices (3x3) of the
     covariance matrix (3Nx3N) in the case of ANMs.
     Consequently, these are returned if standard parameters
-    for 'mode_subset' and 'memory_efficient' are passed to the function.
+    for ``mode_subset`` and ``memory_efficient`` are passed to the function.
     """
+    from springcraft.enm import ENM
 
-    from .anm import ANM
-    from .gnm import GNM
+    if not isinstance(enm, ENM):
+        raise ValueError("Instance of ENM class expected.")
 
-    eig_values, eig_vectors = enm.eigen()
-    n_nodes = len(enm._coord)
-
-    if isinstance(enm, ANM):
-        is_gnm = False
-        ntriv_modes = 6
-        num_dim = 3
-    elif isinstance(enm, GNM):
-        is_gnm = True
-        ntriv_modes = 1
-        num_dim = 1
-    else:
-        raise ValueError("Instance of GNM/ANM class expected.")
-
-    # Choose modes included in computation; raise error, if trivial
-    # modes are included
-    all_modes = False
     if mode_subset is None:
-        all_modes = True
-        mode_subset = np.arange(ntriv_modes, len(eig_values))
-    elif any(mode_subset <= (ntriv_modes - 1)):
-        raise ValueError(
-            "Trivial modes are included in the current selection."
-            " Please check your input."
+        dcc = (
+            enm.covariance.reshape(enm._natoms, enm.dof, enm._natoms, enm.dof)
+            .swapaxes(1, 2)
+            .trace(axis1=2, axis2=3)
         )
-
-    ## Shortcut if all modes are included in computations
-    # GNM -> DCC corresponds to inverted Kirchhoff
-    if is_gnm and all_modes:
-        dcc = enm.covariance
-    # ANM -> ...to the trace of the inverted Hessian's 3x3 superelements
-    elif all_modes:
-        # 3N x 3N -> N x 3 x N x 3 -> N x N x 3 x 3
-        cov = enm.covariance
-        reshaped = cov.reshape(cov.shape[0] // 3, 3, cov.shape[0] // 3, 3).swapaxes(
-            1, 2
-        )
-        # Accept array of any dimension
-        # -> Sum over diagonals in last two dims
-        # -> Return any shape (in this case NxN)
-        dcc = np.einsum("...ii->...", reshaped)
-    # Slower method for custom mode range
     else:
+        eig_values, eig_vectors, n_triv = enm.eigen(n_zero=True)
+
+        # raise error, if trivialmodes are included
+        if np.any(mode_subset < n_triv):
+            raise ValueError(
+                "Trivial modes are included in the current selection. "
+                "Please check your input."
+            )
+
         eig_values = eig_values[mode_subset]
         eig_vectors = eig_vectors[mode_subset]
 
         # Reshape array of eigenvectors
         # (k,3n) -> (k,n,3) for ANMs; (k,n) -> (k,n,1) for GNMs
-        modes_reshaped = np.reshape(eig_vectors, (len(mode_subset), -1, num_dim))
-        dcc = np.zeros((n_nodes, n_nodes))
-        for ev, evec in zip(eig_values, modes_reshaped):
-            dcc += (evec @ evec.T) / ev
+        eig_vectors = np.reshape(eig_vectors, (len(mode_subset), -1, enm.dof))
+        eig_vectors_scal = eig_vectors / eig_values[:, None, None]
+        dcc = np.einsum("knd,kmd->nm", eig_vectors, eig_vectors_scal)
 
     # Compute the normalized DCC
     if norm:
-        dcc_ii = np.diagonal(dcc)
-        dcc_ii = np.reshape(dcc_ii, (1, len(dcc)))
-        dcc = dcc / np.sqrt(dcc_ii * dcc_ii.T)
+        dcc_ii = np.sqrt(np.diagonal(dcc))
+        dcc /= np.outer(dcc_ii, dcc_ii)
 
     # Temperature weighting
     if tem is not None:
@@ -360,7 +343,13 @@ def dcc(enm, mode_subset=None, norm=True, tem=None, tem_factors=K_B):
 
 
 ## ANM specific functions
-def normal_mode(anm, index, amplitude, frames, movement="sine"):
+def normal_mode(
+    anm,
+    index: int,
+    amplitude: int,
+    frames: int,
+    movement: Literal["sine", "triangle"] = "sine",
+) -> np.ndarray:
     """
     Create displacements for a trajectory depicting the given normal
     mode for ANMs.
@@ -375,14 +364,14 @@ def normal_mode(anm, index, amplitude, frames, movement="sine"):
         :meth:`eigen()`:
         Increasing indices refer to oscillations with increasing
         frequency.
-        The first 6 modes represent tigid body movements
+        The first 6 modes represent rigid body movements
         (rotations and translations).
     amplitude : int
         The oscillation amplitude is scaled so that the maximum
         value for an atom is the given value.
     frames : int
         The number of frames (models) per oscillation.
-    movement : {'sinusoidal', 'triangle'}
+    movement : {'sine', 'triangle'}
         Defines how to depict the oscillation.
         If set to ``'sine'`` the atom movement is sinusoidal.
         If set to ``'triangle'`` the atom movement is linear with
@@ -394,12 +383,12 @@ def normal_mode(anm, index, amplitude, frames, movement="sine"):
         Atom displacements that depict a single oscillation.
         *m* is the number of frames.
     """
-    from .anm import ANM
+    from springcraft.anm import ANM
 
     if not isinstance(anm, ANM):
         raise ValueError("Instance of ANM class expected.")
     else:
-        _, eig_vectors = eigen(anm)
+        _, eig_vectors = anm.eigen()
         # Extract vectors for given mode and reshape to (n,3) array
         mode_vectors = eig_vectors[index].reshape((-1, 3))
         # Rescale, so that the largest vector has the length 'amplitude'
@@ -419,7 +408,7 @@ def normal_mode(anm, index, amplitude, frames, movement="sine"):
         return disp
 
 
-def linear_response(anm, force):
+def linear_response(anm, force: np.ndarray) -> np.ndarray:
     """
     Compute the atom displacement induced by the given force using
     *Linear Response Theory*. [1]_
@@ -449,7 +438,7 @@ def linear_response(anm, force):
         Linear Response Theory."
         Phys Rev Lett. 94, 7, 078102 (2005).
     """
-    from .anm import ANM
+    from springcraft.anm import ANM
 
     if not isinstance(anm, ANM):
         raise ValueError("Instance of ANM class expected.")
@@ -473,7 +462,7 @@ def linear_response(anm, force):
         return np.dot(anm.covariance, force).reshape(len(anm._coord), 3)
 
 
-def prs(anm, norm=True):
+def prs(anm, norm: bool = True) -> np.ndarray:
     """
     Compute the perturbation response scanning matrix following
     Atilgan et al. [1]_
@@ -482,9 +471,9 @@ def prs(anm, norm=True):
     ----------
     anm : ANM
         Instance of ANM object.
-    norm: bool, optional
-        Normalize by the self perturbation-response of the perturbed
-        ANM node.
+    norm : bool, optional
+        Normalize by the self perturbation-response of the perturbed ANM node.
+        The default is ``True``.
 
     Returns
     -------
@@ -503,7 +492,7 @@ def prs(anm, norm=True):
         Mechanisms of Ferric Binding Protein."
         PLoS Comput Biol 5(10) (2009).
     """
-    from .anm import ANM
+    from springcraft.anm import ANM
 
     if not isinstance(anm, ANM):
         raise ValueError("Instance of ANM class expected.")
@@ -524,7 +513,7 @@ def prs(anm, norm=True):
     return prs_matrix
 
 
-def effector_sensor(prs_matrix):
+def effector_sensor(prs_matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Compute effector/sensor residues according to the PRS-Matrix
     as described in General et al. [1]_
